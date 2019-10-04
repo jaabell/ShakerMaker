@@ -48,8 +48,8 @@ brune2 = Brune(f0=f0, t0=t0, smoothed=True)
 plotit(2,brune1, "", label="Original")
 plotit(2,brune2, "Brune sources. f0={} (Hz) t0={} (s) ".format(f0, t0), label="Smoothed")
 plt.legend()
-# plt.savefig("../docs/images/stf_brune.png")
-plt.savefig("stf_brune.png")
+plt.savefig("../docs/images/stf_brune.png")
+# plt.savefig("stf_brune.png")
 
 
 
