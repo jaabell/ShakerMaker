@@ -1,4 +1,7 @@
 import numpy as np
+from itertools import product
+from shakermaker.station import Station
+from shakermaker.stationlist import StationList
 
 #Definition of the DRM planes
 class Plane:

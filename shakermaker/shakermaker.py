@@ -1,24 +1,27 @@
 import copy
+from shakermaker.crustmodel import CrustModel
+from shakermaker.faultsource import FaultSource
+from shakermaker.stationlist import StationList
 
 class ShakerMaker:
 
     def __init__(self, crust, source, receivers):
-        assert isinstance(crust, CrustModel)
-            , "crust must be an instance of the shakermaker.CrustModel class"
-        assert isinstance(source, FaultSource)
-            , "source must be an instance of the shakermaker.FaultSource class"
-        assert isinstance(receivers, StationList)
-            , "receivers must be an instance of the shakermaker.StationList class"
+        assert isinstance(crust, CrustModel), \
+            "crust must be an instance of the shakermaker.CrustModel class"
+        assert isinstance(source, FaultSource), \
+            "source must be an instance of the shakermaker.FaultSource class"
+        assert isinstance(receivers, StationList), \
+            "receivers must be an instance of the shakermaker.StationList class"
 
         self._crust = crust
         self._source = source
         self._receivers = receivers
 
-        self._mpi_rank = rank # TODO: global variables?
-        self._mpi_nprocs = nprocs # TODO: global variables?
+        # self._mpi_rank = rank # TODO: global variables?
+        # self._mpi_nprocs = nprocs # TODO: global variables?
 
     def run(self, dt=0.05, nfft=4096, tb=1000, smth=1, sigma=2, taper=0.9
-            , wc1=1, wc2=2, pmin=0, pmax=1, dk=0.3, nx=1, kc=15.0)
+            , wc1=1, wc2=2, pmin=0, pmax=1, dk=0.3, nx=1, kc=15.0):
         for  i_psource, psource in enumerate(self._source):
             for i_station, station in enumerate(self._receivers):
                 aux_crust = copy.deepcopy(self._crust)
@@ -37,11 +40,11 @@ class ShakerMaker:
 
                 station.add_to_response(z_stf, e_stf, n_stf, t)
 
-    def write(writer):
+    def write(self, writer):
         pass
 
     def mpi_is_master_process(self):
-        return mpi_rank == 0
+        return self.mpi_rank == 0
 
     @property
     def mpi_rank(self):
@@ -51,12 +54,11 @@ class ShakerMaker:
     def mpi_nprocs(self):
         return self._mpi_nprocs
 
-    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax
-            , dk, kc, taper, crust, psource, station):
+    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station):
         mb = crust.nlayers
         src = crust.get_layer(psource.x[2]) + 1 # fortran start in 1, not 0
         rcv = crust.get_layer(station.x[2]) + 1 # fortran start in 1, not 0
-        stype = 2 #Source type double-couple, compute up and down going wave
+        stype = 2 # Source type double-couple, compute up and down going wave
         updn = 0
         d = crust.d
         a = crust.a
@@ -75,8 +77,7 @@ class ShakerMaker:
         x = np.sqrt((sx-rx)**2 + (sy - ry)**2)
 
         #Execute the core subgreen fortran routing
-        tdata, z, e, n, t0 = core.subgreen(mb, src, rcv, stype, updn, d, a, b
-            , rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax
-            , dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
+        tdata, z, e, n, t0 = core.subgreen(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
+                                           smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
 
         return tdata, z, e, n, t0

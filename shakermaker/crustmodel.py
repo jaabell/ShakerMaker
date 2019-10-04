@@ -18,10 +18,9 @@ class CrustModel:
         self._nlayers = nlayers
 
     def add_layer(self, d, vp, vs, rho, gp, gs):
-        assert self._current_layer <= self.nlayers
-            , "CrustModel.add_layer - current_layer={} Exceeds number of \
-            initialized layers (nlayers={}). ".format(self._current_layer
-            , self.nlayers)
+        assert self._current_layer <= self.nlayers, \
+            "CrustModel.add_layer - current_layer={} Exceeds number of initialized " \
+            "layers (nlayers={}).".format(self._current_layer, self.nlayers)
 
         self._d[self._current_layer] = d
         self._a[self._current_layer] = vp
@@ -33,9 +32,8 @@ class CrustModel:
         self._current_layer += 1
 
     def modify_layer(self, layer_idx, d=None, vp=None, vs=None, rho=None, gp=None, gs=None):
-        assert layer_idx >= self._current_layer
-            , "CrustModel.modify_layer - Exceeds number of initialized layers \
-            (nlayers={}). ".format(self._current_layer)
+        assert layer_idx >= self._current_layer, \
+            "CrustModel.modify_layer - Exceeds number of initialized layers (nlayers={}). ".format(self._current_layer)
 
         if d is not None:
             self._d[layer_idx] = d

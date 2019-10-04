@@ -20,7 +20,7 @@ class Station:
     def metadata(self):
         return self._metadata
 
-    def add_to_resonse(self, z, e, n, t):
+    def add_to_response(self, z, e, n, t):
         self._notify(t)
 
     def get_response(self, do_filter, interpolate, interpolate_t):
@@ -33,8 +33,8 @@ class Station:
         pass
 
     def attach(self, observer):
-        assert isinstance(observer, StationObserver)
-            , "Station.attach (Input error) - 'observer' Should be subclass of StationObserver"
+        assert isinstance(observer, StationObserver), \
+            "Station.attach (Input error) - 'observer' Should be subclass of StationObserver"
 
         self._observers.append(observer)
 

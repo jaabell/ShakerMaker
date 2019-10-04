@@ -1,4 +1,4 @@
-from shakermaker import Station, StationObserver
+from shakermaker.station import Station, StationObserver
 
 class StationList(StationObserver):
 
@@ -14,8 +14,7 @@ class StationList(StationObserver):
         return self._stations.__iter__()
 
     def add_station(self, station):
-        assert isinstance(station, Station)
-            , "StationList.add_station - 'station' Should be subclass of Station"
+        assert isinstance(station, Station), "StationList.add_station - 'station' Should be subclass of Station"
 
         self._stations.append(station)
         station.attach(self)

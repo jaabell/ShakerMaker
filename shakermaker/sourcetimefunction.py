@@ -16,8 +16,7 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
 
     @dt.setter
     def dt(self, value):
-        assert value > 0
-            , "SourceTimeFunction - dt must be > 0. Got dt = {}".format(value)
+        assert value > 0, "SourceTimeFunction - dt must be > 0. Got dt = {}".format(value)
 
         self._dt = value
         self._generate_data()

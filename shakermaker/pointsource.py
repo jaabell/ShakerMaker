@@ -1,4 +1,5 @@
 import numpy as np
+from shakermaker.sourcetimefunction import SourceTimeFunction
 
 class PointSource:
 
@@ -8,12 +9,12 @@ class PointSource:
         if isinstance(angles, list):
             angles = np.array(angles)
 
-        assert isinstance(stf, SourceTimeFunction)
-            , "PointSource (Input error) - 'stf' Should be subclass of SourceTimeFunction"
-        assert x.shape[0] == 3
-            , "PointSource (Input error) - 'x' Should be a numpy array with x.shape[0]=3"
-        assert angles.shape[0] == 3
-            , "PointSource (Input error) - 'angles' Should be a numpy array with x.shape[0]=3"
+        assert isinstance(stf, SourceTimeFunction), \
+            "PointSource (Input error) - 'stf' Should be subclass of SourceTimeFunction"
+        assert x.shape[0] == 3, \
+            "PointSource (Input error) - 'x' Should be a numpy array with x.shape[0]=3"
+        assert angles.shape[0] == 3, \
+            "PointSource (Input error) - 'angles' Should be a numpy array with x.shape[0]=3"
 
         self._x = x
         self._angles = np.pi*angles/180

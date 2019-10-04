@@ -3,8 +3,7 @@ from shakermaker.sourcetimefunction import SourceTimeFunction
 
 class Brune(SourceTimeFunction):
 
-    def __init__(self, slip=1.0, f0=0.0, t0=0.0, dsigma=0.0, M0=1.0, Vs=0.0
-        , smoothed=False):
+    def __init__(self, slip=1.0, f0=0.0, t0=0.0, dsigma=0.0, M0=1.0, Vs=0.0, smoothed=False):
         SourceTimeFunction.__init__(self)
 
         specified_corner_frequency = f0 > 0
@@ -21,8 +20,7 @@ class Brune(SourceTimeFunction):
         self._smoothed = smoothed
 
     def _generate_data(self):
-        assert self._dt > 0
-            , "Brune.get_data() - dt not set!! dt = {}".format(self._dt)
+        assert self._dt > 0, "Brune.get_data() - dt not set!! dt = {}".format(self._dt)
 
         w0 = 2*np.pi*self._f0
         self._t = np.arange(0, 4*self._tr + self._t0, self._dt/10)
