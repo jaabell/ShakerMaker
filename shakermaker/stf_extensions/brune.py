@@ -25,9 +25,9 @@ class Brune(SourceTimeFunction):
         w0 = 2*np.pi*self._f0
         self._t = np.arange(0, 4*self._tr + self._t0, self._dt/10)
         if self._smoothed:
-            self._data = self.brune_impulse_smoothed(self._t, w0, t0=self._t0)
+            self._data = self._brune_impulse_smoothed(self._t, w0, t0=self._t0)
         else:
-            self._data = self.brune_impulse(self._t, w0, t0=self._t0)
+            self._data = self._brune_impulse(self._t, w0, t0=self._t0)
 
     def _brune_impulse(self, t, w0, t0=0.0):
         return self._slip*w0**2*(t - t0)*np.exp(-w0*(t - t0))*(t>=t0)
