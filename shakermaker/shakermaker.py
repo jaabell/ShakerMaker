@@ -1,7 +1,9 @@
 import copy
+import numpy as np
 from shakermaker.crustmodel import CrustModel
 from shakermaker.faultsource import FaultSource
 from shakermaker.stationlist import StationList
+from shakermaker.stationlistwriter import StationListWriter
 
 class ShakerMaker:
 
@@ -17,20 +19,25 @@ class ShakerMaker:
         self._source = source
         self._receivers = receivers
 
-        # self._mpi_rank = rank # TODO: global variables?
-        # self._mpi_nprocs = nprocs # TODO: global variables?
+        self._mpi_rank = None
+        self._mpi_nprocs = None
 
-    def run(self, dt=0.05, nfft=4096, tb=1000, smth=1, sigma=2, taper=0.9
-            , wc1=1, wc2=2, pmin=0, pmax=1, dk=0.3, nx=1, kc=15.0):
-        for  i_psource, psource in enumerate(self._source):
-            for i_station, station in enumerate(self._receivers):
+    def run(self, dt=0.05, nfft=4096, tb=1000, smth=1, sigma=2, taper=0.9, wc1=1, wc2=2, pmin=0, pmax=1, dk=0.3,
+            nx=1, kc=15.0, writer=None):
+        if writer:
+            assert isinstance(writer, StationListWriter), \
+                "'writer' must be an instance of the shakermaker.StationListWriter class or None"
+            writer.initialize(self._receivers)
+            writer.write_metadata(self._receivers.metadata)
+
+        for i_station, station in enumerate(self._receivers):
+            for i_psource, psource in enumerate(self._source):
                 aux_crust = copy.deepcopy(self._crust)
                 aux_crust.split_at_depth(psource.x[2])
                 aux_crust.split_at_depth(station.x[2])
 
-                tdata, z, e, n, t0 = self._call_core(dt, nfft, tb, nx
-                    , sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper
-                    , aux_crust, psource, station)
+                tdata, z, e, n, t0 = self._call_core(dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
+                                                     taper, aux_crust, psource, station)
 
                 t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
                 psource.stf.dt = dt/10
@@ -40,8 +47,18 @@ class ShakerMaker:
 
                 station.add_to_response(z_stf, e_stf, n_stf, t)
 
+            if writer:
+                writer.write_station(station, i_station)
+
+        if writer:
+            writer.close()
+
     def write(self, writer):
-        pass
+        writer.write(self._receivers)
+
+    def enable_mpi(self, rank, nprocs):
+        self._mpi_rank = rank
+        self._mpi_nprocs = nprocs
 
     def mpi_is_master_process(self):
         return self.mpi_rank == 0

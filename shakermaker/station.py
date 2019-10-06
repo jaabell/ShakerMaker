@@ -7,10 +7,11 @@ class StationObserver(metaclass=abc.ABCMeta):
 
 class Station:
 
-    def __init__(self, x, metadata=None):
+    def __init__(self, x, internal=False, metadata=None):
         self._x = x
         self._metadata = metadata
         self._observers = []
+        self._internal = internal
 
     @property
     def x(self):
@@ -20,13 +21,17 @@ class Station:
     def metadata(self):
         return self._metadata
 
+    @property
+    def is_internal(self):
+        return self._internal
+
     def add_to_response(self, z, e, n, t):
         self._notify(t)
 
-    def get_response(self, do_filter, interpolate, interpolate_t):
+    def get_response(self, do_filter=True, interpolate=False, interpolate_t=None):
         pass
 
-    def get_response_integral(self, ntimes, do_filter, interpolate, interpolate_t):
+    def get_response_integral(self, ntimes, do_filter=True, interpolate=False, interpolate_t=None):
         pass
 
     def get_response_derivative(self, ntimes, do_filter, interpolate, interpolate_t):
@@ -38,7 +43,7 @@ class Station:
 
         self._observers.append(observer)
 
-    def dettach(self, observer):
+    def detach(self, observer):
         self._observers.remove(observer)
 
     def _notify(self, t):

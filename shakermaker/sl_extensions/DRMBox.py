@@ -44,6 +44,15 @@ class Plane:
         """
         self._stations[i, j] = station_id
 
+    def get_info(self):
+        return {'v0': self._v0,
+                'v1': self._v1,
+                'v2': self._v2,
+                'internal': self._internal,
+                'stations': self._stations,
+                'xi1': self._xi1,
+                'xi2': self._xi2}
+
 
 class DRMBox(StationList):
 
@@ -66,31 +75,31 @@ class DRMBox(StationList):
 
     @property
     def nplanes(self):
-        return len(self._nplanes)
+        return len(self._planes)
 
-    def _newstation(self, x, internal, name=""):
-        newstation = Station(x, {'id': self.nstations, 'name': name
-            , 'internal': internal})
+    @property
+    def planes(self):
+        return self._planes
 
-        self.add_station(newstation)
+    def _new_station(self, x, internal, name=""):
+        new_station = Station(x, {'id': self.nstations, 'name': name, 'internal': internal})
 
-        self._xmax = [max(x[0], self._xmax[0]), max(x[1], self._xmax[1])
-            , max(x[2], self._xmax[2])]
-        self._xmin = [min(x[0], self._xmin[0]), min(x[1], self._xmin[1])
-            , min(x[2], self._xmin[2])]
+        self.add_station(new_station)
 
-        return newstation
+        self._xmax = [max(x[0], self._xmax[0]), max(x[1], self._xmax[1]), max(x[2], self._xmax[2])]
+        self._xmin = [min(x[0], self._xmin[0]), min(x[1], self._xmin[1]), min(x[2], self._xmin[2])]
+
+        return new_station
 
     def _new_DRM_plane(self, v0, v1, v2, xi, eta, internal):
-        newplane = Plane(v0, v1, v2, self.nplanes, internal, xi, eta)
-        self._planes.append(newplane)
+        new_plane = Plane(v0, v1, v2, self.nplanes, internal, xi, eta)
+        self._planes.append(new_plane)
 
         for i, j in product(np.arange(xi.size), np.arange(eta.size)):
             xi_, eta_ = xi[i], eta[j]
             p = v0 + xi_*v1 + eta_*v2
-            newstation = self._newstation(p, '.{}.{}.{}'.format(i, j, self.nplanes-1)
-                , internal)
-            newplane.set_station_id(i, j, newstation.metadata['id'])
+            new_station = self._new_station(p, '.{}.{}.{}'.format(i, j, self.nplanes - 1), internal)
+            new_plane.set_station_id(i, j, new_station.metadata['id'])
 
     def _create_DRM_stations(self):
         #DRM box orientation (TODO: add azimuthal rotation)
