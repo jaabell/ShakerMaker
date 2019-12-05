@@ -17,7 +17,7 @@ class CrustModel:
         self._current_layer = 0
         self._nlayers = nlayers
 
-    def add_layer(self, d, vp, vs, rho, gp, gs):
+    def add_layer(self, d, vp, vs, rho, qp, qs):
         assert self._current_layer <= self.nlayers, \
             "CrustModel.add_layer - current_layer={} Exceeds number of initialized " \
             "layers (nlayers={}).".format(self._current_layer, self.nlayers)

@@ -58,6 +58,7 @@ setup(
     },
     packages = [
         "shakermaker",
+        "shakermaker.cm_library",
         "shakermaker.sl_extensions",
         "shakermaker.stf_extensions",
         # "shakermaker.Sources",
@@ -74,7 +75,7 @@ setup(
     keywords = ["earthquake", "engineering", "drm", "simulation"],
     classifiers = [
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
         "Programming Language :: Fortran",
         "Development Status :: Beta",
         "Environment :: Other Environment",

@@ -1,9 +1,9 @@
 import numpy as np
 from shakermaker.sourcetimefunction import SourceTimeFunction
-
+from shakermaker.stf_extensions import Dirac
 class PointSource:
 
-    def __init__(self, x, angles, stf, tt):
+    def __init__(self, x, angles, stf=Dirac(), tt=0):
         if isinstance(x, list):
             x = np.array(x)
         if isinstance(angles, list):
