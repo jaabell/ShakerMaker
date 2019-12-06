@@ -61,9 +61,9 @@ setup(
         "shakermaker.cm_library",
         "shakermaker.sl_extensions",
         "shakermaker.stf_extensions",
+        "shakermaker.tools",
         # "shakermaker.Sources",
         # "shakermaker.SourceTimeFunctions",
-        # "shakermaker.Tools"
         ],
     ext_modules = [ext1],
     version = version,

@@ -5,6 +5,8 @@ from shakermaker.crustmodel import CrustModel
 from shakermaker.faultsource import FaultSource
 from shakermaker.stationlist import StationList
 from shakermaker.stationlistwriter import StationListWriter
+from shakermaker import core 
+
 
 class ShakerMaker:
 
@@ -39,6 +41,7 @@ class ShakerMaker:
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
                 aux_crust = copy.deepcopy(self._crust)
+
                 aux_crust.split_at_depth(psource.x[2])
                 aux_crust.split_at_depth(station.x[2])
 
@@ -81,8 +84,14 @@ class ShakerMaker:
 
     def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station):
         mb = crust.nlayers
-        src = crust.get_layer(psource.x[2]) + 1 # fortran start in 1, not 0
-        rcv = crust.get_layer(station.x[2]) + 1 # fortran start in 1, not 0
+        print(f"psource = {psource}")
+        print(f"psource.x = {psource.x}")
+        print(f"station = {station}")
+        print(f"station.x = {station.x}")
+
+        src = crust.get_layer(psource.x[2]) + 1 # fortran starts in 1, not 0
+        rcv = crust.get_layer(station.x[2]) + 1 # fortran starts in 1, not 0
+        
         stype = 2 # Source type double-couple, compute up and down going wave
         updn = 0
         d = crust.d

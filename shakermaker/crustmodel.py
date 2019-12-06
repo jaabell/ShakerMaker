@@ -113,11 +113,12 @@ class CrustModel:
             self._nlayers += 1
 
     def get_layer(self, z, tol=0.01):
-        current_z = 0
+        current_z = 0.
         for i in range(self.nlayers):
-            current_z += self._d[i]
+            print(f"i = {i:04} z = {z} current_z = {current_z} < tol = {tol} ?")
             if abs(z-current_z) < tol:
                 return i
+            current_z += self._d[i]
         return None
 
     @property
