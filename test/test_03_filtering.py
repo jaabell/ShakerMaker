@@ -56,7 +56,13 @@ fault = FaultSource([source], metadata={"name":"source"})
 
 
 #Initialize Receiver
-s = Station([x0,y0,0], metadata={"name":"Your House", "filter_results":True, "filter_parameters":{"fmax":10.}})
+s = Station([x0,y0,0], 
+    metadata={
+        "name":"Your House", 
+        "filter_results":True, 
+        "filter_parameters":{"fmax":10.}
+    })
+
 stations = StationList([s], metadata=s.metadata)
 
 model = shakermaker.ShakerMaker(crust, fault, stations)
