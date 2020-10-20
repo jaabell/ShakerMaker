@@ -11,10 +11,12 @@
 
 
 from shakermaker import shakermaker
-from shakermaker.CrustModels.LOH import SCEC_LOH_1, SCEC_LOH_3
-from shakermaker.Sources import PointSource, PointSourceList
-from shakermaker.Receivers import SimpleStation
-from shakermaker.Tools.Plotting import ZENTPlot
+from shakermaker.cm_library.LOH import SCEC_LOH_1, SCEC_LOH_3
+from shakermaker.pointsource import PointSource
+from shakermaker.faultsource import FaultSource
+from shakermaker.station import Station
+from shakermaker.stationlist import StationList
+from shakermaker.tools.plotting import ZENTPlot
 
 x0 = 1.
 y0 = 1.
@@ -29,21 +31,27 @@ crust = SCEC_LOH_1()
 # crust = SCEC_LOH_3()
 
 #Initialize Sources
-source1 = PointSource([0,0,zsrc], [strike,dip,rake])
-source2 = PointSource([0,0,zsrc], [strike,dip,rake],tt=3.0)
+subfaults = []
+subfaults.append(PointSource([0,0,zsrc], [strike,dip,rake]))
+subfaults.append(PointSource([0,0,zsrc], [strike,dip,rake],tt=3.0))
 
 # source = PointSourceList([source1])
-source = PointSourceList([source1, source2])
+fault = FaultSource(subfaults, metadata="TwoSubFaults")
 
 #Initialize Receiver
-receiver = SimpleStation([x0,y0,0], name="Your House")
+s = Station([x0,y0,0], 
+	metadata={"name":"A Station", 
+	"filter_results":False, 
+	"filter_parameters":{"fmax":10.}})
+stations = StationList([s], metadata=s.metadata)
 
-model = shakermaker.shakermaker(crust, source, receiver)
-model.setup(dt=dt)
-print "Running shakermaker"
-model.run(debug_subgreen=False, debug_mpi=True)
-print "Done shakermaker"
 
-fig = ZENTPlot(receiver, show=True, xlim=[0,5])
+
+model = shakermaker.ShakerMaker(crust, fault, stations)
+print("Running shakermaker")
+model.run(dt=dt)
+print("Done shakermaker")
+
+fig = ZENTPlot(s, show=True, xlim=[0,5])
 
 
