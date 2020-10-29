@@ -5,20 +5,15 @@ from scipy.integrate import cumtrapz
 import scipy.signal as sig
 
 
-
-
-
 def interpolator(told, yold, tnew):
     return interp1d(told, yold, bounds_error=False, fill_value=(yold[0], yold[-1]))(tnew)
-
-
-
 
 
 class StationObserver(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def station_change(self, station, t):
         raise NotImplementedError('derived class must define method station_change')
+
 
 class Station:
 
@@ -69,7 +64,6 @@ class Station:
             self._n = nn
             self._t = tnew
         self._notify(t)
-
 
     def get_response(self):
         """Return the recorded response of the station. 

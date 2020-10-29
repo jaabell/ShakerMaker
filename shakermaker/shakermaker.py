@@ -89,10 +89,10 @@ class ShakerMaker:
         print(f"station = {station}")
         print(f"station.x = {station.x}")
 
-        src = crust.get_layer(psource.x[2]) + 1 # fortran starts in 1, not 0
-        rcv = crust.get_layer(station.x[2]) + 1 # fortran starts in 1, not 0
+        src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
+        rcv = crust.get_layer(station.x[2]) + 1   # fortran starts in 1, not 0
         
-        stype = 2 # Source type double-couple, compute up and down going wave
+        stype = 2  # Source type double-couple, compute up and down going wave
         updn = 0
         d = crust.d
         a = crust.a
@@ -118,7 +118,7 @@ class ShakerMaker:
                            .format(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1,
                                    wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
 
-        #Execute the core subgreen fortran routing
+        # Execute the core subgreen fortran routing
         tdata, z, e, n, t0 = core.subgreen(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
                                            smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
 

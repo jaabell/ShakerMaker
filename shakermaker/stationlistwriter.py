@@ -1,6 +1,7 @@
 import abc
 from shakermaker.stationlist import StationList
 
+
 class StationListWriter(metaclass=abc.ABCMeta):
 
     def __init__(self, filename):

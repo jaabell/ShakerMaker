@@ -4,6 +4,7 @@ from shakermaker.station import Station
 import h5py
 import numpy as np
 
+
 class HDF5StationListWriter(StationListWriter):
 
     def __init__(self, filename):

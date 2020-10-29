@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
+
 def interpolateme(x, y, xx, kind="previous"):
-    return interp1d(x, y, fill_value=(y[0], y[-1]), bounds_error=False
-        , kind=kind)(xx)
+    return interp1d(x, y, fill_value=(y[0], y[-1]), bounds_error=False, kind=kind)(xx)
+
 
 class CrustModel:
 

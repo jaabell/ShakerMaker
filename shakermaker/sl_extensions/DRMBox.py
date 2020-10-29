@@ -3,7 +3,8 @@ from itertools import product
 from shakermaker.station import Station
 from shakermaker.stationlist import StationList
 
-#Definition of the DRM planes
+
+# Definition of the DRM planes
 class Plane:
     """A helper class to define the planes of the sides of the DRM box.
 
@@ -102,12 +103,12 @@ class DRMBox(StationList):
             new_plane.set_station_id(i, j, new_station.metadata['id'])
 
     def _create_DRM_stations(self):
-        #DRM box orientation (TODO: add azimuthal rotation)
+        # DRM box orientation (TODO: add azimuthal rotation)
         e1 = np.array([1.,0.,0.])
         e2 = np.array([0.,1.,0.])
         e3 = np.array([0.,0.,1.])
 
-        #Inner boundary
+        # Inner boundary
         internal = True
         lx = self._nelems[0] * self._h[0]
         ly = self._nelems[1] * self._h[1]
@@ -131,7 +132,7 @@ class DRMBox(StationList):
         xi1, xi2 = xi_x[1:-1], xi_y[1:-1]
         self._new_DRM_plane(v0, v1, v2, xi1, xi2, internal)
 
-        #Outer boundary
+        # Outer boundary
         internal = False
         lx = (self._nelems[0] + 2) * self._h[0]
         ly = (self._nelems[1] + 2) * self._h[1]
@@ -151,5 +152,6 @@ class DRMBox(StationList):
         v1, v2 = lx*e1, ly*e2
         xi1, xi2 = xi_x[1:-1], xi_y[1:-1]
         self._new_DRM_plane(v0, v1, v2, xi1, xi2, internal)
+
 
 StationList.register(DRMBox)

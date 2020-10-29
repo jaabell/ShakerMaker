@@ -1,6 +1,7 @@
 import numpy as np
 from shakermaker.sourcetimefunction import SourceTimeFunction
 
+
 class Discrete(SourceTimeFunction):
 
     def __init__(self, data, t):
@@ -10,5 +11,6 @@ class Discrete(SourceTimeFunction):
 
     def _generate_data(self):
         pass
+
 
 SourceTimeFunction.register(Discrete)

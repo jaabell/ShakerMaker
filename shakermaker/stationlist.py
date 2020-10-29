@@ -1,5 +1,6 @@
 from shakermaker.station import Station, StationObserver
 
+
 class StationList(StationObserver):
 
     def __init__(self, stations, metadata):
@@ -36,5 +37,6 @@ class StationList(StationObserver):
 
     def finalize(self):
         self._is_finalized = True
+
 
 StationObserver.register(StationList)

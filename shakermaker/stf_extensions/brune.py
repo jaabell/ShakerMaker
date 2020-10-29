@@ -1,6 +1,7 @@
 import numpy as np
 from shakermaker.sourcetimefunction import SourceTimeFunction
 
+
 class Brune(SourceTimeFunction):
 
     def __init__(self, slip=1.0, f0=0.0, t0=0.0, dsigma=0.0, M0=1.0, Vs=0.0, smoothed=False):
@@ -49,5 +50,6 @@ class Brune(SourceTimeFunction):
         y[t < t0] = 0
         ydot = np.gradient(y, t)
         return self._slip*ydot
+
 
 SourceTimeFunction.register(Brune)

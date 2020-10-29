@@ -3,6 +3,7 @@ import abc
 import scipy.signal as sig
 from scipy.interpolate import interp1d
 
+
 class SourceTimeFunction(metaclass=abc.ABCMeta):
 
     def __init__(self, dt=-1):
