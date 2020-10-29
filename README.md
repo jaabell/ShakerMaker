@@ -51,7 +51,7 @@ In this simple example, we specify a simple strike-slip (strike=90, that is due 
 point source at the origin and a depth of 4km, on a custom two-layer crustal model, 
 and a single receiver 5km away to the north::
 
-	from shakermaker import shakermaker
+	from shakermaker import ShakerMaker
 	from shakermaker.CrustModel
 	from shakermaker.Sources import PointSource 
 	from shakermaker.Receivers import SimpleStation
@@ -85,7 +85,7 @@ and a single receiver 5km away to the north::
 
 These are fed into the shakermaker model class::
 
-	model = shakermaker.shakermaker(crust, source, receiver)
+	model = shakermaker.ShakerMaker(crust, source, receiver)
 
 Which is executed::
 
