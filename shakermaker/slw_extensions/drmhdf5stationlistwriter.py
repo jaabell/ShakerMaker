@@ -8,7 +8,7 @@ import numpy as np
 class DRMHDF5StationListWriter(HDF5StationListWriter):
 
     def __init__(self, filename):
-        HDF5StationListWriter.__init__(filename)
+        HDF5StationListWriter.__init__(self, filename)
 
         self._h5file = None
 
@@ -43,6 +43,14 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         data_location = np.arange(0, station_list.nstations, dtype=np.int32) * 3
         grp_drm_data.create_dataset("data_location", data=data_location)
 
+    def write_metadata(self, metadata):
+        assert self._h5file, "DRMHDF5StationListWriter.write_metadata uninitialized HDF5 file"
+
+        grp_metadata = self._h5file['DRM_Metadata']
+        for key, value in metadata.items():
+            print(f"key = {key} {value}")
+            grp_metadata.create_dataset(key, data=value)
+
     def write_station(self, station, index):
         assert self._h5file, "DRMHDF5StationListWriter.write_station uninitialized HDF5 file"
         assert isinstance(station, Station), \
@@ -58,7 +66,7 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         velocity[3 * index + 1, :] = nn
         velocity[3 * index + 2, :] = zz
         xyz[index, :] = station.x
-        internal[index] = station.is_internal()
+        internal[index] = station.is_internal
 
 
 HDF5StationListWriter.register(DRMHDF5StationListWriter)

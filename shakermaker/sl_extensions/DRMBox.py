@@ -82,7 +82,9 @@ class DRMBox(StationList):
         return self._planes
 
     def _new_station(self, x, internal, name=""):
-        new_station = Station(x, {'id': self.nstations, 'name': name, 'internal': internal})
+        new_station = Station(x, 
+            internal=internal, 
+            metadata={'id': self.nstations, 'name': name, 'internal': internal})
 
         self.add_station(new_station)
 
@@ -98,7 +100,7 @@ class DRMBox(StationList):
         for i, j in product(np.arange(xi.size), np.arange(eta.size)):
             xi_, eta_ = xi[i], eta[j]
             p = v0 + xi_*v1 + eta_*v2
-            new_station = self._new_station(p, '.{}.{}.{}'.format(i, j, self.nplanes - 1), internal)
+            new_station = self._new_station(p, internal, '.{}.{}.{}'.format(i, j, self.nplanes - 1))
             new_plane.set_station_id(i, j, new_station.metadata['id'])
 
     def _create_DRM_stations(self):
