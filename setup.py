@@ -60,6 +60,7 @@ setup(
         "shakermaker",
         "shakermaker.cm_library",
         "shakermaker.sl_extensions",
+        "shakermaker.slw_extensions",
         "shakermaker.stf_extensions",
         "shakermaker.tools",
         # "shakermaker.Sources",
