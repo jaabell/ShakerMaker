@@ -57,10 +57,10 @@ class ShakerMaker:
         if rank > 0:
             writer = None
 
-        if writer:
+        if writer and rank == 0:
             assert isinstance(writer, StationListWriter), \
                 "'writer' must be an instance of the shakermaker.StationListWriter class or None"
-            writer.initialize(self._receivers)
+            writer.initialize(self._receivers, 2*nfft)
             writer.write_metadata(self._receivers.metadata)
         ipair = 0
         if nprocs == 1 or rank == 0:
@@ -123,10 +123,10 @@ class ShakerMaker:
             print(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
-            if writer:
+            if writer and rank == 0:
                 writer.write_station(station, i_station)
 
-        if writer:
+        if writer and rank == 0:
             writer.close()
 
     def write(self, writer):
