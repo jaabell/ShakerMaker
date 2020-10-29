@@ -56,8 +56,8 @@ class Plane:
 
 class DRMBox(StationList):
 
-    def __init__(self, metadata, pos, nelems, h, azimuth=0.):
-        StationList.__init__([], metadata)
+    def __init__(self, pos, nelems, h, metadata={},azimuth=0.):
+        StationList.__init__(self,[], metadata)
 
         self._x0 = np.array(pos)
         self._h = np.array(h)

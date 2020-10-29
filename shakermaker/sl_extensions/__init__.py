@@ -1,1 +1,1 @@
-from shakermaker.sl_extensions import DRMBox
+from shakermaker.sl_extensions.DRMBox import DRMBox
