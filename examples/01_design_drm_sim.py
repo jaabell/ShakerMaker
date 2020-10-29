@@ -11,14 +11,17 @@
 ###############################################################################
 
 from shakermaker import shakermaker
-from shakermaker.CrustModels.AbellThesis import AbellThesis
-from shakermaker.CrustModel import CrustModel
-from shakermaker.Sources import PointSource
-from shakermaker.SourceTimeFunctions import Brune
-from shakermaker.Receivers import DRMBox
-from shakermaker.Receivers import SimpleStation
-from shakermaker.Receivers import StationList
-from shakermaker.Tools.Plotting import ZENTPlot
+from shakermaker.cm_library.AbellThesis import AbellThesis
+from shakermaker.crustmodel import CrustModel
+from shakermaker.pointsource import PointSource 
+from shakermaker.faultsource import FaultSource
+from shakermaker.stf_extensions import Brune
+# from shakermaker.slw_extensions import DRMHDF5StationListWriter
+from shakermaker.sl_extensions import DRMBox
+from shakermaker.station import Station
+from shakermaker.stationlist import StationList
+from shakermaker.tools.plotting import ZENTPlot
+
 from scipy.linalg import norm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,15 +57,14 @@ dk = 0.1
 filter_results = False
 
 
-lam = vs / fmax
+λ = vs / fmax
+dx = λ / 15
 
-dx = lam / 15
-print "lam = ", lam
-print "dx = ", dx
-print "dt < ", dx/vp, " (required)"
-print "dt = ", dt, " (supplied)"
+print(f"λ = {λ}")
+print(f"dx ={dx}")
+print(f"dt <{dx/vp} (required)")
+print(f"dt ={dt} (supplied)")
 
-# exit(0)
 
 #DRM Box Spec
 nx = 10#32
@@ -74,30 +76,17 @@ dz = dx
 x0 = [10.,10.,0]
 
 
-
-# exit(0)
-
-#Setup Crust
-# crust = AbellThesis()
-
-crust = CrustModel(1)
-
 #Halfspace
-
+crust = CrustModel(1)
 thickness = 0   #Infinite thickness!
 crust.add_layer(thickness, vp, vs, rho, Qa, Qb)
-
-
-
-
-
-
 
 #Setup source time function
 stf = Brune(f0=f0, t0=t0)
 
-#Initialize Source
+#Initialize Source fault
 source = PointSource([0,0,zsrc], [strike,dip,rake], tt=0, stf=stf)
+fault = FaultSource([source], metadata={"name":"source"})
 
 
 #Simulation
@@ -127,50 +116,43 @@ xcorners.append(x0 + lx/2*e1 + ly/2*e2 + lz*e3)
 xcorners.append(x0 - lx/2*e1 + ly/2*e2 + lz*e3)
 
 for xrcv in xcorners:
-    print xrcv
+    print(xrcv)
     dist = norm(xrcv - xsrc)
     distance.append(dist)
     tp.append(dist/vp)
     ts.append(dist/vs)
-    rcvs.append(SimpleStation(xrcv,
-        filter_results=filter_results, 
-        filter_parameters={"fmax":fmax}))
-receivers = StationList(rcvs)
-# xrcv = x0
-# one_station = SimpleStation(xrcv,
-#         filter_results=filter_results, 
-#         filter_parameters={"fmax":fmax})
+    s = Station(xrcv,
+        metadata={
+        "name":"Your House", 
+        "filter_results":True, 
+        "filter_parameters":{"fmax":10.}
+        })
+    rcvs.append(s)
+stations = StationList(rcvs, metadata=s.metadata)
+
 
 # model = shakermaker.shakermaker(crust, source, one_station)
-model = shakermaker.shakermaker(crust, source, receivers)
-model.setup(dt=dt)
-model.setup(nfft=nfft)
-model.setup(tb=tb)
-model.setup(smth=1)
-model.setup(dk=dk)
+model = shakermaker.ShakerMaker(crust, fault, stations)
 
 
 t0 = np.sqrt((x0[0])**2 + (x0[1])**2 + (x0[2] - zsrc)**2) / vp
 
-print " t0 = ", t0
+print(f" t0 = {t0}")
 
-model.run(progressbar=True, debug_subgreen=True)
-print " t0 = ", t0
+model.run(dt=dt,nfft=nfft,tb=tb,smth=1,dk=dk)
+print(f" t0 = {t0}")
 
 
-# ZENTPlot(one_station, show=True, integrate=1)
-# ZENTPlot(one_station, show=True, integrate=1)
-
-if model.get_rank() == 0:
-    ns = receivers.get_nstations()
+if model.mpi_is_master_process():
+    ns = len(rcvs)
     plt.figure()
-    for i,rcv in enumerate(receivers):
+    for i,rcv in enumerate(rcvs):
         if i == 0:
             ax0 = plt.subplot(ns,1,i+1)
         else:
             plt.subplot(ns,1,i+1,sharex=ax0)#,sharey=ax0)
 
-        z,e,n,t = rcv.get_response_integral()
+        z,e,n,t = rcv.get_response()
         t1 = t[tb:]
         z1 = z[tb:]
         e1 = e[tb:]

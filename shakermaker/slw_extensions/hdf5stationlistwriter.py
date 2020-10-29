@@ -8,7 +8,7 @@ import numpy as np
 class HDF5StationListWriter(StationListWriter):
 
     def __init__(self, filename):
-        StationListWriter.__init__(filename)
+        StationListWriter.__init__(self,filename)
 
         self._h5file = None
 

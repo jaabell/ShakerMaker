@@ -11,13 +11,18 @@
 ###############################################################################
 
 from shakermaker import shakermaker
-from shakermaker.CrustModels.AbellThesis import AbellThesis
-from shakermaker.CrustModel import CrustModel
-from shakermaker.Sources import PointSource
-from shakermaker.SourceTimeFunctions import Brune
-from shakermaker.Receivers import DRMBox
-from shakermaker.Receivers import SimpleStation
-from shakermaker.Receivers import StationList
+from shakermaker.cm_library.AbellThesis import AbellThesis
+from shakermaker.crustmodel import CrustModel
+from shakermaker.pointsource import PointSource 
+from shakermaker.faultsource import FaultSource
+from shakermaker.stf_extensions import Brune
+from shakermaker.slw_extensions import DRMHDF5StationListWriter
+from shakermaker.sl_extensions import DRMBox
+from shakermaker.station import Station
+from shakermaker.stationlist import StationList
+from shakermaker.tools.plotting import ZENTPlot
+
+from scipy.linalg import norm
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use("ggplot")
@@ -54,15 +59,14 @@ dk = 0.1
 filter_results = False
 
 
-lam = vs / fmax
+λ = vs / fmax
+dx = λ / 15
 
-dx = lam / 15
-print "lam = ", lam
-print "dx = ", dx
-print "dt < ", dx/vp, " (required)"
-print "dt = ", dt, " (supplied)"
+print(f"λ = {λ}")
+print(f"dx ={dx}")
+print(f"dt <{dx/vp} (required)")
+print(f"dt ={dt} (supplied)")
 
-# exit(0)
 
 #DRM Box Spec
 nx = 10#32
@@ -74,16 +78,8 @@ dz = dx
 x0 = [10.,10.,0]
 
 
-
-# exit(0)
-
-#Setup Crust
-# crust = AbellThesis()
-
-crust = CrustModel(1)
-
 #Halfspace
-
+crust = CrustModel(1)
 thickness = 0   #Infinite thickness!
 crust.add_layer(thickness, vp, vs, rho, Qa, Qb)
 
@@ -91,21 +87,22 @@ crust.add_layer(thickness, vp, vs, rho, Qa, Qb)
 #Setup source time function
 stf = Brune(f0=f0, t0=t0)
 
-#Initialize Source
+#Initialize Source fault
 source = PointSource([0,0,zsrc], [strike,dip,rake], tt=0, stf=stf)
+fault = FaultSource([source], 
+	metadata={"name":"just a point source"})
 
-receivers = DRMBox(x0,[nx,ny,nz],[dx,dy,dz],
-	filter_results=filter_results, 
-	filter_parameters={"fmax":fmax},
-	name="datasets/DRM_simple_z{0:04.0f}_f0{1:02.0f}_{2}".format(zsrc*1000, f0, mech))
+drmreceiver = DRMBox(x0,[nx,ny,nz],[dx,dy,dz],
+	metadata={
+	"filter_results":filter_results, 
+	"filter_fmax":fmax,
+	"name":"datasets/DRM_simple_z{0:04.0f}_f0{1:02.0f}_{2}".format(zsrc*1000, f0, mech)
+	})
+writer = DRMHDF5StationListWriter("motions.h5drm")
 
 
-model = shakermaker.shakermaker(crust, source, receivers)
-model.setup(dt=dt)
-model.setup(nfft=nfft)
-model.setup(tb=tb)
-model.setup(smth=1)
-model.setup(dk=dk)
 
-model.run(progressbar=True)
+model = shakermaker.ShakerMaker(crust, fault, drmreceiver)
+model.run(dt=dt,nfft=nfft,tb=tb,smth=1,dk=dk,writer=writer)
 
+exit(0)

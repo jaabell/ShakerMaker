@@ -17,7 +17,7 @@ class StationObserver(metaclass=abc.ABCMeta):
 
 class Station:
 
-    def __init__(self, x, internal=False, metadata=None):
+    def __init__(self, x, internal=False, metadata={}):
         self._x = x
         self._metadata = metadata
         self._observers = []
