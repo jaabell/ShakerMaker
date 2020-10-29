@@ -16,7 +16,7 @@ from shakermaker.crustmodel import CrustModel
 from shakermaker.pointsource import PointSource 
 from shakermaker.faultsource import FaultSource
 from shakermaker.stf_extensions import Brune
-# from shakermaker.slw_extensions import DRMHDF5StationListWriter
+from shakermaker.slw_extensions import DRMHDF5StationListWriter
 from shakermaker.sl_extensions import DRMBox
 from shakermaker.station import Station
 from shakermaker.stationlist import StationList
@@ -92,15 +92,17 @@ source = PointSource([0,0,zsrc], [strike,dip,rake], tt=0, stf=stf)
 fault = FaultSource([source], 
 	metadata={"name":"just a point source"})
 
-box = DRMBox(x0,[nx,ny,nz],[dx,dy,dz],
+drmreceiver = DRMBox(x0,[nx,ny,nz],[dx,dy,dz],
 	metadata={
 	"filter_results":filter_results, 
-	"filter_parameters":{"fmax":fmax},
+	"filter_fmax":fmax,
 	"name":"datasets/DRM_simple_z{0:04.0f}_f0{1:02.0f}_{2}".format(zsrc*1000, f0, mech)
 	})
+writer = DRMHDF5StationListWriter("motions.h5drm")
+
+
+
+model = shakermaker.ShakerMaker(crust, fault, drmreceiver)
+model.run(dt=dt,nfft=nfft,tb=tb,smth=1,dk=dk,writer=writer)
 
 exit(0)
-
-model = shakermaker.shakermaker(crust, source, receivers)
-model.run(dt=dt,nfft=nfft,tb=tb,smth=1,dk=dk)
-
