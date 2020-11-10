@@ -1,11 +1,14 @@
 import abc
+
+from shakermaker.station import Station
 from shakermaker.stationlist import StationList
 
 
 class StationListWriter(metaclass=abc.ABCMeta):
 
-    def __init__(self, filename):
+    def __init__(self, filename, transform_function=None):
         self._filename = filename
+        self._transform_function = transform_function
 
     def write(self, station_list, num_samples):
         assert isinstance(station_list, StationList), \
@@ -23,7 +26,7 @@ class StationListWriter(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def write_station(self, station, index):
-        raise NotImplementedError('derived class must define method write_stations')
+        raise NotImplementedError('derived class must define method _write_stations')
 
     @abc.abstractmethod
     def write_metadata(self, metadata):
@@ -36,3 +39,11 @@ class StationListWriter(metaclass=abc.ABCMeta):
     @property
     def filename(self):
         return self._filename
+
+    @property
+    def transform_function(self):
+        return self._transform_function
+
+    @transform_function.setter
+    def transform_function(self, transform_function):
+        self._transform_function = transform_function

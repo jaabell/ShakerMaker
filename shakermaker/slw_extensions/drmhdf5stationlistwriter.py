@@ -61,6 +61,8 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         internal = self._h5file['DRM_Data/internal']
 
         zz, ee, nn, t = station.get_response()
+        if self.transform_function:
+            zz, ee, nn, t = self.transform_function(zz, ee, nn, t)
 
         velocity[3 * index, :] = ee
         velocity[3 * index + 1, :] = nn
