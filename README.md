@@ -23,20 +23,20 @@ If you dont' have sudo, you can install locally for your user with::
 Dependencies
 ------------
 
-- `mpi4py` (optional but highly recommended for parallel computing of the response)
 - `h5py`
+- `f2py`
 - `numpy`
 - `scipy`
+- `mpi4py` (optional but highly recommended for parallel computing of the response)
 - `matplotlib` (optional, for plotting)
-- `tqdm` (optional, for a fancy progressbar)
 
 You can get all these packages with `pip`::
 
-	sudo pip install mpi4py h5py numpy scipy matplotlib tqdm
+	sudo pip install mpi4py h5py f2py numpy scipy matplotlib
 
 or, for your user::
 
-	sudo pip install --user mpi4py h5py numpy scipy matplotlib tqdm
+	sudo pip install --user mpi4py f2py h5py numpy scipy matplotlib
 
 Quickstart usage
 ----------------
@@ -51,10 +51,13 @@ In this simple example, we specify a simple strike-slip (strike=90, that is due 
 point source at the origin and a depth of 4km, on a custom two-layer crustal model, 
 and a single receiver 5km away to the north::
 
-	from shakermaker import ShakerMaker
-	from shakermaker.CrustModel
-	from shakermaker.Sources import PointSource 
-	from shakermaker.Receivers import SimpleStation
+	from shakermaker.shakermaker import ShakerMaker
+	from shakermaker.crustmodel import CrustModel
+	from shakermaker.pointsource import PointSource 
+	from shakermaker.faultsource import FaultSource
+	from shakermaker.station import Station
+	from shakermaker.stationlist import StationList
+	from shakermaker.tools.plotting import ZENTPlot
 
 	#Initialize two-layer CrustModel
 	model = CrustModel(2)
@@ -79,13 +82,17 @@ and a single receiver 5km away to the north::
 
 	#Initialize Source
 	source = PointSource([0,0,4], [90,90,0])
+	fault = FaultSource([source], metadata={"name":"single-point-source"})
+
 
 	#Initialize Receiver
-	receiver = SimpleStation([0,4,0])
+	s = Station([0,4,0],metadata={"name":"a station"})
+	stations = StationList([s], metadata=s.metadata)
+
 
 These are fed into the shakermaker model class::
 
-	model = shakermaker.ShakerMaker(crust, source, receiver)
+	model = ShakerMaker(crust, fault, stations)
 
 Which is executed::
 
@@ -94,7 +101,7 @@ Which is executed::
 Results at the station can be readily visualized using the utility function :func:`Tools.Plotting.ZENTPlot`::
 
 	from shakermaker.Tools.Plotting import ZENTPlot
-	ZENTPlot(receiver, show=True)
+	ZENTPlot(s, xlim=[0,60], show=True)
 
 Yielding:
 
