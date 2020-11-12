@@ -1,7 +1,9 @@
 # from distutils.core import setup
 from numpy.distutils.core import setup
-from numpy.distutils.core import Extension
 import imp 
+import os
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+
 
 name = "shakermaker"
 version = "0.1"
@@ -17,17 +19,24 @@ for f in ffiles:
     srcs.append(srcdir+f)
 
 
-if profile:
-    ext1 = Extension(name = 'shakermaker.core',
-                     sources = srcs, 
-                     extra_f77_compile_args=["-ffixed-line-length-132", "-Wno-tabs", "-Wno-unused-dummy-argument", "-pg"],
-                     extra_link_args=["-pg"])
+if on_rtd:
+    ext_modules = []
 else:
-    ext1 = Extension(name = 'shakermaker.core',
-                         sources = srcs, 
-                         extra_f77_compile_args=["-ffixed-line-length-132", "-Wno-tabs", "-Wno-unused-dummy-argument","-fPIC"],
-                         extra_compile_args=["-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION"])
+    from numpy.distutils.core import Extension
 
+    if profile:
+        ext1 = Extension(name = 'shakermaker.core',
+                         sources = srcs, 
+                         extra_f77_compile_args=["-ffixed-line-length-132", "-Wno-tabs", "-Wno-unused-dummy-argument", "-pg"],
+                         extra_link_args=["-pg"])
+    else:
+        ext1 = Extension(name = 'shakermaker.core',
+                             sources = srcs, 
+                             extra_f77_compile_args=["-ffixed-line-length-132", "-Wno-tabs", "-Wno-unused-dummy-argument","-fPIC"],
+                             extra_compile_args=["-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION"])
+
+
+    ext_modules = [ext1]
 
 try:
     imp.find_module('sphinx')
@@ -66,7 +75,7 @@ setup(
         # "shakermaker.Sources",
         # "shakermaker.SourceTimeFunctions",
         ],
-    ext_modules = [ext1],
+    ext_modules = ext_modules,
     version = version,
     description = "README.md",
     author = author,
