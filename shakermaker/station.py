@@ -16,7 +16,19 @@ class StationObserver(metaclass=abc.ABCMeta):
 
 
 class Station:
+    """This simple receiver stores response in memory. 
 
+    Internally, numpy arrays are used for storage. Optional parameters allow filtering
+    of the response before outputting, althoiugh it is always stored
+    raw (unfiltered), therefore the user can experiment with
+    different filtering settings.
+
+    :param x: xyz location of the station.
+    :type x: numpy array (3,)
+    :param metadata: metadata to store with the station
+    :type dict: python dictionary
+
+    """
     def __init__(self, x, internal=False, metadata={}):
         self._x = x
         self._metadata = metadata

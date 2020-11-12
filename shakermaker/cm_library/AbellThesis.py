@@ -23,8 +23,7 @@ layers = [
 def AbellThesis(split=1):
     """ Crustal model in Jose Abell's PhD thesis and paper
 
-    .. figure::  ../docs/images/crust_model_abellthesis.png
-       :scale: 60%
+    .. figure::  ../../docs/source/images/crust_model_abellthesis.png
        :align:   center
 
     .. note::
@@ -32,12 +31,10 @@ def AbellThesis(split=1):
         using high values for the Q-factor. 
 
     Arguments:
-    ==========
     :param split: The layering can be subdivided if needed.
     :type split: int
 
     Returns:
-    ==========
     :returns: :class:`shakermaker.CrustModel`
 
     References: 

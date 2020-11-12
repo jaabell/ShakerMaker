@@ -3,7 +3,50 @@ from shakermaker.sourcetimefunction import SourceTimeFunction
 
 
 class Brune(SourceTimeFunction):
+    """The Brune Source Time Function
+    
+    .. figure::  ../../docs/source/images/stf_brune.png
+       :scale: 90%
+       :align:   center
 
+
+    Implements the classic STF as a slip rate function
+
+    .. math::
+
+        f_s(t) = \\Delta\\cdot\\omega_w0^2 \\cdot \\left(t - t_0\\right)\\cdot\\exp\\left\\lbrace-w_0(t - t_0)\\right\\rbrace \\quad \\mathrm{for}\\, t \\geq t_0
+
+    Where :math:`\\Delta` is the total slip across the fault, :math:`w_0 = 2 \\pi f_0` and :math:`f_0` is the corner-frequency defined by:
+
+    .. math::
+
+        f_0 = 4.9 \\times 10^6 V_s \\left(\\dfrac{\\Delta\\sigma}{M_0}\\right)^{1/3}
+
+    :math:`V_s` is the local shear-wave speed in km/s, :math:`M_0` is the seismic-moment in dyne-cm, and :math:`\\Delta\\sigma` is the
+    stress-drop in bars. 
+
+    The source is defined by the slip (``slip``) and the fault trigger time (``t0``) and either of: **(i)** the corner frequency directly ``f0`` or **(ii)** the stress drop ``dsigma``, seismic moment ``m0`` and local shear-wave speed ``Vs``. 
+
+    .. note:: 
+
+        The ``t0`` parameter displaces the STF in its own time vector, it is more convenient to use the point source's trigger time``tt`` to specify the rupture process. 
+
+    :param slip: Total slip across the fault. 
+    :type slip: double
+    :param f0: Corner frequency. 
+    :type f0: double
+    :param t0: Trigger time. 
+    :type t0: double
+    :param dsigma: Stress-drop. 
+    :type dsigma: double
+    :param M0: Seismic moment. 
+    :type M0: double
+    :param Vs: Local shear-wave speed. 
+    :type Vs: double
+    :param smoothed: Use a smoothed version of the source function. 
+    :type smoothed: bool
+
+    """
     def __init__(self, slip=1.0, f0=0.0, t0=0.0, dsigma=0.0, M0=1.0, Vs=0.0, smoothed=False):
         SourceTimeFunction.__init__(self)
 

@@ -56,7 +56,27 @@ class Plane:
 
 
 class DRMBox(StationList):
+    """A class to generate receiver layout useful in DRM.
 
+    .. figure::  ../../docs/source/images/drmbox.png
+       :scale: 60%
+       :align:   center
+
+    
+    :param pos:  Center point of the DRM box in xyz coordinates. 
+    :type pos: (numpy array (3,))
+    :param nelems:  Number of elements (stations) in each direction. ``Nelem = [Nx, Ny, Nz]``
+    :type nelems: (int)
+    :param h:  Spacings in each direction ``h = [hx, hy, hz]``
+    :type h: (double)
+    :param azimuth:  Azimuthal orientation of the box. 
+    :type azimuth: (double)
+
+    .. note::
+        Side lengths of the DRM box are ``[Nx*hx, Ny*hy, Nz*hz]`` up to the interior
+        boundary of the box. Exterior boundary has side lengths: ``[(Nx+2)*hx, (Ny+2)*hy, (Nz+1)*hz]``
+
+    """
     def __init__(self, pos, nelems, h, metadata={},azimuth=0.):
         StationList.__init__(self,[], metadata)
 

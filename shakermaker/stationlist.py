@@ -2,7 +2,21 @@ from shakermaker.station import Station, StationObserver
 
 
 class StationList(StationObserver):
+    """This is a list of stations.
 
+    :param stations: A list of Stations
+    :type stations: ``list`` containing :obj:`Station`
+    :param metadata: metadata to store with the station list
+    :type dict: python dictionary
+
+    Example::
+
+        sta1 = Station([20,20,0])
+        sta2 = Station([20,40,0])
+
+        stations = StationList([sta1, sta2])
+
+    """
     def __init__(self, stations, metadata):
         self._stations = []
         for station in stations:

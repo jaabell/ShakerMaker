@@ -3,7 +3,12 @@ from shakermaker.sourcetimefunction import SourceTimeFunction
 
 
 class Dirac(SourceTimeFunction):
+    """The Dirac delta
 
+    Generate Green's functions using a Diract delta 
+    source-time-function. 
+
+    """
     def __init__(self):
         SourceTimeFunction.__init__(self)
 

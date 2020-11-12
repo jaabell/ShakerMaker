@@ -29,7 +29,17 @@ else:
 
 
 class ShakerMaker:
+    """This is the main class in ShakerMaker, used to define a model, link components, 
+    set simulation  parameters and execute it. 
 
+    :param crust: Crustal model used by the simulation. 
+    :type crust: :class:`CrustModel`
+    :param source: Source model(s). 
+    :type source: :class:`FaultSource`
+    :param receivers: Receiver station(s). 
+
+
+    """
     def __init__(self, crust, source, receivers):
         assert isinstance(crust, CrustModel), \
             "crust must be an instance of the shakermaker.CrustModel class"
@@ -48,8 +58,55 @@ class ShakerMaker:
         self._mpi_nprocs = nprocs
         self._logger = logging.getLogger(__name__)
 
-    def run(self, dt=0.05, nfft=4096, tb=1000, smth=1, sigma=2, taper=0.9, wc1=1, wc2=2, pmin=0, pmax=1, dk=0.3,
-            nx=1, kc=15.0, writer=None):
+    def run(self, 
+        dt=0.05, 
+        nfft=4096, 
+        tb=1000, 
+        smth=1, 
+        sigma=2, 
+        taper=0.9, 
+        wc1=1, 
+        wc2=2, 
+        pmin=0, 
+        pmax=1, 
+        dk=0.3,
+        nx=1, 
+        kc=15.0, 
+        writer=None):
+        """Run the simulation. 
+        
+        Arguments:
+        :param sigma: Its role is to damp the trace (at rate of exp(-sigma*t)) to reduce the wrap-arround.
+        :type sigma: double
+        :param nfft: Number of time-points to use in fft
+        :type nfft: integer
+        :param dt: Simulation time-step
+        :type dt: double
+        :param tb: Num. of samples before the first arrival.
+        :type tb: integer
+        :param taper: For low-pass filter, 0-1. 
+        :type taper: double
+        :param smth: Densify the output samples by a factor of smth
+        :type smth: double
+        :param wc1: (George.. please provide one-line description!)
+        :type wc1: double
+        :param wc2: (George.. please provide one-line description!)
+        :type wc2: double
+        :param pmin: Max. phase velocity, in 1/vs, 0 the best.
+        :type pmin: double
+        :param pmax: Min. phase velocity, in 1/vs.
+        :type pmax: double
+        :param dk: Sample interval in wavenumber, in Pi/x, 0.1-0.4.
+        :type dk: double
+        :param nx: Number of distance ranges to compute.
+        :type nx: integer
+        :param kc: It's kmax, equal to 1/hs. Because the kernels decay with k at rate of exp(-k*hs) at w=0, we require kmax > 10 to make sure we have have summed enough.
+        :type kc: double
+        :param writer: Use this writer class to store outputs
+        :type writer: StationListWriter
+        
+
+        """
         self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
                           '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
                           .format(self._source.nsources, self._receivers.nstations,
