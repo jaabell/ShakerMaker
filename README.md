@@ -1,4 +1,4 @@
-# ShakerMaker
+![ShakerMaker](/docs/source/images/logo.png)
 
 ShakerMaker is intended to provide a simple tool allowing earthquake engineers and seismologists to easily use the frequency-wavenumber method (FK) to produce ground-motion datasets for analysis using the Domain Reduction Method (DRM). DRM motions are stored directly into the H5DRM format.
 
