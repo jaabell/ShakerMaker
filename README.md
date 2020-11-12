@@ -105,3 +105,4 @@ Results at the station can be readily visualized using the utility function :fun
 
 Yielding:
 
+![ShakerMaker](/examples/example0_fig1.png)
