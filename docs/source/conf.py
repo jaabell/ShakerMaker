@@ -170,4 +170,4 @@ texinfo_documents = [
 ]
 
 
-
+autodoc_mock_imports = ["shakermaker.core"]
