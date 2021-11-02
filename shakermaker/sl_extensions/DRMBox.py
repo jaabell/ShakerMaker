@@ -150,31 +150,26 @@ class DRMBox(StationList):
         #     self._new_DRM_plane(v0, v1, v2, xi1, xi2, internal)
 
         # -Y plane
-        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, lx*e1, lz*e3, xi_x, xi_z, internal)
 
         #  +Y plane
-        v0 = self._x0 - (lx/2)*e1 + (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 + (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, lx*e1, lz*e3, xi_x, xi_z, internal)
 
         # -X plane
-        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, ly*e2, lz*e3, xi_y[1:-1], xi_z, internal)
 
         #  +X plane
-        v0 = self._x0 + (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 + (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, ly*e2, lz*e3, xi_y[1:-1], xi_z, internal)
 
         #  -Z plane
         v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
         self._new_DRM_plane(v0, lx*e1, ly*e2, xi_x[1:-1],  xi_y[1:-1], internal)
 
-
-
-        # v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
-        # v1, v2 = lx*e1, ly*e2
-        # xi1, xi2 = xi_x[1:-1], xi_y[1:-1]
-        # self._new_DRM_plane(v0, v1, v2, xi1, xi2, internal)
+ 
 
         # Outer boundary
         internal = False
@@ -186,19 +181,19 @@ class DRMBox(StationList):
         xi_z = np.linspace(0., 1., self._nelems[2]+2)
 
               # -Y plane
-        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, lx*e1, lz*e3, xi_x, xi_z, internal)
 
         #  +Y plane
-        v0 = self._x0 - (lx/2)*e1 + (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 + (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, lx*e1, lz*e3, xi_x, xi_z, internal)
 
         # -X plane
-        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, ly*e2, lz*e3, xi_y[1:-1], xi_z, internal)
 
         #  +X plane
-        v0 = self._x0 + (lx/2)*e1 - (ly/2)*e2 + lz*e3
+        v0 = self._x0 + (lx/2)*e1 - (ly/2)*e2# + lz*e3
         self._new_DRM_plane(v0, ly*e2, lz*e3, xi_y[1:-1], xi_z, internal)
 
         #  -Z plane
