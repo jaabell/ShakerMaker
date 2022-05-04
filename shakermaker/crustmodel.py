@@ -228,7 +228,7 @@ class CrustModel:
         """
         current_z = 0.
         for i in range(self.nlayers):
-            print(f"i = {i:04} z = {z} current_z = {current_z} < tol = {tol} ?")
+            # print(f"i = {i:04} z = {z} current_z = {current_z} < tol = {tol} ?")
             if abs(z-current_z) < tol:
                 return i
             current_z += self._d[i]

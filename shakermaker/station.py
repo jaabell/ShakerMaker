@@ -109,3 +109,9 @@ class Station:
     def _notify(self, t):
         for obs in self._observers:
             obs.station_change(self, t)
+
+    def __str__(self):
+        return f"""Station @ {self._x} 
+        Internal: {self._internal} 
+        Initialized: {self._initialized} 
+        metadata: {self._metadata}"""

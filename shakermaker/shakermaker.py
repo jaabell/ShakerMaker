@@ -177,7 +177,7 @@ class ShakerMaker:
                     pass
                 ipair += 1
 
-            print(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
+            print(f'ShakerMaker.run - finished my station {i_station} --> {station} (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
             if writer and rank == 0:
@@ -206,10 +206,10 @@ class ShakerMaker:
 
     def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station):
         mb = crust.nlayers
-        print(f"psource = {psource}")
-        print(f"psource.x = {psource.x}")
-        print(f"station = {station}")
-        print(f"station.x = {station.x}")
+        # print(f"psource = {psource}")
+        # print(f"psource.x = {psource.x}")
+        # print(f"station = {station}")
+        # print(f"station.x = {station.x}")
 
         src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
         rcv = crust.get_layer(station.x[2]) + 1   # fortran starts in 1, not 0

@@ -94,6 +94,9 @@ class DRMBox(StationList):
 
         self._create_DRM_stations()
 
+        #Create QA station
+        self._new_station(self._x0, True, name="QA")
+
     @property
     def nplanes(self):
         return len(self._planes)
@@ -199,6 +202,16 @@ class DRMBox(StationList):
         #  -Z plane
         v0 = self._x0 - (lx/2)*e1 - (ly/2)*e2 + lz*e3
         self._new_DRM_plane(v0, lx*e1, ly*e2, xi_x[1:-1],  xi_y[1:-1], internal)
+
+
+        self.metadata["h"] = self._h
+        self.metadata["drmbox_x0"] = self._x0 
+        self.metadata["drmbox_xmax"] = self._xmax[0]
+        self.metadata["drmbox_ymax"] = self._xmax[1]
+        self.metadata["drmbox_zmax"] = self._xmax[2]
+        self.metadata["drmbox_xmin"] = self._xmin[0]
+        self.metadata["drmbox_ymin"] = self._xmin[1]
+        self.metadata["drmbox_zmin"] = self._xmin[2]
 
 
 
