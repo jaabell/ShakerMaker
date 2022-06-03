@@ -191,9 +191,9 @@ class ShakerMaker:
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
             if writer and rank == 0:
-            	print(f"Rank 0 is writing station {i_station}")
+                print(f"Rank 0 is writing station {i_station}")
                 writer.write_station(station, i_station)
-            	print(f"Rank 0 is done writing station {i_station}")
+                print(f"Rank 0 is done writing station {i_station}")
 
         if writer and rank == 0:
             writer.close()
