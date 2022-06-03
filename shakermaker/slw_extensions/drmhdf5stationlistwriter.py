@@ -66,7 +66,7 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
 
         #More metadata:
 
-        metadata["created_by"] = "---"
+        metadata["created_by"] = "---"   # os.getlogin() produces an error on slurm
         metadata["program_used"] = f"ShakeMaker version {shakermaker_version}"
         metadata["created_on"] = datetime.datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)")
 

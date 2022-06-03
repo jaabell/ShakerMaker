@@ -72,7 +72,8 @@ class ShakerMaker:
         dk=0.3,
         nx=1, 
         kc=15.0, 
-        writer=None):
+        writer=None,
+        verbose=False):
         """Run the simulation. 
         
         Arguments:
@@ -137,7 +138,8 @@ class ShakerMaker:
                 aux_crust.split_at_depth(station.x[2])
 
                 if ipair == next_pair:
-                    print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs}")
+                    if verbose:
+                        print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs}")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
                         tdata, z, e, n, t0 = self._call_core(dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
                                                              taper, aux_crust, psource, station)
@@ -150,17 +152,17 @@ class ShakerMaker:
                         n_stf = psource.stf.convolve(n)
                         if rank > 0:
                             ant = np.array([nt], dtype=np.int32).copy()
-                            print(f"Rank {rank} sending to P0 1")
+                            # print(f"Rank {rank} sending to P0 1")
                             comm.Send(ant, dest=0, tag=2*ipair)
                             data = np.empty((nt,4), dtype=np.float64)
-                            print(f"Rank {rank} done sending to P0 1")
+                            # print(f"Rank {rank} done sending to P0 1")
                             data[:,0] = z_stf
                             data[:,1] = e_stf
                             data[:,2] = n_stf
                             data[:,3] = t
-                            print(f"Rank {rank} sending to P0 2 ")
+                            # print(f"Rank {rank} sending to P0 2 ")
                             comm.Send(data, dest=0, tag=2*ipair+1)
-                            print(f"Rank {rank} done sending to P0 2")
+                            # print(f"Rank {rank} done sending to P0 2")
                             next_pair += skip_pairs
 
                     if rank == 0:
@@ -169,14 +171,14 @@ class ShakerMaker:
                                 remote = ipair % skip_pairs_remotes + 1
                                 
                                 ant = np.empty(1, dtype=np.int32)
-                                print(f"P0 getting from remote {remote} 1")
+                                # print(f"P0 getting from remote {remote} 1")
                                 comm.Recv(ant, source=remote, tag=2*ipair)
-                                print(f"P0 done getting from remote {remote} 1")
+                                # print(f"P0 done getting from remote {remote} 1")
                                 nt = ant[0]
                                 data = np.empty((nt,4), dtype=np.float64)
-                                print(f"P0 getting from remote {remote} 2")
+                                # print(f"P0 getting from remote {remote} 2")
                                 comm.Recv(data, source=remote, tag=2*ipair+1)
-                                print(f"P0 done getting from remote {remote} 2")
+                                # print(f"P0 done getting from remote {remote} 2")
                                 z_stf = data[:,0]
                                 e_stf = data[:,1]
                                 n_stf = data[:,2]
@@ -187,13 +189,14 @@ class ShakerMaker:
                     pass
                 ipair += 1
 
-            print(f'ShakerMaker.run - finished my station {i_station} --> {station} (rank={rank} ipair={ipair} next_pair={next_pair})')
+            if verbose:
+                print(f'ShakerMaker.run - finished my station {i_station} --> {station} (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
             if writer and rank == 0:
-                print(f"Rank 0 is writing station {i_station}")
+                # print(f"Rank 0 is writing station {i_station}")
                 writer.write_station(station, i_station)
-                print(f"Rank 0 is done writing station {i_station}")
+                # print(f"Rank 0 is done writing station {i_station}")
 
         if writer and rank == 0:
             writer.close()
