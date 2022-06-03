@@ -127,7 +127,7 @@ class ShakerMaker:
             next_pair = rank-1
             skip_pairs = nprocs-1
 
-        npairs = self._receivers.nstations*len(self._source)
+        npairs = self._receivers.nstations*len(self._source._pslist)
 
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
