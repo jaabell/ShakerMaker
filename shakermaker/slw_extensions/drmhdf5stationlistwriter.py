@@ -88,7 +88,7 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         if self.transform_function:
             zz, ee, nn, t = self.transform_function(zz, ee, nn, t)
 
-        if index < self.nstations-1:
+        if index < self.nstations:
             xyz[index, :] = station.x
             internal[index] = station.is_internal
         else:

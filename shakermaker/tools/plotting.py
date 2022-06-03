@@ -10,6 +10,9 @@ import imp
 import numpy as np
 import matplotlib.pyplot as plt
 from shakermaker.station import Station
+from scipy.interpolate import interp1d
+from scipy.integrate import cumulative_trapezoid
+
 
 try:
     imp.find_module('mpi4py')
@@ -58,7 +61,11 @@ def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differe
         if integrate == 0 and differentiate == 0:
             z,e,n,t = station.get_response()
         elif integrate > 0 and differentiate == 0:
-            z,e,n,t = station.get_response_integral(ntimes=integrate)
+            z,e,n,t = station.get_response()
+            # z,e,n,t = station.get_response_integral(ntimes=integrate)
+            z = cumulative_trapezoid(z.copy(), t, initial=0.)
+            e = cumulative_trapezoid(e.copy(), t, initial=0.)
+            n = cumulative_trapezoid(n.copy(), t, initial=0.)
         elif differentiate > 0 and integrate == 0:
             z,e,n,t = station.get_response_derivative(ntimes=differentiate)
         else:
