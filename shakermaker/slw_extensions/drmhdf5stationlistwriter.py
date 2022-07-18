@@ -140,12 +140,12 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
             ve = interpolatorfun(t,ee,t_final)
             vn = interpolatorfun(t,nn,t_final)
             vz = interpolatorfun(t,zz,t_final)
-            ae = np.gradient(ve, t)
-            an = np.gradient(vn, t)
-            az = np.gradient(vz, t)
-            de = cumulative_trapezoid(ve, t, initial=0.)
-            dn = cumulative_trapezoid(vn, t, initial=0.)
-            dz = cumulative_trapezoid(vz, t, initial=0.)
+            ae = np.gradient(ve, t_final)
+            an = np.gradient(vn, t_final)
+            az = np.gradient(vz, t_final)
+            de = cumulative_trapezoid(ve, t_final, initial=0.)
+            dn = cumulative_trapezoid(vn, t_final, initial=0.)
+            dz = cumulative_trapezoid(vz, t_final, initial=0.)
             if not is_QA:
                 displacement[3 * index, :] = de
                 displacement[3 * index + 1, :] = dn
