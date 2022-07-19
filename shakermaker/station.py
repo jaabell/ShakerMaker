@@ -1,5 +1,6 @@
 import abc
 import scipy as sp
+import numpy as np
 from scipy.interpolate import interp1d
 from scipy.integrate import cumtrapz
 import scipy.signal as sig
@@ -29,7 +30,7 @@ class Station:
     :type dict: python dictionary
 
     """
-    def __init__(self, x, internal=False, metadata={}):
+    def __init__(self, x=None, internal=False, metadata={}):
         self._x = x
         self._metadata = metadata
         self._observers = []
@@ -115,3 +116,79 @@ class Station:
         Internal: {self._internal} 
         Initialized: {self._initialized} 
         metadata: {self._metadata}"""
+
+
+    def save(self, npzfilename):
+        """Save the state of the station to an .npz file. 
+        
+        :param npzfilename: String with the name of the file to save into. 
+        :type npzfilename: string
+
+        Example::
+
+            station.save("station_results.npz")
+
+        """
+        savedict = {}
+
+        savedict["_x"] = self._x
+        savedict["_metadata"] = self._metadata
+        savedict["_observers"] = self._observers
+        savedict["_internal"] = self._internal
+        savedict["_initialized"] = self._initialized
+
+        if self._initialized:
+            savedict["_z"] = self._z 
+            savedict["_e"] = self._e 
+            savedict["_n"] = self._n 
+            savedict["_t"] = self._t 
+            savedict["_dt"] = self._dt 
+            savedict["_tmin"] = self._tmin 
+            savedict["_tmax"] = self._tmax 
+
+        np.savez(npzfilename, **savedict)
+
+        return
+
+
+    def load(self, npzfilename):
+        """Load the state of a station from an .npz file. 
+        
+        :param npzfilename: String with the name of the file to load from. 
+        :type npzfilename: string
+
+        Example::
+
+            station = Station()  #creates an empty station
+            station.load("station_results.npz")
+
+        """
+
+        print(f"Loading station data from npzfilename={npzfilename}")
+        loaddict = np.load(npzfilename, allow_pickle=True)
+
+        print(f"Data={loaddict}")
+
+
+
+        self._x = loaddict["_x"] 
+        self._metadata = loaddict["_metadata"][()]  #Extract the dict from the numpy array
+        self._observers = loaddict["_observers"] 
+        self._internal = loaddict["_internal"] 
+        self._initialized = loaddict["_initialized"] 
+
+
+        if self._initialized:
+            self._z = loaddict["_z"]  
+            self._e = loaddict["_e"]  
+            self._n = loaddict["_n"]  
+            self._t = loaddict["_t"]  
+            self._dt = loaddict["_dt"]  
+            self._tmin = loaddict["_tmin"]  
+            self._tmax = loaddict["_tmax"]  
+
+
+
+
+
+        return
