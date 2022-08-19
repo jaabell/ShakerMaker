@@ -136,7 +136,7 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         displacement = self._h5file['DRM_Data/displacement']
         acceleration = self._h5file['DRM_Data/acceleration']
         for index in self._velocities:
-            ee, nn, zz, t, is_QA = self._velocities[index]
+            zz, ee, nn, t, is_QA = self._velocities[index]
             ve = interpolatorfun(t,ee,t_final)
             vn = interpolatorfun(t,nn,t_final)
             vz = interpolatorfun(t,zz,t_final)
