@@ -139,14 +139,22 @@ class ShakerMaker:
 
                 if ipair == next_pair:
                     if verbose:
-                        print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs}")
+                        print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs} !!")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
+
+                        if verbose:
+                            print("calling core START")
                         tdata, z, e, n, t0 = self._call_core(dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
-                                                             taper, aux_crust, psource, station)
+                                                             taper, aux_crust, psource, station, verbose)
+                        if verbose:
+                            print("calling core END")
 
                         nt = len(z)
                         t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
                         psource.stf.dt = dt/10
+                        if verbose:
+                            print(f"rank={rank} nprocs={nprocs} Convolving")
+
                         z_stf = psource.stf.convolve(z)
                         e_stf = psource.stf.convolve(e)
                         n_stf = psource.stf.convolve(n)
@@ -219,12 +227,15 @@ class ShakerMaker:
     def mpi_nprocs(self):
         return self._mpi_nprocs
 
-    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station):
+    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station, verbose=False):
         mb = crust.nlayers
-        # print(f"psource = {psource}")
-        # print(f"psource.x = {psource.x}")
-        # print(f"station = {station}")
-        # print(f"station.x = {station.x}")
+
+        if verbose:
+            print("_call_core")
+            print(f"        psource = {psource}")
+            print(f"        psource.x = {psource.x}")
+            print(f"        station = {station}")
+            print(f"        station.x = {station.x}")
 
         src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
         rcv = crust.get_layer(station.x[2]) + 1   # fortran starts in 1, not 0
@@ -254,6 +265,14 @@ class ShakerMaker:
                            '\tlf: {}\n\tsx: {}\n\tsy: {}\n\trx: {}\n\try: {}\n\t'
                            .format(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1,
                                    wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
+        if verbose:
+            print('ShakerMaker._call_core - calling core.subgreen\n\tmb: {}\n\tsrc: {}\n\trcv: {}\n'
+                   '\tstyoe: {}\n\tupdn: {}\n\td: {}\n\ta: {}\n\tb: {}\n\trho: {}\n\tqa: {}\n\tqb: {}\n'
+                   '\tdt: {}\n\tnfft: {}\n\ttb: {}\n\tnx: {}\n\tsigma: {}\n\tsmth: {}\n\twc1: {}\n\twc2: {}\n'
+                   '\tpmin: {}\n\tpmax: {}\n\tdk: {}\n\tkc: {}\n\ttaper: {}\n\tx: {}\n\tpf: {}\n\tdf: {}\n'
+                   '\tlf: {}\n\tsx: {}\n\tsy: {}\n\trx: {}\n\try: {}\n\t'
+                   .format(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1,
+                           wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
 
         # Execute the core subgreen fortran routing
         tdata, z, e, n, t0 = core.subgreen(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
