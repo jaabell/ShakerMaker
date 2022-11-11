@@ -151,7 +151,7 @@ class ShakerMaker:
 
                         nt = len(z)
                         t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
-                        psource.stf.dt = dt/10
+                        psource.stf.dt = dt
                         if verbose:
                             print(f"rank={rank} nprocs={nprocs} Convolving")
 

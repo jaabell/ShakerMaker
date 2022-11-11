@@ -51,6 +51,7 @@ class Station:
 
     def add_to_response(self, z, e, n, t):
         if not self._initialized:
+            print(f"Station {self} initializing")
             self._z = z
             self._e = e
             self._n = n
@@ -59,12 +60,15 @@ class Station:
             self._tmin = t.min()
             self._tmax = t.max()
             self._initialized = True
+            print(f"{self._tmin=} {self._tmax=} {self._dt=}")
         else:
+            print(f"Station {self} interpolating!")
             dt = t[1] - t[0]
             tmin = min(self._tmin, t.min())
             tmax = max(self._tmax, t.max())
             if dt != self._dt:
                 dt = max(dt, self._dt)
+            print(f"{self._tmin=} {self._tmax=} {self._dt=}")
             tnew = sp.arange(tmin, tmax, dt)
             zz = interpolator(self._t, self._z, tnew)
             zz += interpolator(t, z, tnew)
