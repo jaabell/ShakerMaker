@@ -34,7 +34,7 @@ else:
     use_mpi = False
 
 
-def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differentiate=0, savefigname=""):
+def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differentiate=0, savefigname="", linestyle="-", linewidth=2):
     """Plot (using matplotlib) the response at a given station.
 
     :param station: The station response to plot.
@@ -67,7 +67,12 @@ def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differe
             e = cumulative_trapezoid(e.copy(), t, initial=0.)
             n = cumulative_trapezoid(n.copy(), t, initial=0.)
         elif differentiate > 0 and integrate == 0:
-            z,e,n,t = station.get_response_derivative(ntimes=differentiate)
+            # z,e,n,t = station.get_response_derivative(ntimes=differentiate)
+            # z,e,n,t = station.get_response_derivative(ntimes=differentiate)
+            z,e,n,t = station.get_response()
+            z = np.gradient(z, t)
+            e = np.gradient(e, t)
+            n = np.gradient(n, t)
         else:
             print(f"Not allowed to pass integrate={integrate} and differentiate={differentiate} simultaneously. ")
             return 0
@@ -83,7 +88,7 @@ def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differe
                 ax0 = plt.subplot(3,1,i+1)
             else:
                 plt.subplot(3,1,i+1,sharex=ax0,sharey=ax0)
-            plt.plot(t,comp, label=label)
+            plt.plot(t,comp, label=label, linestyle=linestyle, linewidth=linewidth)
             if len(xlim) == 2:
                 plt.xlim(xlim)
             plt.ylabel(["$\\dot{u}_Z$","$\\dot{u}_E$","$\\dot{u}_N$"][i])

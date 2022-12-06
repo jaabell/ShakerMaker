@@ -51,35 +51,54 @@ class Station:
 
     def add_to_response(self, z, e, n, t):
         if not self._initialized:
-            print(f"Station {self} initializing")
-            self._z = z
-            self._e = e
-            self._n = n
-            self._t = t
+            # print(f"Station {self} initializing")
+            # self._z = z
+            # self._e = e
+            # self._n = n
+            # self._t = t
+            # self._dt = t[1] - t[0]
+            # self._tmin = t.min()
+            # self._tmax = t.max()
+            # self._initialized = True
+            tmin = 0.
+            tmax = 100.
+            dt = t[1] - t[0]
+            self._t = sp.arange(tmin,tmax,dt)
+            self._z = 0*self._t
+            self._e = 0*self._t
+            self._n = 0*self._t
             self._dt = t[1] - t[0]
             self._tmin = t.min()
             self._tmax = t.max()
             self._initialized = True
-            print(f"{self._tmin=} {self._tmax=} {self._dt=}")
+            nskip = int(t[0]/self._dt)
+            self._z[nskip:(nskip+len(z))] = z
+            self._e[nskip:(nskip+len(e))] = e
+            self._n[nskip:(nskip+len(n))] = n
+            # print(f"{self._tmin=} {self._tmax=} {self._dt=}")
         else:
-            print(f"Station {self} interpolating!")
+            # print(f"Station {self} interpolating!")
             dt = t[1] - t[0]
-            tmin = min(self._tmin, t.min())
-            tmax = max(self._tmax, t.max())
-            if dt != self._dt:
-                dt = max(dt, self._dt)
-            print(f"{self._tmin=} {self._tmax=} {self._dt=}")
-            tnew = sp.arange(tmin, tmax, dt)
-            zz = interpolator(self._t, self._z, tnew)
-            zz += interpolator(t, z, tnew)
-            ee = interpolator(self._t, self._e, tnew)
-            ee += interpolator(t, e, tnew)
-            nn = interpolator(self._t, self._n, tnew)
-            nn += interpolator(t, n, tnew)
-            self._z = zz
-            self._e = ee
-            self._n = nn
-            self._t = tnew
+            # tmin = min(self._tmin, t.min())
+            # tmax = max(self._tmax, t.max())
+            # # if dt != self._dt:
+            # #     dt = max(dt, self._dt)
+            # # print(f"{self._tmin=} {self._tmax=} {self._dt=}")
+            # tnew = sp.arange(tmin, tmax, dt)
+            # zz = interpolator(self._t, self._z, tnew)
+            # zz += interpolator(t, z, tnew)
+            # ee = interpolator(self._t, self._e, tnew)
+            # ee += interpolator(t, e, tnew)
+            # nn = interpolator(self._t, self._n, tnew)
+            # nn += interpolator(t, n, tnew)
+            # self._z = zz
+            # self._e = ee
+            # self._n = nn
+            # self._t = tnew
+            nskip = int(t[0]/dt)
+            self._z[nskip:(nskip+len(z))] += z
+            self._e[nskip:(nskip+len(e))] += e
+            self._n[nskip:(nskip+len(n))] += n
         self._notify(t)
 
     def get_response(self):

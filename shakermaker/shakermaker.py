@@ -150,10 +150,10 @@ class ShakerMaker:
                             print("calling core END")
 
                         nt = len(z)
+                        print(f"********* {psource.tt=} {t0=}")
                         t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
                         psource.stf.dt = dt
-                        if verbose:
-                            print(f"rank={rank} nprocs={nprocs} Convolving")
+
 
                         z_stf = psource.stf.convolve(z)
                         e_stf = psource.stf.convolve(e)
@@ -198,7 +198,7 @@ class ShakerMaker:
                 ipair += 1
 
             if verbose:
-                print(f'ShakerMaker.run - finished my station {i_station} --> {station} (rank={rank} ipair={ipair} next_pair={next_pair})')
+                print(f'ShakerMaker.run - finished my station {i_station} -->  (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
             if writer and rank == 0:
@@ -232,9 +232,9 @@ class ShakerMaker:
 
         if verbose:
             print("_call_core")
-            print(f"        psource = {psource}")
+            # print(f"        psource = {psource}")
             print(f"        psource.x = {psource.x}")
-            print(f"        station = {station}")
+            # print(f"        station = {station}")
             print(f"        station.x = {station.x}")
 
         src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
