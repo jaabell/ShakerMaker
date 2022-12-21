@@ -150,7 +150,7 @@ class ShakerMaker:
                             print("calling core END")
 
                         nt = len(z)
-                        print(f"********* {psource.tt=} {t0=}")
+                        # print(f"********* {psource.tt=} {t0=}")
                         t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
                         psource.stf.dt = dt
 
