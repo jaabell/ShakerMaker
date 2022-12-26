@@ -126,16 +126,16 @@ class ShakerMaker:
         perf_time_add = 0.
 
         if debugMPI:
-        	# printMPI = lambda *args : print(*args)
-        	fid_debug_mpi = open(f"rank_{rank}.debuginfo","w")
-        	def printMPI(*args):
-        		fid_debug_mpi.write(*args)
-        		fid_debug_mpi.write("\n")
+            # printMPI = lambda *args : print(*args)
+            fid_debug_mpi = open(f"rank_{rank}.debuginfo","w")
+            def printMPI(*args):
+                fid_debug_mpi.write(*args)
+                fid_debug_mpi.write("\n")
 
         else:
-        	import os
-        	fid_debug_mpi = open(os.devnull,"w")
-        	printMPI = lambda *args : None
+            import os
+            fid_debug_mpi = open(os.devnull,"w")
+            printMPI = lambda *args : None
 
         self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
                           '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
@@ -198,7 +198,7 @@ class ShakerMaker:
 
 
                         if rank > 0:
-                        	t1 = perf_counter()
+                            t1 = perf_counter()
                             ant = np.array([nt], dtype=np.int32).copy()
                             printMPI(f"Rank {rank} sending to P0 1")
                             comm.Send(ant, dest=0, tag=2*ipair)
@@ -240,18 +240,18 @@ class ShakerMaker:
                                 perf_time_recv += t2 - t1
                         next_pair += 1
                         try:
-                        	t1 = perf_counter()
-                        	station.add_to_response(z_stf, e_stf, n_stf, t, tmin, tmax)
-                        	t2 = perf_counter()
-                        	perf_time_add += t2 - t1
+                            t1 = perf_counter()
+                            station.add_to_response(z_stf, e_stf, n_stf, t, tmin, tmax)
+                            t2 = perf_counter()
+                            perf_time_add += t2 - t1
                         except:
-                        	traceback.print_exc()
+                            traceback.print_exc()
 
-                        	if use_mpi:
-                        		comm.abort()
+                            if use_mpi:
+                                comm.abort()
 
                         if showProgress:
-                        	print(f"{ipair} of {npairs} done {t[0]=} {t[-1]=} ({tmin=} {tmax=})")
+                            print(f"{ipair} of {npairs} done {t[0]=} {t[-1]=} ({tmin=} {tmax=})")
 
                 else: 
                     pass
@@ -274,50 +274,50 @@ class ShakerMaker:
         perf_time_end = perf_counter()
 
         if rank == 0 and use_mpi:
-        	perf_time_total = perf_time_end - perf_time_begin
+            perf_time_total = perf_time_end - perf_time_begin
 
-        	print(f"Run done. Total time: {perf_time_total} ")
-        	print("----------------------------------------")
-        	all_max_perf_time_core = 0
-			all_max_perf_time_send = 0
-			all_max_perf_time_recv = 0
-			all_max_perf_time_convolve = 0
-			all_max_perf_time_add = 0
+            print(f"Run done. Total time: {perf_time_total} ")
+            print("----------------------------------------")
+            all_max_perf_time_core = 0
+            all_max_perf_time_send = 0
+            all_max_perf_time_recv = 0
+            all_max_perf_time_convolve = 0
+            all_max_perf_time_add = 0
 
-			all_min_perf_time_core = 0
-			all_min_perf_time_send = 0
-			all_min_perf_time_recv = 0
-			all_min_perf_time_convolve = 0
-			all_min_perf_time_add = 0
+            all_min_perf_time_core = 0
+            all_min_perf_time_send = 0
+            all_min_perf_time_recv = 0
+            all_min_perf_time_convolve = 0
+            all_min_perf_time_add = 0
 
-			# Gather statistics from all processes
-			comm.Reduce([perf_time_core, MPI.double],
-				[all_max_perf_time_core], op = MPI.MAX, root = 0)
-			comm.Reduce([perf_time_send, MPI.double],
-				[all_max_perf_time_send], op = MPI.MAX, root = 0)
-			comm.Reduce([perf_time_recv, MPI.double],
-				[all_max_perf_time_recv], op = MPI.MAX, root = 0)
-			comm.Reduce([perf_time_convolve, MPI.double],
-				[all_max_perf_time_convolve], op = MPI.MAX, root = 0)
-			comm.Reduce([perf_time_add, MPI.double],
-				[all_max_perf_time_add], op = MPI.MAX, root = 0)
+            # Gather statistics from all processes
+            comm.Reduce([perf_time_core, MPI.double],
+                [all_max_perf_time_core], op = MPI.MAX, root = 0)
+            comm.Reduce([perf_time_send, MPI.double],
+                [all_max_perf_time_send], op = MPI.MAX, root = 0)
+            comm.Reduce([perf_time_recv, MPI.double],
+                [all_max_perf_time_recv], op = MPI.MAX, root = 0)
+            comm.Reduce([perf_time_convolve, MPI.double],
+                [all_max_perf_time_convolve], op = MPI.MAX, root = 0)
+            comm.Reduce([perf_time_add, MPI.double],
+                [all_max_perf_time_add], op = MPI.MAX, root = 0)
 
-			comm.Reduce([perf_time_core, MPI.double],
-				[all_min_perf_time_core], op = MPI.MIN, root = 0)
-			comm.Reduce([perf_time_send, MPI.double],
-				[all_min_perf_time_send], op = MPI.MIN, root = 0)
-			comm.Reduce([perf_time_recv, MPI.double],
-				[all_min_perf_time_recv], op = MPI.MIN, root = 0)
-			comm.Reduce([perf_time_convolve, MPI.double],
-				[all_min_perf_time_convolve], op = MPI.MIN, root = 0)
-			comm.Reduce([perf_time_add, MPI.double],
-				[all_min_perf_time_add], op = MPI.MIN, root = 0)
+            comm.Reduce([perf_time_core, MPI.double],
+                [all_min_perf_time_core], op = MPI.MIN, root = 0)
+            comm.Reduce([perf_time_send, MPI.double],
+                [all_min_perf_time_send], op = MPI.MIN, root = 0)
+            comm.Reduce([perf_time_recv, MPI.double],
+                [all_min_perf_time_recv], op = MPI.MIN, root = 0)
+            comm.Reduce([perf_time_convolve, MPI.double],
+                [all_min_perf_time_convolve], op = MPI.MIN, root = 0)
+            comm.Reduce([perf_time_add, MPI.double],
+                [all_min_perf_time_add], op = MPI.MIN, root = 0)
 
-			print(f"time_core     :  max: {all_max_perf_time_core} ({all_max_perf_time_core/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core} ({all_min_perf_time_core/perf_time_total*100:0.3f}%)"
-			print(f"time_send     :  max: {all_max_perf_time_send} ({all_max_perf_time_send/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send} ({all_min_perf_time_send/perf_time_total*100:0.3f}%)"
-			print(f"time_recv     :  max: {all_max_perf_time_recv} ({all_max_perf_time_recv/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv} ({all_min_perf_time_recv/perf_time_total*100:0.3f}%)"
-			print(f"time_convolve :  max: {all_max_perf_time_convolve} ({all_max_perf_time_convolve/perf_time_total*100:0.3f}%) min: {all_min_perf_time_convolve} ({all_min_perf_time_convolve/perf_time_total*100:0.3f}%)"
-			print(f"time_add      :  max: {all_max_perf_time_add} ({all_max_perf_time_add/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add} ({all_min_perf_time_add/perf_time_total*100:0.3f}%)"
+            print(f"time_core     :  max: {all_max_perf_time_core} ({all_max_perf_time_core/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core} ({all_min_perf_time_core/perf_time_total*100:0.3f}%)"
+            print(f"time_send     :  max: {all_max_perf_time_send} ({all_max_perf_time_send/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send} ({all_min_perf_time_send/perf_time_total*100:0.3f}%)"
+            print(f"time_recv     :  max: {all_max_perf_time_recv} ({all_max_perf_time_recv/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv} ({all_min_perf_time_recv/perf_time_total*100:0.3f}%)"
+            print(f"time_convolve :  max: {all_max_perf_time_convolve} ({all_max_perf_time_convolve/perf_time_total*100:0.3f}%) min: {all_min_perf_time_convolve} ({all_min_perf_time_convolve/perf_time_total*100:0.3f}%)"
+            print(f"time_add      :  max: {all_max_perf_time_add} ({all_max_perf_time_add/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add} ({all_min_perf_time_add/perf_time_total*100:0.3f}%)"
 
     def write(self, writer):
         writer.write(self._receivers)
