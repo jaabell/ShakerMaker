@@ -71,7 +71,7 @@ class Station:
             self._tmax = t.max()
             self._initialized = True
             nskip = int(t[0]/self._dt)
-            print(f" --> {t[0]=} {dt=} {nskip=} {tmin=} {tmax=}")
+            # print(f" --> {t[0]=} {dt=} {nskip=} {tmin=} {tmax=}")
             self._z[nskip:(nskip+len(z))] = z
             self._e[nskip:(nskip+len(e))] = e
             self._n[nskip:(nskip+len(n))] = n
@@ -96,7 +96,7 @@ class Station:
             # self._n = nn
             # self._t = tnew
             nskip = int(t[0]/dt)
-            print(f" ++> {t[0]=} {dt=} {nskip=} ")
+            # print(f" ++> {t[0]=} {dt=} {nskip=} ")
             self._z[nskip:(nskip+len(z))] += z
             self._e[nskip:(nskip+len(e))] += e
             self._n[nskip:(nskip+len(n))] += n
