@@ -112,10 +112,10 @@ class ShakerMaker:
 
         if debugMPI:
         	# printMPI = lambda *args : print(*args)
-        	fid_debug_mpi = open("rank_{rank}.debuginfo","w")
+        	fid_debug_mpi = open(f"rank_{rank}.debuginfo","w")
         	def printMPI(*args):
         		fid_debug_mpi.write(*args)
-        		fid_debug_mpi.write("/n")
+        		fid_debug_mpi.write("\n")
 
         else:
         	fid_debug_mpi = open(os.devnull,"w")
