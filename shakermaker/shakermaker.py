@@ -313,11 +313,11 @@ class ShakerMaker:
             comm.Reduce([perf_time_add, MPI.double],
                 [all_min_perf_time_add], op = MPI.MIN, root = 0)
 
-            print(f"time_core     :  max: {all_max_perf_time_core} ({all_max_perf_time_core/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core} ({all_min_perf_time_core/perf_time_total*100:0.3f}%)"
-            print(f"time_send     :  max: {all_max_perf_time_send} ({all_max_perf_time_send/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send} ({all_min_perf_time_send/perf_time_total*100:0.3f}%)"
-            print(f"time_recv     :  max: {all_max_perf_time_recv} ({all_max_perf_time_recv/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv} ({all_min_perf_time_recv/perf_time_total*100:0.3f}%)"
-            print(f"time_convolve :  max: {all_max_perf_time_convolve} ({all_max_perf_time_convolve/perf_time_total*100:0.3f}%) min: {all_min_perf_time_convolve} ({all_min_perf_time_convolve/perf_time_total*100:0.3f}%)"
-            print(f"time_add      :  max: {all_max_perf_time_add} ({all_max_perf_time_add/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add} ({all_min_perf_time_add/perf_time_total*100:0.3f}%)"
+            print(f"time_core     :  max: {all_max_perf_time_core} ({all_max_perf_time_core/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core} ({all_min_perf_time_core/perf_time_total*100:0.3f}%)")
+            print(f"time_send     :  max: {all_max_perf_time_send} ({all_max_perf_time_send/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send} ({all_min_perf_time_send/perf_time_total*100:0.3f}%)")
+            print(f"time_recv     :  max: {all_max_perf_time_recv} ({all_max_perf_time_recv/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv} ({all_min_perf_time_recv/perf_time_total*100:0.3f}%)")
+            print(f"time_convolve :  max: {all_max_perf_time_convolve} ({all_max_perf_time_convolve/perf_time_total*100:0.3f}%) min: {all_min_perf_time_convolve} ({all_min_perf_time_convolve/perf_time_total*100:0.3f}%)")
+            print(f"time_add      :  max: {all_max_perf_time_add} ({all_max_perf_time_add/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add} ({all_min_perf_time_add/perf_time_total*100:0.3f}%)")
 
     def write(self, writer):
         writer.write(self._receivers)
