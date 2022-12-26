@@ -78,6 +78,7 @@ class ShakerMaker:
         debugMPI=False,
         tmin=0.,
         tmax=100,
+        showProgress=True
         ):
         """Run the simulation. 
         
@@ -217,6 +218,9 @@ class ShakerMaker:
 
                         	if use_mpi:
                         		comm.abort()
+
+                        if showProgress:
+                        	print(f"{ipair} of {npairs} done")
 
                 else: 
                     pass
