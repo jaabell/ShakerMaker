@@ -111,8 +111,14 @@ class ShakerMaker:
         """
 
         if debugMPI:
-        	printMPI = lambda *args : print(*args)
+        	# printMPI = lambda *args : print(*args)
+        	fid_debug_mpi = open("rank_{rank}.debuginfo","w")
+        	def printMPI(*args):
+        		fid.write(*args)
+        		fid.write("/n")
+
         else:
+        	fid_debug_mpi = open(os.devnull,"w")
         	printMPI = lambda *args : None
 
         self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
@@ -215,6 +221,8 @@ class ShakerMaker:
 
         if writer and rank == 0:
             writer.close()
+
+        fid_debug_mpi.close()
 
     def write(self, writer):
         writer.write(self._receivers)
