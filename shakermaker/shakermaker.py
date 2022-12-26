@@ -251,7 +251,7 @@ class ShakerMaker:
                                 comm.abort()
 
                         if showProgress:
-                            print(f"{ipair} of {npairs} done {t[0]=} {t[-1]=} ({tmin=} {tmax=})")
+                            print(f"{ipair} of {npairs} done {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 else: 
                     pass
