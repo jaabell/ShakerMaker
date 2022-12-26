@@ -247,8 +247,8 @@ class ShakerMaker:
                         except:
                             traceback.print_exc()
 
-                            if use_mpi:
-                                comm.abort()
+                            if use_mpi and nprocs > 1:
+                                comm.Abort()
 
                         if showProgress:
                             print(f"{ipair} of {npairs} done {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
@@ -291,27 +291,29 @@ class ShakerMaker:
             all_min_perf_time_add = 0
 
             # Gather statistics from all processes
-            comm.Reduce([perf_time_core, MPI.double],
-                [all_max_perf_time_core], op = MPI.MAX, root = 0)
-            comm.Reduce([perf_time_send, MPI.double],
-                [all_max_perf_time_send], op = MPI.MAX, root = 0)
-            comm.Reduce([perf_time_recv, MPI.double],
-                [all_max_perf_time_recv], op = MPI.MAX, root = 0)
-            comm.Reduce([perf_time_convolve, MPI.double],
-                [all_max_perf_time_convolve], op = MPI.MAX, root = 0)
-            comm.Reduce([perf_time_add, MPI.double],
-                [all_max_perf_time_add], op = MPI.MAX, root = 0)
 
-            comm.Reduce([perf_time_core, MPI.double],
-                [all_min_perf_time_core], op = MPI.MIN, root = 0)
-            comm.Reduce([perf_time_send, MPI.double],
-                [all_min_perf_time_send], op = MPI.MIN, root = 0)
-            comm.Reduce([perf_time_recv, MPI.double],
-                [all_min_perf_time_recv], op = MPI.MIN, root = 0)
-            comm.Reduce([perf_time_convolve, MPI.double],
-                [all_min_perf_time_convolve], op = MPI.MIN, root = 0)
-            comm.Reduce([perf_time_add, MPI.double],
-                [all_min_perf_time_add], op = MPI.MIN, root = 0)
+            if nprocs > 1:
+                comm.Reduce([perf_time_core, MPI.DOUBLE],
+                    [all_max_perf_time_core], op = MPI.MAX, root = 0)
+                comm.Reduce([perf_time_send, MPI.DOUBLE],
+                    [all_max_perf_time_send], op = MPI.MAX, root = 0)
+                comm.Reduce([perf_time_recv, MPI.DOUBLE],
+                    [all_max_perf_time_recv], op = MPI.MAX, root = 0)
+                comm.Reduce([perf_time_convolve, MPI.DOUBLE],
+                    [all_max_perf_time_convolve], op = MPI.MAX, root = 0)
+                comm.Reduce([perf_time_add, MPI.DOUBLE],
+                    [all_max_perf_time_add], op = MPI.MAX, root = 0)
+
+                comm.Reduce([perf_time_core, MPI.DOUBLE],
+                    [all_min_perf_time_core], op = MPI.MIN, root = 0)
+                comm.Reduce([perf_time_send, MPI.DOUBLE],
+                    [all_min_perf_time_send], op = MPI.MIN, root = 0)
+                comm.Reduce([perf_time_recv, MPI.DOUBLE],
+                    [all_min_perf_time_recv], op = MPI.MIN, root = 0)
+                comm.Reduce([perf_time_convolve, MPI.DOUBLE],
+                    [all_min_perf_time_convolve], op = MPI.MIN, root = 0)
+                comm.Reduce([perf_time_add, MPI.DOUBLE],
+                    [all_min_perf_time_add], op = MPI.MIN, root = 0)
 
             print(f"time_core     :  max: {all_max_perf_time_core} ({all_max_perf_time_core/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core} ({all_min_perf_time_core/perf_time_total*100:0.3f}%)")
             print(f"time_send     :  max: {all_max_perf_time_send} ({all_max_perf_time_send/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send} ({all_min_perf_time_send/perf_time_total*100:0.3f}%)")
