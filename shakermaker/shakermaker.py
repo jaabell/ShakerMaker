@@ -113,7 +113,7 @@ class ShakerMaker:
         if debugMPI:
         	printMPI = lambda args : print(*args)
         else:
-        	printMPI = lambda args : pass
+        	printMPI = lambda args : None
 
         self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
                           '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
