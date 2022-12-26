@@ -118,6 +118,7 @@ class ShakerMaker:
         		fid_debug_mpi.write("\n")
 
         else:
+        	import os
         	fid_debug_mpi = open(os.devnull,"w")
         	printMPI = lambda *args : None
 
