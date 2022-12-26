@@ -7,6 +7,7 @@ from shakermaker.stationlist import StationList
 from shakermaker.stationlistwriter import StationListWriter
 from shakermaker import core 
 import imp
+import traceback
 
 try:
     imp.find_module('mpi4py')
@@ -74,7 +75,10 @@ class ShakerMaker:
         kc=15.0, 
         writer=None,
         verbose=False,
-        debugMPI=False):
+        debugMPI=False,
+        tmin=0.,
+        tmax=100,
+        ):
         """Run the simulation. 
         
         Arguments:
@@ -206,7 +210,14 @@ class ShakerMaker:
                                 n_stf = data[:,2]
                                 t = data[:,3]    
                         next_pair += 1
-                        station.add_to_response(z_stf, e_stf, n_stf, t)
+                        try:
+                        	station.add_to_response(z_stf, e_stf, n_stf, t, tmin, tmax)
+                        except:
+                        	traceback.print_exc()
+
+                        	if use_mpi:
+                        		comm.abort()
+
                 else: 
                     pass
                 ipair += 1

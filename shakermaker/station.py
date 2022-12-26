@@ -49,7 +49,7 @@ class Station:
     def is_internal(self):
         return self._internal
 
-    def add_to_response(self, z, e, n, t):
+    def add_to_response(self, z, e, n, t, tmin=0, tmax=100.):
         if not self._initialized:
             # print(f"Station {self} initializing")
             # self._z = z
@@ -60,8 +60,7 @@ class Station:
             # self._tmin = t.min()
             # self._tmax = t.max()
             # self._initialized = True
-            tmin = 0.
-            tmax = 100.
+
             dt = t[1] - t[0]
             self._t = sp.arange(tmin,tmax,dt)
             self._z = 0*self._t
