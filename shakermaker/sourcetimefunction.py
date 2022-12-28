@@ -38,12 +38,35 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
     def _generate_data(self):
         raise NotImplementedError('derived class must define method generate_data')
 
-    def convolve(self, val):
+    def convolve(self, val, t, debug=False):
         if len(self.data) == 1:
             val_stf = val*self.data[0]
         else:
-            tstf_resampled = np.arange(0, self.t.max(), self.dt)
-            dstf_resampled = interp1d(self.t, self.data)(tstf_resampled)
-            val_stf = sig.convolve(val, dstf_resampled, mode="full")[0:len(val)]
+            t_resampled = np.arange(t.min(), t.max(), self.dt)
+            val_resampled = interp1d(t, val, bounds_error=False, fill_value=(val[0], val[-1]))(t_resampled)
+            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]
+            val_stf = interp1d(t_resampled, val_stf_resampled, bounds_error=False, fill_value=(val[0], val[-1]))(t)
+            # interp1d
+            # tstf_resampled = np.arange(0, self.t.max(), self.dt)
+            # dstf_resampled = interp1d(self.t, self.data)(tstf_resampled)
+            # val_stf = sig.convolve(val, dstf_resampled, mode="full")[0:len(val)]
+
+            if debug:
+                import matplotlib.pylab as plt
+
+                plt.figure(1)
+                # plt.plot(self.t, self.data, label="original STF")
+                # plt.plot(tstf_resampled, dstf_resampled, label="resampled STF")
+                # plt.legend()
+                plt.plot(t, val, label="original val")
+                plt.plot(t_resampled, val_resampled, label="resampled val")
+
+                plt.figure(2)
+                plt.plot(t, val, label="original val")
+                plt.plot(t_resampled, val_stf_resampled, ".", label="convolved resampled val")
+                plt.plot(t, val_stf, label="convolved val")
+                plt.legend()
+                plt.show()
+
 
         return val_stf
