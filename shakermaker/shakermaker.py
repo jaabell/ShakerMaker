@@ -182,7 +182,10 @@ class ShakerMaker:
                             print("calling core END")
 
                         nt = len(z)
-                        print(f"********* {psource.tt=} {t0=}")
+                        dd = psource.x - station.x
+                        dh = np.sqrt(dd[0]**2 + dd[1]**2)
+                        dz = np.abs(dd[2])
+                        print(f"*********{ipair} {psource.tt=} {t0=} {dh=} {dz=}")
 
 
                         t1 = perf_counter()
