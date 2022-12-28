@@ -27,6 +27,7 @@ class Discrete(SourceTimeFunction):
         SourceTimeFunction.__init__(self)
         self._data = data
         self._t = t
+        self._dt = t[1] - t[0]
 
     def _generate_data(self):
         pass
