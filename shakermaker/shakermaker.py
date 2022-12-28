@@ -182,7 +182,7 @@ class ShakerMaker:
                             print("calling core END")
 
                         nt = len(z)
-                        # print(f"********* {psource.tt=} {t0=}")
+                        print(f"********* {psource.tt=} {t0=}")
 
 
                         t1 = perf_counter()
