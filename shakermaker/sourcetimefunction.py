@@ -38,15 +38,15 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
     def _generate_data(self):
         raise NotImplementedError('derived class must define method generate_data')
 
-    def convolve(self, val, t, debug=False):
+    def convolve(self, val, t, debug=True):
         if len(self.data) == 1:
             val_stf = val*self.data[0]
         else:
             dt_old = t[1] - t[0]
             dt_new = self.dt
             # print(f"Resampling VAL from {dt_old} to {dt_new}")
-            # val = 0*val
-            # val[len(val)//2]=1
+            val = 0*val
+            val[len(val)//2]=1
             t_resampled = np.arange(t[0], t[-1], dt_new)
             val_resampled = interp1d(t, val, bounds_error=False, fill_value=(val[0], val[-1]))(t_resampled)
             # val_resampled = sig.resample(val, len(t_resampled))
@@ -55,7 +55,8 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]*dt_new
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] / sum(self.data)
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") / (sum(self.data)*dt_new)
-            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") * dt_new / dt_old
+            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] * dt_new / dt_old
+            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") * dt_new / dt_old
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") 
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]
             val_stf = interp1d(t_resampled, val_stf_resampled, bounds_error=False, fill_value=(val[0], val[-1]))(t)
