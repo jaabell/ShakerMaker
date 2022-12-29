@@ -55,7 +55,7 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]*dt_new
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] / sum(self.data)
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") / (sum(self.data)*dt_new)
-            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] * dt_new / dt_old
+            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] * dt_new 
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") * dt_new / dt_old
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") 
             # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]
