@@ -1,5 +1,9 @@
 import numpy as np
 from shakermaker.sourcetimefunction import SourceTimeFunction
+from scipy.interpolate import interp1d
+
+def interpolator(told, yold, tnew):
+    return interp1d(told, yold, bounds_error=False, fill_value=(yold[0], yold[-1]))(tnew)
 
 
 class Discrete(SourceTimeFunction):
@@ -25,12 +29,13 @@ class Discrete(SourceTimeFunction):
     """
     def __init__(self, data, t):
         SourceTimeFunction.__init__(self)
-        self._data = data
-        self._t = t
-        self._dt = t[1] - t[0]
+        self._data_orig = data
+        self._t_orig = t
+        self._dt_orig = t[1] - t[0]
 
     def _generate_data(self):
-        pass
+        self._t = np.arange(self._t_orig[0], self._t_orig[-1],self._dt)
+        self._data = interpolator(self._t_orig, self._data_orig, self._t)
 
 
 SourceTimeFunction.register(Discrete)

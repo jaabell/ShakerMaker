@@ -195,7 +195,7 @@ class ShakerMaker:
 
                         t1 = perf_counter()
                         t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
-                        # psource.stf.dt = dt
+                        psource.stf.dt = dt
 
 
                         z_stf = psource.stf.convolve(z, t)

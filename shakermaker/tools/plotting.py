@@ -91,7 +91,12 @@ def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differe
             plt.plot(t,comp, label=label, linestyle=linestyle, linewidth=linewidth)
             if len(xlim) == 2:
                 plt.xlim(xlim)
-            plt.ylabel(["$\\dot{u}_Z$","$\\dot{u}_E$","$\\dot{u}_N$"][i])
+            if integrate == 0 and differentiate == 0:
+                plt.ylabel(["$\\dot{u}_Z$","$\\dot{u}_E$","$\\dot{u}_N$"][i])
+            elif integrate > 0 and differentiate == 0:
+                plt.ylabel(["$u_Z$","$u_E$","$u_N$"][i])
+            elif differentiate > 0 and integrate == 0:
+                plt.ylabel(["$\\ddot{u}_Z$","$\\ddot{u}_E$","$\\ddot{u}_N$"][i])
         plt.xlabel("Time, $t$ (s)")
         plt.suptitle(station.metadata["name"])
 
