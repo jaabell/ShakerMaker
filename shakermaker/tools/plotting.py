@@ -174,7 +174,35 @@ def StationPlot(stations, fig=0, show=False, autoscale=False):
     return fighandle
 
 
-def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", colorbar=False):
+def set_axes_equal(ax):
+    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc..  This is one possible solution to Matplotlib's
+    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
+
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    '''
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", colorbar=False, axes_equal=True):
     """Plot (using matplotlib) a set of sources.
 
     :param sources: The sources to plot. 
@@ -185,6 +213,8 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
     :type colorby: ``str`` values: ``"maxstf"|"strike"|"dip"|"rake"|tt"``
     :param colorbar: Add a colorbar. 
     :type colorbar: bool
+    :param axes_equal: Set 3-D axes to equal scale. 
+    :type axes_equal: bool
 
     ``colorby`` specifications are:
 
@@ -244,16 +274,17 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
         if case==0: #"maxstf"
             c = stf.data.max()
         elif case==1: #"strike"
-            c = angles[0]
+            c = angles[0]*180/np.pi
         elif case==2: #"dip"
-            c = angles[1]
+            c = angles[1]*180/np.pi
         elif case==3: #"rake"
-            c = angles[2]
+            c = angles[2]*180/np.pi
         elif case==4: #"tt"
             c = tt
-        elif case==5: #"tt"
-            stf, t = stf.get_data()
-            slip = trapz(stf, t)
+        elif case==5: #"slip"
+            t = stf.t
+            v = stf.data
+            slip = trapz(v, t)
             c = slip
 
         x_src[i] = x[0]
@@ -274,6 +305,10 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
         ax.set_ylim(mid_x - max_range, mid_x + max_range)
         ax.set_xlim(mid_y - max_range, mid_y + max_range)
         ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+    if axes_equal:
+        set_axes_equal(ax)
+
 
     ax.invert_zaxis()
 
