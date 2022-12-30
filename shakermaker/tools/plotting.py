@@ -136,17 +136,17 @@ def StationPlot(stations, fig=0, show=False, autoscale=False):
         fighandle = plt.figure(fig)
         ax = plt.gca()
 
-    n_stations = stations.get_nstations()
+    n_stations = stations.nstations
 
     x_rcv = np.zeros(n_stations)
     y_rcv = np.zeros(n_stations)
     z_rcv = np.zeros(n_stations)
 
     for i, rcv in enumerate(stations):
-        x = rcv.get_pos()
+        x = rcv.x
         x_rcv[i] = x[0]
         y_rcv[i] = x[1]
-        z_rcv[i] = x[2]
+        z_rcv[i] = -x[2]
 
     ax.scatter(y_rcv, x_rcv,  z_rcv,  "b")#, c=-z_rcv)
 
@@ -170,6 +170,8 @@ def StationPlot(stations, fig=0, show=False, autoscale=False):
 
     if show:
         plt.show()
+
+    return fighandle
 
 
 def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", colorbar=False):
@@ -206,7 +208,7 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
         ax = plt.gca()
         # ax.set_facecolor("white")
 
-    n_sources = sources.get_nsources()
+    n_sources = sources.nsources
 
     x_src = np.zeros(n_sources)
     y_src = np.zeros(n_sources)
@@ -233,10 +235,14 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
 
 
     for i, src in enumerate(sources):
-        x, angles, stf, tt = src.get_data()
-        stf.set_dt(0.01)
+        x = src.x
+        stf = src.stf
+        angles = src.angles
+        tt = src.tt
+
+        stf.dt = 0.01
         if case==0: #"maxstf"
-            c = stf.get_data()[0].max()
+            c = stf.data.max()
         elif case==1: #"strike"
             c = angles[0]
         elif case==2: #"dip"
@@ -252,7 +258,7 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
 
         x_src[i] = x[0]
         y_src[i] = x[1]
-        z_src[i] = x[2]
+        z_src[i] = -x[2]
         c_src[i] = c
 
     theplot = ax.scatter(y_src, x_src,  z_src,  c=c_src)

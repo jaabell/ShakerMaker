@@ -117,9 +117,11 @@ class ShakerMaker:
 
         """
         title = f"ShakerMaker Run begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
-        print("\n\n")
-        print(title)
-        print("-"*len(title))
+        
+        if rank == 0:
+	        print("\n\n")
+	        print(title)
+	        print("-"*len(title))
 
         #Initialize performance counters
         perf_time_begin = perf_counter()
