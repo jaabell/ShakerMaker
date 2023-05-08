@@ -358,6 +358,127 @@ class ShakerMaker:
                 print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
                 print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
 
+    def gen_tdata(self,
+        fname_tdata,
+        dt=0.05, 
+        nfft=4096, 
+        tb=1000, 
+        smth=1, 
+        sigma=2, 
+        taper=0.9, 
+        wc1=1, 
+        wc2=2, 
+        pmin=0, 
+        pmax=1, 
+        dk=0.3,
+        nx=1, 
+        kc=15.0, 
+        writer=None,
+        verbose=False,
+        debugMPI=False,
+        tmin=0.,
+        tmax=100,
+        showProgress=True
+        ):
+        """Run the simulation. 
+        
+        Arguments:
+        :param sigma: Its role is to damp the trace (at rate of exp(-sigma*t)) to reduce the wrap-arround.
+        :type sigma: double
+        :param nfft: Number of time-points to use in fft
+        :type nfft: integer
+        :param dt: Simulation time-step
+        :type dt: double
+        :param tb: Num. of samples before the first arrival.
+        :type tb: integer
+        :param taper: For low-pass filter, 0-1. 
+        :type taper: double
+        :param smth: Densify the output samples by a factor of smth
+        :type smth: double
+        :param wc1: (George.. please provide one-line description!)
+        :type wc1: double
+        :param wc2: (George.. please provide one-line description!)
+        :type wc2: double
+        :param pmin: Max. phase velocity, in 1/vs, 0 the best.
+        :type pmin: double
+        :param pmax: Min. phase velocity, in 1/vs.
+        :type pmax: double
+        :param dk: Sample interval in wavenumber, in Pi/x, 0.1-0.4.
+        :type dk: double
+        :param nx: Number of distance ranges to compute.
+        :type nx: integer
+        :param kc: It's kmax, equal to 1/hs. Because the kernels decay with k at rate of exp(-k*hs) at w=0, we require kmax > 10 to make sure we have have summed enough.
+        :type kc: double
+        :param writer: Use this writer class to store outputs
+        :type writer: StationListWriter
+        
+
+        """
+        title = f"ShakerMaker Gen TDATA begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
+        
+        if rank == 0:
+            print("\n\n")
+            print(title)
+            print("-"*len(title))
+
+    
+        self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
+                          '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
+                          .format(self._source.nsources, self._receivers.nstations,
+                                  self._source.nsources*self._receivers.nstations, dt, nfft))
+
+        ipair = 0
+        if nprocs == 1 or rank == 0:
+            next_pair = rank
+            skip_pairs = 1
+        else :
+            next_pair = rank-1
+            skip_pairs = nprocs-1
+
+        npairs = self._receivers.nstations*len(self._source._pslist)
+
+        print(f"{npairs=}")
+
+        dists = np.zeros((npairs, 2))
+
+        for i_station, station in enumerate(self._receivers):
+            for i_psource, psource in enumerate(self._source):
+                aux_crust = copy.deepcopy(self._crust)
+
+                x_src = psource.x
+                x_rec = station.x
+
+                d = x_rec - x_src
+
+                dh = np.sqrt(np.dot(d[0:2],d[0:2]))
+                dv = np.abs(d[2])
+
+                dists[ipair,0] = dh
+                dists[ipair,1] = dv
+
+
+                # aux_crust.split_at_depth(psource.x[2])
+                # aux_crust.split_at_depth(station.x[2])
+
+                if ipair == next_pair:
+                    if verbose:
+                        print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs} !!")
+                    if nprocs == 1 or (rank > 0 and nprocs > 1):
+
+                        if verbose:
+                            print("calling core START")
+                        # tdata, z, e, n, t0 = self._call_core_fast(dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
+                        #                                      taper, aux_crust, psource, station, verbose)
+                else: 
+                    pass
+                ipair += 1
+
+            if verbose:
+                print(f'ShakerMaker.run - finished my station {i_station} -->  (rank={rank} ipair={ipair} next_pair={next_pair})')
+            self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
+
+        return dists
+
     def write(self, writer):
         writer.write(self._receivers)
 
@@ -428,5 +549,61 @@ class ShakerMaker:
                                            smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
 
         self._logger.debug('ShakerMaker._call_core - core.subgreen returned: z_size'.format(len(z)))
+
+        return tdata, z, e, n, t0
+
+
+    def _call_core_fast(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station, verbose=False):
+        mb = crust.nlayers
+
+        if verbose:
+            print("_call_core_fast")
+            # print(f"        psource = {psource}")
+            print(f"        psource.x = {psource.x}")
+            # print(f"        station = {station}")
+            print(f"        station.x = {station.x}")
+
+        src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
+        rcv = crust.get_layer(station.x[2]) + 1   # fortran starts in 1, not 0
+        
+        stype = 2  # Source type double-couple, compute up and down going wave
+        updn = 0
+        d = crust.d
+        a = crust.a
+        b = crust.b
+        rho = crust.rho
+        qa = crust.qa
+        qb = crust.qb
+
+        pf = psource.angles[0]
+        df = psource.angles[1]
+        lf = psource.angles[2]
+        sx = psource.x[0]
+        sy = psource.x[1]
+        rx = station.x[0]
+        ry = station.x[1]
+        x = np.sqrt((sx-rx)**2 + (sy - ry)**2)
+
+        self._logger.debug('ShakerMaker._call_core_fast - calling core.subgreen\n\tmb: {}\n\tsrc: {}\n\trcv: {}\n'
+                           '\tstyoe: {}\n\tupdn: {}\n\td: {}\n\ta: {}\n\tb: {}\n\trho: {}\n\tqa: {}\n\tqb: {}\n'
+                           '\tdt: {}\n\tnfft: {}\n\ttb: {}\n\tnx: {}\n\tsigma: {}\n\tsmth: {}\n\twc1: {}\n\twc2: {}\n'
+                           '\tpmin: {}\n\tpmax: {}\n\tdk: {}\n\tkc: {}\n\ttaper: {}\n\tx: {}\n\tpf: {}\n\tdf: {}\n'
+                           '\tlf: {}\n\tsx: {}\n\tsy: {}\n\trx: {}\n\try: {}\n\t'
+                           .format(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1,
+                                   wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
+        if verbose:
+            print('ShakerMaker._call_core_fast - calling core.subgreen\n\tmb: {}\n\tsrc: {}\n\trcv: {}\n'
+                   '\tstyoe: {}\n\tupdn: {}\n\td: {}\n\ta: {}\n\tb: {}\n\trho: {}\n\tqa: {}\n\tqb: {}\n'
+                   '\tdt: {}\n\tnfft: {}\n\ttb: {}\n\tnx: {}\n\tsigma: {}\n\tsmth: {}\n\twc1: {}\n\twc2: {}\n'
+                   '\tpmin: {}\n\tpmax: {}\n\tdk: {}\n\tkc: {}\n\ttaper: {}\n\tx: {}\n\tpf: {}\n\tdf: {}\n'
+                   '\tlf: {}\n\tsx: {}\n\tsy: {}\n\trx: {}\n\try: {}\n\t'
+                   .format(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma, smth, wc1,
+                           wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
+
+        # Execute the core subgreen fortran routing
+        tdata, z, e, n, t0 = core.subgreen2(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
+                                           smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
+
+        self._logger.debug('ShakerMaker._call_core_fast - core.subgreen returned: z_size'.format(len(z)))
 
         return tdata, z, e, n, t0

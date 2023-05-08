@@ -13,7 +13,7 @@ author = "Jose A. Abell, Jorge Crempien D., and Matias Recabarren",
 profile = False
 
 srcdir = "shakermaker/core/"
-ffiles = ["subgreen.f", "subfocal.f","subfk.f", "subtrav.f", "tau_p.f", "kernel.f", "prop.f", "source.f", "bessel.f", "haskell.f", "fft.c", "Complex.c"]
+ffiles = ["subgreen.f", "subgreen2.f", "subfocal.f","subfk.f", "subtrav.f", "tau_p.f", "kernel.f", "prop.f", "source.f", "bessel.f", "haskell.f", "fft.c", "Complex.c"]
 srcs = [srcdir+'core.pyf']
 for f in ffiles:
     srcs.append(srcdir+f)
