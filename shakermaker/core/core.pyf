@@ -42,6 +42,45 @@ python module core ! in
             real intent(out), depend(nfft), dimension(2*nfft) :: nn
             real intent(out), depend(nx), dimension(nx) :: t0
         end subroutine subgreen
+        subroutine subgreen2(mb,src,rcv,stype,updn,d,a,b,rho,qa,qb,dt,nfft,tb,nx,sigma,smth,wc1,wc2,pmin,pmax,dk,kc,taper,x,pf,df,lf,tdata,sx,sy,rx,ry,zz,ee,nn,t0) ! in :core:subgreen2.f
+            integer :: mb
+            integer :: src
+            integer :: rcv
+            integer :: stype
+            integer :: updn
+            real depend(mb), dimension(mb) :: d
+            real depend(mb), dimension(mb) :: a
+            real depend(mb), dimension(mb) :: b
+            real depend(mb), dimension(mb) :: rho
+            real depend(mb), dimension(mb) :: qa
+            real depend(mb), dimension(mb) :: qb
+            real :: dt
+            integer :: nfft
+            integer :: tb
+            integer :: nx
+            real :: sigma
+            integer :: smth
+            integer :: wc1
+            integer :: wc2
+            real :: pmin
+            real :: pmax
+            real :: dk
+            real :: kc
+            real :: taper
+            real depend(nx), dimension(nx) :: x
+            real :: pf
+            real :: df
+            real :: lf
+            real depend(nx), depend(nfft), dimension(nx,9,2*nfft) :: tdata
+            real :: sx
+            real :: sy
+            real :: rx
+            real :: ry
+            real intent(out), depend(nfft), dimension(2*nfft) :: zz
+            real intent(out), depend(nfft), dimension(2*nfft) :: ee
+            real intent(out), depend(nfft), dimension(2*nfft) :: nn
+            real intent(out), depend(nx), dimension(nx) :: t0
+        end subroutine subgreen2
     end interface 
 end python module core
 
