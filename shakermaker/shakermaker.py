@@ -362,8 +362,8 @@ class ShakerMaker:
 
     def run_fast(self, 
         tdata_database_name,
-        delta_h=0.02,
-        delta_v=0.001,
+        delta_h=0.04,
+        delta_v=0.002,
         dt=0.05, 
         nfft=4096, 
         tb=1000, 
@@ -421,7 +421,7 @@ class ShakerMaker:
         title = f"ShakerMaker Run Fase begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
         
         if rank==0:
-            print(f"Will write Green's functions database to : {tdata_database_name}")
+            print(f"Will get Green's functions database from : {tdata_database_name}")
         data_pairs = np.load(tdata_database_name, allow_pickle=True)
 
         dists= data_pairs["dists"]
@@ -511,13 +511,7 @@ class ShakerMaker:
 
                         # Get the target Green's Functions
                         ipair_target = 0
-                        
-                        # print(f"{dh_of_pairs=}")
-                        # print(f"{dh_of_pairs.shape=}")
-                        # print(f"{dv_of_pairs=}")
-                        # print(f"{dv_of_pairs.shape=}")
-                        # print(f"{zrec_of_pairs=}")
-                        # print(f"{zrec_of_pairs.shape=}")
+
                         for i in range(len(dh_of_pairs)):
                             dh_p, dv_p, zrec_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i]
                             if abs(dh - dh_p) < delta_h and \
@@ -680,28 +674,6 @@ class ShakerMaker:
                 all_min_perf_time_conv, op = MPI.MIN, root = 0)
             comm.Reduce(perf_time_add,
                 all_min_perf_time_add, op = MPI.MIN, root = 0)
-
-            # comm.Reduce([np.array([perf_time_core]), MPI.DOUBLE],
-            #     [all_max_perf_time_core, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_send]), MPI.DOUBLE],
-            #     [all_max_perf_time_send, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_recv]), MPI.DOUBLE],
-            #     [all_max_perf_time_recv, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_conv]), MPI.DOUBLE],
-            #     [all_max_perf_time_conv, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_add]), MPI.DOUBLE],
-            #     [all_max_perf_time_add, MPI.DOUBLE], op = MPI.MAX, root = 0)
-
-            # comm.Reduce([np.array([perf_time_core]), MPI.DOUBLE],
-            #     [all_min_perf_time_core, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_send]), MPI.DOUBLE],
-            #     [all_min_perf_time_send, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_recv]), MPI.DOUBLE],
-            #     [all_min_perf_time_recv, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_conv]), MPI.DOUBLE],
-            #     [all_min_perf_time_conv, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_add]), MPI.DOUBLE],
-            #     [all_min_perf_time_add, MPI.DOUBLE], op = MPI.MIN, root = 0)
 
             if rank == 0:
                 print("\n")
@@ -1315,12 +1287,12 @@ class ShakerMaker:
     def _call_core_fast(self, tdata, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station, verbose=False):
         mb = crust.nlayers
 
-        if verbose:
-            print("_call_core_fast")
-            # print(f"        psource = {psource}")
-            print(f"        psource.x = {psource.x}")
-            # print(f"        station = {station}")
-            print(f"        station.x = {station.x}")
+        # if verbose:
+        #     print("_call_core_fast")
+        #     # print(f"        psource = {psource}")
+        #     print(f"        psource.x = {psource.x}")
+        #     # print(f"        station = {station}")
+        #     print(f"        station.x = {station.x}")
 
         src = crust.get_layer(psource.x[2]) + 1   # fortran starts in 1, not 0
         rcv = crust.get_layer(station.x[2]) + 1   # fortran starts in 1, not 0
@@ -1362,8 +1334,8 @@ class ShakerMaker:
         # Execute the core subgreen fortran routing
         tdata_ = tdata[3].T
         tdata_ = tdata_.reshape((1, tdata_.shape[0], tdata_.shape[1]))
-        print(f"{tdata_=}")
-        print(f"{tdata_.shape=}")
+        # print(f"{tdata_=}")
+        # print(f"{tdata_.shape=}")
         z, e, n, t0 = core.subgreen2(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
                                            smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, tdata_, sx, sy, rx, ry)
 
