@@ -945,7 +945,8 @@ class ShakerMaker:
                         next_pair += 1
 
                         if showProgress:
-                            print(f"{ipair} of {npairs} done {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                            print(f"{ipair} of {npairs} done")# t[0]={t[0]:0.4f} t[-1]={t[-1]:0.4f} (tmin={tmin:0.4f}, tmax={tmax:0.4f})")
+
 
                 else: 
                     pass
@@ -1068,8 +1069,8 @@ class ShakerMaker:
         debugMPI=False,
         tmin=0.,
         tmax=100,
-        delta_h=0.02,
-        delta_v=0.001,
+        delta_h=0.04,
+        delta_v=0.002,
         showProgress=True,
         store_here=None,
         ):
@@ -1134,14 +1135,24 @@ class ShakerMaker:
 
         dists = np.zeros((npairs, 2))
 
-        pairs_to_compute = np.array([] ,dtype=np.int32)
-        dh_of_pairs = np.array([] ,dtype=np.double)
-        dv_of_pairs = np.array([] ,dtype=np.double)
-        zrec_of_pairs = np.array([] ,dtype=np.double)
+        # pairs_to_compute = np.array([] ,dtype=np.int32)
+        # pairs_to_compute = []
+        # dh_of_pairs = np.array([] ,dtype=np.double)
+        # dh_of_pairs = []
+        # dv_of_pairs = np.array([] ,dtype=np.double)
+        # dv_of_pairs = []
+        # zrec_of_pairs = np.array([] ,dtype=np.double)
+        # zrec_of_pairs = []
+        pairs_to_compute = np.empty((npairs, 2), dtype=np.int32)
+        dh_of_pairs = np.empty(npairs, dtype=np.double)
+        dv_of_pairs = np.empty(npairs, dtype=np.double)
+        zrec_of_pairs = np.empty(npairs, dtype=np.double)
+
+        # Initialize the counter for the number of computed pairs.
+        n_computed_pairs = 0
 
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
-                aux_crust = copy.deepcopy(self._crust)
 
                 x_src = psource.x
                 x_rec = station.x
@@ -1155,35 +1166,66 @@ class ShakerMaker:
 
                 dists[ipair,0] = dh
                 dists[ipair,1] = dv
-                if len(dh_of_pairs) == 0:
-                    pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
-                    dh_of_pairs = np.append(dh_of_pairs,dh)
-                    dv_of_pairs = np.append(dv_of_pairs,dv)
-                    zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
+                # if len(dh_of_pairs) == 0:
+                #     # pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
+                #     pairs_to_compute.append((i_station, i_psource))
+                #     # dh_of_pairs = np.append(dh_of_pairs,dh)
+                #     dh_of_pairs.append(dh)
+                #     # dv_of_pairs = np.append(dv_of_pairs,dv)
+                #     dv_of_pairs.append(dv)
+                #     # zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
+                #     zrec_of_pairs.append(z_rec)
 
 
-                for i in range(len(dh_of_pairs)):
-                    dh_p, dv_p, zrec_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i]
-                    if abs(dh - dh_p) < delta_h and \
-                        abs(dv - dv_p) < delta_v and \
-                        abs(z_rec - zrec_p) < delta_v:
-                        pass
-                    else:
-                        pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
-                        dh_of_pairs = np.append(dh_of_pairs,dh)
-                        dv_of_pairs = np.append(dv_of_pairs,dv)
-                        zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
+                # for i in range(len(dh_of_pairs)):
+                #     dh_p, dv_p, zrec_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i]
+                #     if abs(dh - dh_p) < delta_h and \
+                #         abs(dv - dv_p) < delta_v and \
+                #         abs(z_rec - zrec_p) < delta_v:
+                #         pass
+                #     else:
+                #         # pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
+                #         pairs_to_compute.append((i_station, i_psource))
+                #         # dh_of_pairs = np.append(dh_of_pairs,dh)
+                #         dh_of_pairs.append(dh)
+                #         # dv_of_pairs = np.append(dv_of_pairs,dv)
+                #         dv_of_pairs.append(dv)
+                #         # zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
+                #         zrec_of_pairs.append(z_rec)
+                condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
+                            (np.abs(dv - dv_of_pairs[:n_computed_pairs]) < delta_v) & \
+                            (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v)
 
-                if ipair % 1000 == 0:
-                    print(f"On {ipair=} of {npairs}")
+                if n_computed_pairs == 0 or not np.any(condition):
+                    pairs_to_compute[n_computed_pairs,:] = [i_station, i_psource]
+                    dh_of_pairs[n_computed_pairs] = dh
+                    dv_of_pairs[n_computed_pairs] = dv
+                    zrec_of_pairs[n_computed_pairs] = z_rec
+
+                    # print(f"Added GF # {n_computed_pairs} for {dh=} {dv=} {z_rec=} ")
+
+                    n_computed_pairs += 1
+
+                if ipair % 10000 == 0:
+                    print(f"On {ipair=} of {npairs} {n_computed_pairs=}")
 
                 ipair += 1
 
-            if verbose:
-                print(f'ShakerMaker.run - finished my station {i_station} -->  (rank={rank} ipair={ipair} next_pair={next_pair})')
-            self._logger.debug(f'ShakerMaker.run - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
+        # pairs_to_compute = np.array(pairs_to_compute)
+        # dh_of_pairs = np.array(dh_of_pairs)
+        # dv_of_pairs = np.array(dv_of_pairs)
+        # zrec_of_pairs = np.array(zrec_of_pairs)
+        # Slice the arrays to remove unused parts.
+        pairs_to_compute = pairs_to_compute[:n_computed_pairs,:]
+        dh_of_pairs = dh_of_pairs[:n_computed_pairs]
+        dv_of_pairs = dv_of_pairs[:n_computed_pairs]
+        zrec_of_pairs = zrec_of_pairs[:n_computed_pairs]
 
-        pairs_to_compute = pairs_to_compute.reshape((-1,2))
+        # pairs_to_compute = pairs_to_compute.reshape((-1,2))
+
+        print(f"Need only {n_computed_pairs} pairs of {npairs} ({n_computed_pairs/npairs*100}% reduction)")
+
+
 
         if store_here is not None:
             np.savez(store_here,
