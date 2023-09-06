@@ -691,8 +691,7 @@ class ShakerMaker:
 
 
     def run_create_greens_function_database(self, 
-        tdata_database_name,
-        pairs_database_name,
+        h5_database_name,
         dt=0.05, 
         nfft=4096, 
         tb=1000, 
@@ -751,15 +750,22 @@ class ShakerMaker:
         
 
         if rank==0:
-            print(f"Loading pairs-to-compute info from file: {pairs_database_name}")
-            print(f"Will write Green's functions database to : {tdata_database_name}")
-        data_pairs = np.load(pairs_database_name)
+            print(f"Loading pairs-to-compute info from HDF5 database: {h5_database_name}")
 
-        dists= data_pairs["dists"]
-        pairs_to_compute = data_pairs["pairs_to_compute"]
-        dh_of_pairs = data_pairs["dh_of_pairs"]
-        dv_of_pairs = data_pairs["dv_of_pairs"]
-        zrec_of_pairs= data_pairs["zrec_of_pairs"]
+        import h5py
+
+        if rank > 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r')
+        elif rank == 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r+')
+
+
+
+        dists= hfile["/dists"][:]
+        pairs_to_compute = hfile["/pairs_to_compute"][:]
+        dh_of_pairs = hfile["/dh_of_pairs"][:]
+        dv_of_pairs = hfile["/dv_of_pairs"][:]
+        zrec_of_pairs= hfile["/zrec_of_pairs"][:]
 
         npairs = len(dh_of_pairs)
 
@@ -928,18 +934,19 @@ class ShakerMaker:
                 print(f'ShakerMaker.run_create_greens_function_database - finished my station {i_station} -->  (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run_create_greens_function_database - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
-            if writer and rank == 0:
-                printMPI(f"Rank 0 is writing station {i_station}")
-                writer.write_station(station, i_station)
-                printMPI(f"Rank 0 is done writing station {i_station}")
 
         if rank == 0:
-            np.savez(tdata_database_name, tdata_dict=tdata_dict, 
-                dists=dists,
-                pairs_to_compute=pairs_to_compute,
-                dh_of_pairs=dh_of_pairs,
-                dv_of_pairs=dv_of_pairs,
-                zrec_of_pairs=zrec_of_pairs,)
+            # Create a group for tdata_dict
+            if "tdata_dict" in hfile:
+                print("Found TDATA group in the HFILE. Starting anew!")
+                del hfile["tdata_dict"]
+
+            tdata_group = hfile.create_group("tdata_dict")
+
+            # Store each key-value pair in tdata_dict as a dataset inside the group
+            for key, value in tdata_dict.items():
+                tdata_group[str(key)] = value
+
 
         fid_debug_mpi.close()
 
@@ -989,27 +996,6 @@ class ShakerMaker:
             comm.Reduce(perf_time_add,
                 all_min_perf_time_add, op = MPI.MIN, root = 0)
 
-            # comm.Reduce([np.array([perf_time_core]), MPI.DOUBLE],
-            #     [all_max_perf_time_core, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_send]), MPI.DOUBLE],
-            #     [all_max_perf_time_send, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_recv]), MPI.DOUBLE],
-            #     [all_max_perf_time_recv, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_conv]), MPI.DOUBLE],
-            #     [all_max_perf_time_conv, MPI.DOUBLE], op = MPI.MAX, root = 0)
-            # comm.Reduce([np.array([perf_time_add]), MPI.DOUBLE],
-            #     [all_max_perf_time_add, MPI.DOUBLE], op = MPI.MAX, root = 0)
-
-            # comm.Reduce([np.array([perf_time_core]), MPI.DOUBLE],
-            #     [all_min_perf_time_core, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_send]), MPI.DOUBLE],
-            #     [all_min_perf_time_send, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_recv]), MPI.DOUBLE],
-            #     [all_min_perf_time_recv, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_conv]), MPI.DOUBLE],
-            #     [all_min_perf_time_conv, MPI.DOUBLE], op = MPI.MIN, root = 0)
-            # comm.Reduce([np.array([perf_time_add]), MPI.DOUBLE],
-            #     [all_min_perf_time_add, MPI.DOUBLE], op = MPI.MIN, root = 0)
 
             if rank == 0:
                 print("\n")
@@ -1042,9 +1028,11 @@ class ShakerMaker:
         tmin=0.,
         tmax=100,
         delta_h=0.04,
-        delta_v=0.002,
+        delta_v_rec=0.002,
+        delta_v_src=0.2,
         showProgress=True,
         store_here=None,
+        npairs_max=100000,
         ):
         """Run the simulation. 
         
@@ -1086,6 +1074,7 @@ class ShakerMaker:
             print("\n\n")
             print(title)
             print("-"*len(title))
+            print(f"Using { delta_h= } { delta_v_rec = } { delta_v_src = }")
 
     
         self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
@@ -1094,12 +1083,6 @@ class ShakerMaker:
                                   self._source.nsources*self._receivers.nstations, dt, nfft))
 
         ipair = 0
-        if nprocs == 1 or rank == 0:
-            next_pair = rank
-            skip_pairs = 1
-        else :
-            next_pair = rank-1
-            skip_pairs = nprocs-1
 
         npairs = self._receivers.nstations*len(self._source._pslist)
 
@@ -1107,108 +1090,98 @@ class ShakerMaker:
 
         dists = np.zeros((npairs, 2))
 
-        # pairs_to_compute = np.array([] ,dtype=np.int32)
-        # pairs_to_compute = []
-        # dh_of_pairs = np.array([] ,dtype=np.double)
-        # dh_of_pairs = []
-        # dv_of_pairs = np.array([] ,dtype=np.double)
-        # dv_of_pairs = []
-        # zrec_of_pairs = np.array([] ,dtype=np.double)
-        # zrec_of_pairs = []
-        pairs_to_compute = np.empty((npairs, 2), dtype=np.int32)
-        dh_of_pairs = np.empty(npairs, dtype=np.double)
-        dv_of_pairs = np.empty(npairs, dtype=np.double)
-        zrec_of_pairs = np.empty(npairs, dtype=np.double)
+        pairs_to_compute = np.empty((npairs_max, 2), dtype=np.int32)
+        dd_of_pairs = np.empty(npairs_max, dtype=np.double)
+        dh_of_pairs = np.empty(npairs_max, dtype=np.double)
+        dv_of_pairs = np.empty(npairs_max, dtype=np.double)
+        zrec_of_pairs = np.empty(npairs_max, dtype=np.double)
+        zsrc_of_pairs = np.empty(npairs_max, dtype=np.double)
 
         # Initialize the counter for the number of computed pairs.
         n_computed_pairs = 0
 
+        def lor(a,b,c):
+            return np.logical_or(a,np.logical_or(b,c))
+
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
+
+
+                if n_computed_pairs >= npairs_max:
+                    print("Exceeded number of pairs!!")
+                    exit(0)
+
+                t1 = perf_counter()
 
                 x_src = psource.x
                 x_rec = station.x
                 
                 z_rec = station.x[2]
+                z_src = psource.x[2]
 
                 d = x_rec - x_src
 
-                dh = np.sqrt(np.dot(d[0:2],d[0:2]))
+                dd = np.linalg.norm(d)
+                dh = np.linalg.norm(d[0:2])
                 dv = np.abs(d[2])
 
                 dists[ipair,0] = dh
                 dists[ipair,1] = dv
-                # if len(dh_of_pairs) == 0:
-                #     # pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
-                #     pairs_to_compute.append((i_station, i_psource))
-                #     # dh_of_pairs = np.append(dh_of_pairs,dh)
-                #     dh_of_pairs.append(dh)
-                #     # dv_of_pairs = np.append(dv_of_pairs,dv)
-                #     dv_of_pairs.append(dv)
-                #     # zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
-                #     zrec_of_pairs.append(z_rec)
+               
+                condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
+                                np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
 
+                # condition = (np.abs(dd - dd_of_pairs[:n_computed_pairs]) < delta_h) & \
+                            # (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) 
+                # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
+                #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v_src) &\
+                #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v_rec) 
+                # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
+                #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) & \
+                #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v)
+                            # (np.abs(dv - dv_of_pairs[:n_computed_pairs]) < delta_v) & \
 
-                # for i in range(len(dh_of_pairs)):
-                #     dh_p, dv_p, zrec_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i]
-                #     if abs(dh - dh_p) < delta_h and \
-                #         abs(dv - dv_p) < delta_v and \
-                #         abs(z_rec - zrec_p) < delta_v:
-                #         pass
-                #     else:
-                #         # pairs_to_compute = np.append(pairs_to_compute,(i_station, i_psource))
-                #         pairs_to_compute.append((i_station, i_psource))
-                #         # dh_of_pairs = np.append(dh_of_pairs,dh)
-                #         dh_of_pairs.append(dh)
-                #         # dv_of_pairs = np.append(dv_of_pairs,dv)
-                #         dv_of_pairs.append(dv)
-                #         # zrec_of_pairs = np.append(zrec_of_pairs,z_rec)
-                #         zrec_of_pairs.append(z_rec)
-                condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
-                            (np.abs(dv - dv_of_pairs[:n_computed_pairs]) < delta_v) & \
-                            (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v)
-
-                if n_computed_pairs == 0 or not np.any(condition):
+                if n_computed_pairs == 0 or np.all(condition):
                     pairs_to_compute[n_computed_pairs,:] = [i_station, i_psource]
+                    dd_of_pairs[n_computed_pairs] = dd
                     dh_of_pairs[n_computed_pairs] = dh
                     dv_of_pairs[n_computed_pairs] = dv
                     zrec_of_pairs[n_computed_pairs] = z_rec
-
-                    # print(f"Added GF # {n_computed_pairs} for {dh=} {dv=} {z_rec=} ")
+                    zsrc_of_pairs[n_computed_pairs] = z_src
 
                     n_computed_pairs += 1
+                t2 = perf_counter()
 
                 if ipair % 10000 == 0:
-                    print(f"On {ipair=} of {npairs} {n_computed_pairs=}")
+                    ETA = (t2-t1)*(npairs-ipair)/3600.
+                    print(f"On {ipair=} of {npairs} {n_computed_pairs=} ({n_computed_pairs/npairs*100}% reduction) {ETA=}h")
 
                 ipair += 1
+     
 
-        # pairs_to_compute = np.array(pairs_to_compute)
-        # dh_of_pairs = np.array(dh_of_pairs)
-        # dv_of_pairs = np.array(dv_of_pairs)
-        # zrec_of_pairs = np.array(zrec_of_pairs)
-        # Slice the arrays to remove unused parts.
         pairs_to_compute = pairs_to_compute[:n_computed_pairs,:]
+        dd_of_pairs = dd_of_pairs[:n_computed_pairs]
         dh_of_pairs = dh_of_pairs[:n_computed_pairs]
         dv_of_pairs = dv_of_pairs[:n_computed_pairs]
         zrec_of_pairs = zrec_of_pairs[:n_computed_pairs]
-
-        # pairs_to_compute = pairs_to_compute.reshape((-1,2))
+        zsrc_of_pairs = zsrc_of_pairs[:n_computed_pairs]
 
         print(f"Need only {n_computed_pairs} pairs of {npairs} ({n_computed_pairs/npairs*100}% reduction)")
 
-
-
         if store_here is not None:
-            np.savez(store_here,
-                dists=dists,
-                pairs_to_compute=pairs_to_compute,
-                dh_of_pairs=dh_of_pairs,
-                dv_of_pairs=dv_of_pairs,
-                zrec_of_pairs=zrec_of_pairs,
-            )
+            import h5py
+            with h5py.File(store_here + '.h5', 'w') as hf:
+                hf.create_dataset("dists", data=dists)
+                hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
+                hf.create_dataset("dd_of_pairs", data=dd_of_pairs)
+                hf.create_dataset("dh_of_pairs", data=dh_of_pairs)
+                hf.create_dataset("dv_of_pairs", data=dv_of_pairs)
+                hf.create_dataset("zrec_of_pairs", data=zrec_of_pairs)
+                hf.create_dataset("zsrc_of_pairs", data=zsrc_of_pairs)
 
-            return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs
+
+        return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs, zrec_of_pairs
 
     def write(self, writer):
         writer.write(self._receivers)
