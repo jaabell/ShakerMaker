@@ -945,7 +945,10 @@ class ShakerMaker:
 
             # Store each key-value pair in tdata_dict as a dataset inside the group
             for key, value in tdata_dict.items():
-                tdata_group[str(key)] = value
+                # tdata_group[str(key)] = value
+                t0, i_station, i_psource, tdata, dh, dz, z_rec = value
+                tdata_group[str(key)+"_t0"] = t0
+                tdata_group[str(key)+"_tdata"] = tdata
 
 
         fid_debug_mpi.close()
@@ -1004,7 +1007,7 @@ class ShakerMaker:
                 print(f"time_send     :  max: {all_max_perf_time_send[0]} ({all_max_perf_time_send[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send[0]} ({all_min_perf_time_send[0]/perf_time_total*100:0.3f}%)")
                 print(f"time_recv     :  max: {all_max_perf_time_recv[0]} ({all_max_perf_time_recv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv[0]} ({all_min_perf_time_recv[0]/perf_time_total*100:0.3f}%)")
                 print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
-        print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
 
 
 
