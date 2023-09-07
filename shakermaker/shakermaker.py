@@ -632,7 +632,10 @@ class ShakerMaker:
                             progress_percent = ipair/npairs*100
                             tnow = perf_counter()
 
-                            time_per_pair = (tnow - tstart)/ipair
+                            if ipair > 0:
+                                time_per_pair = (tnow - tstart)/ipair
+                            else:
+                                time_per_pair = 30
                             time_left = (npairs - ipair)*time_per_pair
 
                             hh = floor(time_left / 3600)
