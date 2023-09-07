@@ -529,7 +529,9 @@ class ShakerMaker:
                             print("Target not found in database")
 
                         # tdata = tdata_dict[ipair_target]
-                        tdata = hfile["/tdata_dict/"+str(ipair_target)+"_tdata"][:]
+                        ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
+                        print(f"Looking in database for {ipair_string}")
+                        tdata = hfile[ipair_string][:]
 
                         if verbose:
                             print("calling core START")
