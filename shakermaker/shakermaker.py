@@ -192,7 +192,7 @@ class ShakerMaker:
                         dd = psource.x - station.x
                         dh = np.sqrt(dd[0]**2 + dd[1]**2)
                         dz = np.abs(dd[2])
-                        print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
+                        # print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
 
 
                         t1 = perf_counter()
@@ -560,7 +560,7 @@ class ShakerMaker:
                         dd = psource.x - station.x
                         dh = np.sqrt(dd[0]**2 + dd[1]**2)
                         dz = np.abs(dd[2])
-                        print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
+                        # print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
 
 
                         t1 = perf_counter()
