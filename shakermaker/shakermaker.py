@@ -488,6 +488,8 @@ class ShakerMaker:
             next_pair = rank-1
             skip_pairs = nprocs-1
 
+        tstart = perf_counter()
+
         npairs = self._receivers.nstations*len(self._source._pslist)
         npairs_skip  = 0
         for i_station, station in enumerate(self._receivers):
@@ -627,7 +629,17 @@ class ShakerMaker:
                                 comm.Abort()
 
                         if showProgress:
-                            print(f"{ipair} of {npairs} done {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                            progress_percent = ipair/npairs*100
+                            tnow = perf_counter()
+
+                            time_per_pair = (tnow - tstart)/ipair
+                            time_left = (npairs - ipair)*time_per_pair
+
+                            hh = floor(time_left / 3600)
+                            mm = floor((time_left - hh*3600)/60)
+                            ss = time_left - mm*60 - hh*3600
+
+                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh}:{mm}:{ss} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 else: 
                     pass
@@ -872,7 +884,7 @@ class ShakerMaker:
                         dh = np.sqrt(dd[0]**2 + dd[1]**2)
                         dz = np.abs(dd[2])
                         z_rec = station.x[2]
-                        print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
+                        # print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
 
 
                         t1 = perf_counter()
