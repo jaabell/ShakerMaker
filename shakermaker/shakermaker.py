@@ -543,7 +543,7 @@ class ShakerMaker:
 
                         # tdata = tdata_dict[ipair_target]
                         ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
-                        print(f"Looking in database for {ipair_string}")
+                        # print(f"Looking in database for {ipair_string}")
                         tdata = hfile[ipair_string][:]
 
                         if verbose:
