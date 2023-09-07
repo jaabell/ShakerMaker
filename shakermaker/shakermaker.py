@@ -1326,8 +1326,8 @@ class ShakerMaker:
                            wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
 
         # Execute the core subgreen fortran routing
-        print(f"{tdata=}")
-        print(f"{tdata.shape=}")
+        # print(f"{tdata=}")
+        # print(f"{tdata.shape=}")
         tdata_ = tdata.T
         tdata_ = tdata_.reshape((1, tdata_.shape[0], tdata_.shape[1]))
         z, e, n, t0 = core.subgreen2(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
