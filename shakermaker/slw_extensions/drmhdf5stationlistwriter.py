@@ -140,9 +140,17 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
             ve = interpolatorfun(t,ee,t_final)
             vn = interpolatorfun(t,nn,t_final)
             vz = interpolatorfun(t,zz,t_final)
-            ae = np.gradient(ve, t_final)
-            an = np.gradient(vn, t_final)
-            az = np.gradient(vz, t_final)
+            dt = t_final[1] - t_final[0]
+            Nt = len(ve)
+            ae = np.zeros(Nt)
+            ae[1:] = (ve[1:] - ve[0:-1])/dt
+            an = np.zeros(Nt)
+            an[1:] = (vn[1:] - vn[0:-1])/dt
+            az = np.zeros(Nt)
+            az[1:] = (vz[1:] - vz[0:-1])/dt
+            # ae = np.gradient(ve, t_final)
+            # an = np.gradient(vn, t_final)
+            # az = np.gradient(vz, t_final)
             de = cumulative_trapezoid(ve, t_final, initial=0.)
             dn = cumulative_trapezoid(vn, t_final, initial=0.)
             dz = cumulative_trapezoid(vz, t_final, initial=0.)

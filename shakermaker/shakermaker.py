@@ -361,7 +361,7 @@ class ShakerMaker:
 
 
     def run_fast(self, 
-        tdata_database_name,
+        h5_database_name,
         delta_h=0.04,
         delta_v=0.002,
         dt=0.05, 
@@ -420,20 +420,24 @@ class ShakerMaker:
         """
         title = f"ShakerMaker Run Fase begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
         
+
         if rank==0:
-            print(f"Will get Green's functions database from : {tdata_database_name}")
-        data_pairs = np.load(tdata_database_name, allow_pickle=True)
+            print(f"Loading pairs-to-compute info from HDF5 database: {h5_database_name}")
 
-        dists= data_pairs["dists"]
-        pairs_to_compute = data_pairs["pairs_to_compute"]
-        dh_of_pairs = data_pairs["dh_of_pairs"]
-        dv_of_pairs = data_pairs["dv_of_pairs"]
-        zrec_of_pairs= data_pairs["zrec_of_pairs"]
+        import h5py
 
-        npairs = len(dh_of_pairs)
+        if rank > 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r')
+        elif rank == 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r+')
 
-        # tdata_dict = np.load(tdata_database_name)[0][()]
-        tdata_dict = data_pairs["tdata_dict"][()]  #Database with all green's functions
+
+
+        dists= hfile["/dists"][:]
+        pairs_to_compute = hfile["/pairs_to_compute"][:]
+        dh_of_pairs = hfile["/dh_of_pairs"][:]
+        dv_of_pairs = hfile["/dv_of_pairs"][:]
+        zrec_of_pairs= hfile["/zrec_of_pairs"][:]
 
 
         if rank == 0:
@@ -524,7 +528,8 @@ class ShakerMaker:
                         if ipair_target == len(dh_of_pairs):
                             print("Target not found in database")
 
-                        tdata = tdata_dict[ipair_target]
+                        # tdata = tdata_dict[ipair_target]
+                        tdata = hfile[str(ipair_target)+"_tdata"][:]
 
                         if verbose:
                             print("calling core START")
