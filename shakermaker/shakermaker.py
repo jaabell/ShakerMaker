@@ -363,7 +363,8 @@ class ShakerMaker:
     def run_fast(self, 
         h5_database_name,
         delta_h=0.04,
-        delta_v=0.002,
+        delta_v_rec=0.002,
+        delta_v_src=0.2,
         dt=0.05, 
         nfft=4096, 
         tb=1000, 
@@ -438,6 +439,7 @@ class ShakerMaker:
         dh_of_pairs = hfile["/dh_of_pairs"][:]
         dv_of_pairs = hfile["/dv_of_pairs"][:]
         zrec_of_pairs= hfile["/zrec_of_pairs"][:]
+        zsrc_of_pairs= hfile["/zsrc_of_pairs"][:]
 
 
         if rank == 0:
@@ -487,7 +489,7 @@ class ShakerMaker:
             skip_pairs = nprocs-1
 
         npairs = self._receivers.nstations*len(self._source._pslist)
-
+        npairs_skip  = 0
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
                 aux_crust = copy.deepcopy(self._crust)
@@ -504,6 +506,7 @@ class ShakerMaker:
                         x_src = psource.x
                         x_rec = station.x
                     
+                        z_src = psource.x[2]
                         z_rec = station.x[2]
 
                         d = x_rec - x_src
@@ -515,18 +518,26 @@ class ShakerMaker:
 
                         # Get the target Green's Functions
                         ipair_target = 0
-
+                        # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
+                                        # np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                        # np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
                         for i in range(len(dh_of_pairs)):
-                            dh_p, dv_p, zrec_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i]
+                            dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
                             if abs(dh - dh_p) < delta_h and \
-                                abs(dv - dv_p) < delta_v and \
-                                abs(z_rec - zrec_p) < delta_v:
+                                abs(z_src - zsrc_p) < delta_v_src and \
+                                abs(z_rec - zrec_p) < delta_v_rec:
                                 break
                             else:
                                 ipair_target += 1
 
                         if ipair_target == len(dh_of_pairs):
-                            print("Target not found in database")
+                            print("Target not found in database -- SKIPPING")
+                            npairs_skip += 1
+                            if npairs_skip > 500:
+                                print(f"Rank {rank} skipped too many pairs, giving up!")
+                                break
+                            else:
+                                continue
 
                         # tdata = tdata_dict[ipair_target]
                         ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
