@@ -69,10 +69,18 @@ def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differe
         elif differentiate > 0 and integrate == 0:
             # z,e,n,t = station.get_response_derivative(ntimes=differentiate)
             # z,e,n,t = station.get_response_derivative(ntimes=differentiate)
-            z,e,n,t = station.get_response()
-            z = np.gradient(z, t)
-            e = np.gradient(e, t)
-            n = np.gradient(n, t)
+            z_,e_,n_,t = station.get_response()
+            #z = np.gradient(z, t)
+            Nt = len(t)
+            dt = t[1] - t[0]
+            z = np.zeros(Nt)
+            z[1:] = (z_[1:] - z_[0:-1])/dt
+            #e = np.gradient(e, t)
+            e = np.zeros(Nt)
+            e[1:] = (e_[1:] - e_[0:-1])/dt
+            #n = np.gradient(n, t)
+            n = np.zeros(Nt)
+            n[1:] = (n_[1:] - n_[0:-1])/dt
         else:
             print(f"Not allowed to pass integrate={integrate} and differentiate={differentiate} simultaneously. ")
             return 0

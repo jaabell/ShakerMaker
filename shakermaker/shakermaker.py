@@ -632,17 +632,15 @@ class ShakerMaker:
                             progress_percent = ipair/npairs*100
                             tnow = perf_counter()
 
-                            if ipair > 0:
-                                time_per_pair = (tnow - tstart)/ipair
-                            else:
-                                time_per_pair = 30
-                            time_left = (npairs - ipair)*time_per_pair
+                            time_per_pair = (tnow - tstart)/(ipair+1)
+
+                            time_left = (npairs - ipair - 1)*time_per_pair
 
                             hh = np.floor(time_left / 3600)
                             mm = np.floor((time_left - hh*3600)/60)
                             ss = time_left - mm*60 - hh*3600
 
-                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh}:{mm}:{ss} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:0f}:{ss} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 else: 
                     pass
