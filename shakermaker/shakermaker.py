@@ -515,8 +515,8 @@ class ShakerMaker:
                         dh = np.sqrt(np.dot(d[0:2],d[0:2]))
                         dv = np.abs(d[2])
 
-                        dists[ipair,0] = dh
-                        dists[ipair,1] = dv
+                        # dists[ipair,0] = dh
+                        # dists[ipair,1] = dv
 
                         # Get the target Green's Functions
                         ipair_target = 0
@@ -1122,7 +1122,7 @@ class ShakerMaker:
 
         print(f"{npairs=}")
 
-        dists = np.zeros((npairs, 2))
+        # dists = np.zeros((npairs, 2))
 
         pairs_to_compute = np.empty((npairs_max, 2), dtype=np.int32)
         dd_of_pairs = np.empty(npairs_max, dtype=np.double)
@@ -1159,8 +1159,8 @@ class ShakerMaker:
                 dh = np.linalg.norm(d[0:2])
                 dv = np.abs(d[2])
 
-                dists[ipair,0] = dh
-                dists[ipair,1] = dv
+                # dists[ipair,0] = dh
+                # dists[ipair,1] = dv
                
                 condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
                                 np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
@@ -1215,7 +1215,8 @@ class ShakerMaker:
                 hf.create_dataset("zsrc_of_pairs", data=zsrc_of_pairs)
 
 
-        return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs, zrec_of_pairs
+        # return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs, zrec_of_pairs
+        return 
 
     def write(self, writer):
         writer.write(self._receivers)
