@@ -434,7 +434,7 @@ class ShakerMaker:
 
 
 
-        dists= hfile["/dists"][:]
+        # dists= hfile["/dists"][:]
         pairs_to_compute = hfile["/pairs_to_compute"][:]
         dh_of_pairs = hfile["/dh_of_pairs"][:]
         dv_of_pairs = hfile["/dv_of_pairs"][:]
@@ -792,7 +792,7 @@ class ShakerMaker:
 
 
 
-        dists= hfile["/dists"][:]
+        # dists= hfile["/dists"][:]
         pairs_to_compute = hfile["/pairs_to_compute"][:]
         dh_of_pairs = hfile["/dh_of_pairs"][:]
         dv_of_pairs = hfile["/dv_of_pairs"][:]
@@ -1206,7 +1206,7 @@ class ShakerMaker:
         if store_here is not None:
             import h5py
             with h5py.File(store_here + '.h5', 'w') as hf:
-                hf.create_dataset("dists", data=dists)
+                # hf.create_dataset("dists", data=dists)
                 hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
                 hf.create_dataset("dd_of_pairs", data=dd_of_pairs)
                 hf.create_dataset("dh_of_pairs", data=dh_of_pairs)
