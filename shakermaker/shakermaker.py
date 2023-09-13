@@ -640,7 +640,7 @@ class ShakerMaker:
                             mm = np.floor((time_left - hh*3600)/60)
                             ss = time_left - mm*60 - hh*3600
 
-                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:0f}:{ss} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 else: 
                     pass
@@ -715,6 +715,359 @@ class ShakerMaker:
                 print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
                 print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
 
+
+
+    def run_faster(self, 
+        h5_database_name,
+        delta_h=0.04,
+        delta_v_rec=0.002,
+        delta_v_src=0.2,
+        dt=0.05, 
+        nfft=4096, 
+        tb=1000, 
+        smth=1, 
+        sigma=2, 
+        taper=0.9, 
+        wc1=1, 
+        wc2=2, 
+        pmin=0, 
+        pmax=1, 
+        dk=0.3,
+        nx=1, 
+        kc=15.0, 
+        writer=None,
+        verbose=False,
+        debugMPI=False,
+        tmin=0.,
+        tmax=100,
+        showProgress=True
+        ):
+        """Run the simulation. 
+        
+        Arguments:
+        :param sigma: Its role is to damp the trace (at rate of exp(-sigma*t)) to reduce the wrap-arround.
+        :type sigma: double
+        :param nfft: Number of time-points to use in fft
+        :type nfft: integer
+        :param dt: Simulation time-step
+        :type dt: double
+        :param tb: Num. of samples before the first arrival.
+        :type tb: integer
+        :param taper: For low-pass filter, 0-1. 
+        :type taper: double
+        :param smth: Densify the output samples by a factor of smth
+        :type smth: double
+        :param wc1: (George.. please provide one-line description!)
+        :type wc1: double
+        :param wc2: (George.. please provide one-line description!)
+        :type wc2: double
+        :param pmin: Max. phase velocity, in 1/vs, 0 the best.
+        :type pmin: double
+        :param pmax: Min. phase velocity, in 1/vs.
+        :type pmax: double
+        :param dk: Sample interval in wavenumber, in Pi/x, 0.1-0.4.
+        :type dk: double
+        :param nx: Number of distance ranges to compute.
+        :type nx: integer
+        :param kc: It's kmax, equal to 1/hs. Because the kernels decay with k at rate of exp(-k*hs) at w=0, we require kmax > 10 to make sure we have have summed enough.
+        :type kc: double
+        :param writer: Use this writer class to store outputs
+        :type writer: StationListWriter
+        
+
+        """
+        title = f"ShakerMaker Run Fase begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
+        
+
+        if rank==0:
+            print(f"Loading pairs-to-compute info from HDF5 database: {h5_database_name}")
+
+        import h5py
+
+        if rank > 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r')
+        elif rank == 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r+')
+
+
+
+        # dists= hfile["/dists"][:]
+        pairs_to_compute = hfile["/pairs_to_compute"][:]
+        dh_of_pairs = hfile["/dh_of_pairs"][:]
+        dv_of_pairs = hfile["/dv_of_pairs"][:]
+        zrec_of_pairs= hfile["/zrec_of_pairs"][:]
+        zsrc_of_pairs= hfile["/zsrc_of_pairs"][:]
+
+
+        if rank == 0:
+            print("\n\n")
+            print(title)
+            print("-"*len(title))
+
+        #Initialize performance counters
+        perf_time_begin = perf_counter()
+
+        perf_time_core = np.zeros(1,dtype=np.double)
+        perf_time_send = np.zeros(1,dtype=np.double)
+        perf_time_recv = np.zeros(1,dtype=np.double)
+        perf_time_conv = np.zeros(1,dtype=np.double)
+        perf_time_add = np.zeros(1,dtype=np.double)
+
+        if debugMPI:
+            # printMPI = lambda *args : print(*args)
+            fid_debug_mpi = open(f"rank_{rank}.debuginfo","w")
+            def printMPI(*args):
+                fid_debug_mpi.write(*args)
+                fid_debug_mpi.write("\n")
+
+        else:
+            import os
+            fid_debug_mpi = open(os.devnull,"w")
+            printMPI = lambda *args : None
+
+        self._logger.info('ShakerMaker.run - starting\n\tNumber of sources: {}\n\tNumber of receivers: {}\n'
+                          '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
+                          .format(self._source.nsources, self._receivers.nstations,
+                                  self._source.nsources*self._receivers.nstations, dt, nfft))
+        if rank > 0:
+            writer = None
+
+        if writer and rank == 0:
+            assert isinstance(writer, StationListWriter), \
+                "'writer' must be an instance of the shakermaker.StationListWriter class or None"
+            writer.initialize(self._receivers, 2*nfft)
+            writer.write_metadata(self._receivers.metadata)
+
+
+        i_my_current_station = 0
+        if nprocs == 1 or rank == 0:
+            next_station = rank
+            skip_stations = 1
+        else :
+            next_station = rank
+            skip_stations = nprocs
+
+        tstart = perf_counter()
+
+        #Stage one! Compute each station at each processor, no comm.
+        npairs = self._receivers.nstations*len(self._source._pslist)
+        npairs_skip  = 0
+        ipair = 0
+        for i_station, station in enumerate(self._receivers):
+            for i_psource, psource in enumerate(self._source):
+                aux_crust = copy.deepcopy(self._crust)
+
+                aux_crust.split_at_depth(psource.x[2])
+                aux_crust.split_at_depth(station.x[2])
+
+                if i_station == next_station:
+                    if verbose:
+                        print(f"{rank=} {nprocs=} {i_station=} {skip_stations=} {npairs=} !!")
+                    if True:  #All processors do this always all the time... 
+                        x_src = psource.x
+                        x_rec = station.x
+                    
+                        z_src = psource.x[2]
+                        z_rec = station.x[2]
+
+                        d = x_rec - x_src
+                        dh = np.sqrt(np.dot(d[0:2],d[0:2]))
+                        dv = np.abs(d[2])
+
+                        # dists[ipair,0] = dh
+                        # dists[ipair,1] = dv
+
+                        # Get the target Green's Functions
+                        ipair_target = 0
+                        # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
+                                        # np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                        # np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+                        for i in range(len(dh_of_pairs)):
+                            dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
+                            if abs(dh - dh_p) < delta_h and \
+                                abs(z_src - zsrc_p) < delta_v_src and \
+                                abs(z_rec - zrec_p) < delta_v_rec:
+                                break
+                            else:
+                                ipair_target += 1
+
+                        if ipair_target == len(dh_of_pairs):
+                            print("Target not found in database -- SKIPPING")
+                            npairs_skip += 1
+                            if npairs_skip > 500:
+                                print(f"Rank {rank} skipped too many pairs, giving up!")
+                                break
+                            else:
+                                continue
+
+                        # tdata = tdata_dict[ipair_target]
+                        ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
+                        # print(f"Looking in database for {ipair_string}")
+                        tdata = hfile[ipair_string][:]
+
+                        if verbose:
+                            print("calling core FASTER START")
+                        t1 = perf_counter()
+                        z, e, n, t0 = self._call_core_fast(tdata, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
+                                                             taper, aux_crust, psource, station, verbose)
+                        t2 = perf_counter()
+                        perf_time_core += t2 - t1
+                        if verbose:
+                            print("calling core FASTER END")
+
+                        t1 = perf_counter()
+                        t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
+                        psource.stf.dt = dt
+
+                        z_stf = psource.stf.convolve(z, t)
+                        e_stf = psource.stf.convolve(e, t)
+                        n_stf = psource.stf.convolve(n, t)
+                        t2 = perf_counter()
+                        perf_time_conv += t2 - t1
+
+                        try:
+                            t1 = perf_counter()
+                            station.add_to_response(z_stf, e_stf, n_stf, t, tmin, tmax)
+                            t2 = perf_counter()
+                            perf_time_add += t2 - t1
+                        except:
+                            traceback.print_exc()
+
+                            if use_mpi and nprocs > 1:
+                                comm.Abort()
+
+                        if showProgress and rank==0:
+                            progress_percent = ipair/npairs*100
+                            tnow = perf_counter()
+
+                            time_per_pair = (tnow - tstart)/(ipair+1)
+
+                            time_left = (npairs - ipair - 1)*time_per_pair
+
+                            hh = np.floor(time_left / 3600)
+                            mm = np.floor((time_left - hh*3600)/60)
+                            ss = time_left - mm*60 - hh*3600
+
+                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+
+                else: 
+                    pass
+                ipair += 1
+            if verbose:
+                print(f'ShakerMaker.run - finished my station {i_station} -->  ({rank=} {ipair=} {next_station=})')
+            self._logger.debug(f'ShakerMaker.run - finished station {i_station} ({rank=} {ipair=} {next_station=})')
+
+            next_station += next_station
+
+        if rank > 0:
+            for i_station, station in enumerate(self._receivers):
+                z,e,n,t = station.get_response()
+
+                #send to P0
+                t1 = perf_counter()
+                ant = np.array([len(z)], dtype=np.int32).copy()
+                printMPI(f"Rank {rank} sending to P0 1")
+                comm.Send(ant, dest=0, tag=2*i_station)
+                data = np.empty((len(z),4), dtype=np.float64)
+                printMPI(f"Rank {rank} done sending to P0 1")
+                data[:,0] = z
+                data[:,1] = e
+                data[:,2] = n
+                data[:,3] = t
+                printMPI(f"Rank {rank} sending to P0 2 ")
+                comm.Send(data, dest=0, tag=2*i_station+1)
+                printMPI(f"Rank {rank} done sending to P0 2")
+                t2 = perf_counter()
+                perf_time_send += t2 - t1
+
+        if rank == 0:
+            for i_station, station in enumerate(self._receivers):
+                #get from remote
+                t1 = perf_counter()
+                ant = np.empty(1, dtype=np.int32)
+                printMPI(f"P0 getting from remote {i_station} 1")
+                comm.Recv(ant, source=i_station, tag=2*i_station)
+                printMPI(f"P0 done getting from remote {i_station} 1")
+                nt = ant[0]
+                data = np.empty((nt,4), dtype=np.float64)
+                printMPI(f"P0 getting from remote {i_station} 2")
+                comm.Recv(data, source=i_station, tag=2*i_station+1)
+                printMPI(f"P0 done getting from remote {i_station} 2")
+                z = data[:,0]
+                e = data[:,1]
+                n = data[:,2]
+                t = data[:,3]
+
+                t2 = perf_counter()
+                perf_time_recv += t2 - t1
+
+                station.add_to_response(z, e, n, t, tmin, tmax)
+
+                if writer:
+                    printMPI(f"Rank 0 is writing station {i_station}")
+                    writer.write_station(station, i_station)
+                    printMPI(f"Rank 0 is done writing station {i_station}")
+
+        if writer and rank == 0:
+            writer.close()
+
+
+        fid_debug_mpi.close()
+
+        perf_time_end = perf_counter()
+
+        if rank == 0 and use_mpi:
+            perf_time_total = perf_time_end - perf_time_begin
+
+            print("\n\n")
+            print(f"ShakerMaker Run done. Total time: {perf_time_total} s")
+            print("------------------------------------------------")
+
+        if use_mpi and nprocs > 1:
+            all_max_perf_time_core = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_send = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_recv = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_conv = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_add = np.array([-np.infty],dtype=np.double)
+
+            all_min_perf_time_core = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_send = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_recv = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_conv = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_add = np.array([np.infty],dtype=np.double)
+
+            # Gather statistics from all processes
+
+            comm.Reduce(perf_time_core,
+                all_max_perf_time_core, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_send,
+                all_max_perf_time_send, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_recv,
+                all_max_perf_time_recv, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_conv,
+                all_max_perf_time_conv, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_add,
+                all_max_perf_time_add, op = MPI.MAX, root = 0)
+
+            comm.Reduce(perf_time_core,
+                all_min_perf_time_core, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_send,
+                all_min_perf_time_send, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_recv,
+                all_min_perf_time_recv, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_conv,
+                all_min_perf_time_conv, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_add,
+                all_min_perf_time_add, op = MPI.MIN, root = 0)
+
+            if rank == 0:
+                print("\n")
+                print("Performance statistics for all processes")
+                print(f"time_core     :  max: {all_max_perf_time_core[0]} ({all_max_perf_time_core[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core[0]} ({all_min_perf_time_core[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_send     :  max: {all_max_perf_time_send[0]} ({all_max_perf_time_send[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send[0]} ({all_min_perf_time_send[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_recv     :  max: {all_max_perf_time_recv[0]} ({all_max_perf_time_recv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv[0]} ({all_min_perf_time_recv[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
 
 
 
