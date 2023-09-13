@@ -866,7 +866,7 @@ class ShakerMaker:
                 if i_station == next_station:
 
                     if not started:
-                        print(f"Rank {rank} of {nprocs} starting at station {i_station}")
+                        print(f"    ! RANK {rank} of {nprocs} starting at station {i_station}")
                         started = True
 
 
@@ -954,7 +954,7 @@ class ShakerMaker:
                             ss = time_left - mm*60 - hh*3600
 
                             if i_psource % 1000 == 0:
-                                print(f"   RANK {rank} Station {i_station} progress: {i_psource} of {nsources} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
+                                print(f"   ! RANK {rank} Station {i_station} progress: {i_psource} of {nsources} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
                 else:  #if i_station == next_station:
                     pass
                 ipair += 1
@@ -975,7 +975,7 @@ class ShakerMaker:
                 mm = np.floor((time_left - hh*3600)/60)
                 ss = time_left - mm*60 - hh*3600
 
-                print(f"{rank=} at {i_station=} of {nstations} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                print(f"{rank=} at {i_station=} of {nstations} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:03.1f}")# {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 next_station += skip_stations
         
