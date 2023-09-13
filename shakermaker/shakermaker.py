@@ -985,7 +985,7 @@ class ShakerMaker:
 
                 print(f"{rank=} at {i_station=} of {nstations_thisrank} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
-            next_station += next_station
+            next_station += skip_stations
 
         if rank > 0:
             print(f"     Rank {rank} sending to P0")
