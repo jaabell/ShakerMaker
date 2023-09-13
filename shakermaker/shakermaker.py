@@ -985,6 +985,7 @@ class ShakerMaker:
                 perf_time_send += t2 - t1
 
         if rank == 0:
+            print("Rank 0 is gathering all the results and writing them to disk")
             for i_station, station in enumerate(self._receivers):
                 #get from remote
                 t1 = perf_counter()
