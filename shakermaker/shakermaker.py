@@ -537,6 +537,7 @@ class ShakerMaker:
                             npairs_skip += 1
                             if npairs_skip > 500:
                                 print(f"Rank {rank} skipped too many pairs, giving up!")
+                                exit(-1)
                                 break
                             else:
                                 continue
@@ -896,6 +897,7 @@ class ShakerMaker:
                             npairs_skip += 1
                             if npairs_skip > 500:
                                 print(f"Rank {rank} skipped too many pairs, giving up!")
+                                exit(-1)
                                 break
                             else:
                                 continue
@@ -936,19 +938,6 @@ class ShakerMaker:
                             if use_mpi and nprocs > 1:
                                 comm.Abort()
 
-                        if showProgress and rank==0:
-                            progress_percent = ipair/npairs*100
-                            tnow = perf_counter()
-
-                            time_per_pair = (tnow - tstart)/(ipair+1)
-
-                            time_left = (npairs - ipair - 1)*time_per_pair
-
-                            hh = np.floor(time_left / 3600)
-                            mm = np.floor((time_left - hh*3600)/60)
-                            ss = time_left - mm*60 - hh*3600
-
-                            print(f"{ipair} of {npairs} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 else: 
                     pass
@@ -956,6 +945,21 @@ class ShakerMaker:
             if verbose:
                 print(f'ShakerMaker.run - finished my station {i_station} -->  ({rank=} {ipair=} {next_station=})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} ({rank=} {ipair=} {next_station=})')
+            
+            if showProgress and rank==0:
+                nstations_rank0 = self._receivers.nstations / nprocs
+                progress_percent = i_station/nstations_rank0*100
+                tnow = perf_counter()
+
+                time_per_station = (tnow - tstart)/(i_station+1)
+
+                time_left = (nstations_rank0 - i_station - 1)*time_per_station
+
+                hh = np.floor(time_left / 3600)
+                mm = np.floor((time_left - hh*3600)/60)
+                ss = time_left - mm*60 - hh*3600
+
+                print(f"{i_station} of {nstations_rank0} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
             next_station += next_station
 
