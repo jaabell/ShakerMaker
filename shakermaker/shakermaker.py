@@ -875,14 +875,9 @@ class ShakerMaker:
                         dh = np.sqrt(np.dot(d[0:2],d[0:2]))
                         dv = np.abs(d[2])
 
-                        # dists[ipair,0] = dh
-                        # dists[ipair,1] = dv
-
                         # Get the target Green's Functions
                         ipair_target = 0
-                        # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
-                                        # np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
-                                        # np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+                       
                         for i in range(len(dh_of_pairs)):
                             dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
                             if abs(dh - dh_p) < delta_h and \
@@ -902,9 +897,7 @@ class ShakerMaker:
                             else:
                                 continue
 
-                        # tdata = tdata_dict[ipair_target]
                         ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
-                        # print(f"Looking in database for {ipair_string}")
                         tdata = hfile[ipair_string][:]
 
                         if verbose:
@@ -938,6 +931,10 @@ class ShakerMaker:
                             if use_mpi and nprocs > 1:
                                 comm.Abort()
 
+                        if showProgress:
+                            #report progress to screen
+
+
 
                 else: 
                     pass
@@ -946,20 +943,20 @@ class ShakerMaker:
                 print(f'ShakerMaker.run - finished my station {i_station} -->  ({rank=} {ipair=} {next_station=})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} ({rank=} {ipair=} {next_station=})')
             
-            if showProgress and rank==0:
-                nstations_rank0 = self._receivers.nstations / nprocs
-                progress_percent = i_station/nstations_rank0*100
+            if showProgress and i_station == next_station:
+                nstations_thisrank = int(self._receivers.nstations / nprocs)
+                progress_percent = i_station/nstations_thisrank*100
                 tnow = perf_counter()
 
                 time_per_station = (tnow - tstart)/(i_station+1)
 
-                time_left = (nstations_rank0 - i_station - 1)*time_per_station
+                time_left = (nstations_thisrank - i_station - 1)*time_per_station
 
                 hh = np.floor(time_left / 3600)
                 mm = np.floor((time_left - hh*3600)/60)
                 ss = time_left - mm*60 - hh*3600
 
-                print(f"{i_station} of {nstations_rank0} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                print(f"{rank=} at {i_station=} of {nstations_thisrank} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
             next_station += next_station
 
