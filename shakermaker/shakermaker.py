@@ -854,6 +854,9 @@ class ShakerMaker:
         npairs = self._receivers.nstations*len(self._source._pslist)
         npairs_skip  = 0
         ipair = 0
+
+        print(f"Rank {rank} of {nprocs} checking in")
+
         for i_station, station in enumerate(self._receivers):
 
             tstart_source = perf_counter()
@@ -949,7 +952,7 @@ class ShakerMaker:
                             ss = time_left - mm*60 - hh*3600
 
                             if i_psource % 1000 == 0:
-                                print(f"   RANK 0 Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
+                                print(f"   RANK {rank} Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
 
 
 
