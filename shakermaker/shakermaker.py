@@ -846,9 +846,9 @@ class ShakerMaker:
         tstart = perf_counter()
 
         #Stage one! Compute each station at each processor, no comm.
-        npairs = self._receivers.nstations*len(self._source._pslist)
-        nsources = len(self._source._pslist)
-        nstations = len(self._receivers.nstations)
+        nsources = self._source.nsources
+        nstations = self._receivers.nstations
+        npairs = nsources*nstations
 
         npairs_skip  = 0
         ipair = 0
