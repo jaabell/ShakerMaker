@@ -855,6 +855,8 @@ class ShakerMaker:
         npairs_skip  = 0
         ipair = 0
         for i_station, station in enumerate(self._receivers):
+
+            tstart_source = perf_counter()
             for i_psource, psource in enumerate(self._source):
                 aux_crust = copy.deepcopy(self._crust)
 
@@ -931,8 +933,24 @@ class ShakerMaker:
                             if use_mpi and nprocs > 1:
                                 comm.Abort()
 
-                        if showProgress:
+                        if showProgress and rank == 0:
                             #report progress to screen
+                            progress_percent = i_psource/len(self._source._pslist)*100
+
+                            tnow = perf_counter()
+
+                            time_per_source = (tnow - tstart_source)/(i_psource+1) 
+
+                            time_left = (len(self._source._pslist) - i_psource - 1)*time_per_source
+
+                            hh = np.floor(time_left / 3600)
+                            mm = np.floor((time_left - hh*3600)/60)
+                            ss = time_left - mm*60 - hh*3600
+
+                            if i_psource % 100 == 0:
+                                print(f"RANK0 Station progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+
+
 
 
 
