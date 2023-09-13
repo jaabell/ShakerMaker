@@ -840,10 +840,6 @@ class ShakerMaker:
             writer.write_metadata(self._receivers.metadata)
 
 
-        # if nprocs == 1 or rank == 0:
-        #     next_station = rank
-        #     skip_stations = 1
-        # else :
         next_station = rank
         skip_stations = nprocs
 
@@ -851,6 +847,9 @@ class ShakerMaker:
 
         #Stage one! Compute each station at each processor, no comm.
         npairs = self._receivers.nstations*len(self._source._pslist)
+        nsources = len(self._source._pslist)
+        nstations = len(self._receivers.nstations)
+
         npairs_skip  = 0
         ipair = 0
 
@@ -942,20 +941,20 @@ class ShakerMaker:
 
                         if showProgress and rank == 0:
                             #report progress to screen
-                            progress_percent = i_psource/len(self._source._pslist)*100
+                            progress_percent = i_psource/nsources*100
 
                             tnow = perf_counter()
 
                             time_per_source = (tnow - tstart_source)/(i_psource+1) 
 
-                            time_left = (len(self._source._pslist) - i_psource - 1)*time_per_source
+                            time_left = (nsources - i_psource - 1)*time_per_source
 
                             hh = np.floor(time_left / 3600)
                             mm = np.floor((time_left - hh*3600)/60)
                             ss = time_left - mm*60 - hh*3600
 
                             if i_psource % 1000 == 0:
-                                print(f"   RANK {rank} Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
+                                print(f"   RANK {rank} Station {i_station} progress: {i_psource} of {nsources} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
                 else:  #if i_station == next_station:
                     pass
                 ipair += 1
@@ -964,72 +963,85 @@ class ShakerMaker:
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} ({rank=} {ipair=} {next_station=})')
             
             if i_station == next_station:
-                nstations_thisrank = int(self._receivers.nstations / nprocs)
-                progress_percent = i_station/nstations_thisrank*100
+
+                progress_percent = i_station/nstations*100
                 tnow = perf_counter()
 
-                time_per_station = (tnow - tstart)/(i_station+1)
-
-                time_left = (nstations_thisrank - i_station - 1)*time_per_station
+                time_per_stations = (tnow - tstart_source)/skip_stations
+                nstations_left_this_rank = (nstations - i_station - 1)//skip_stations
+                time_left = nstations_left_this_rank*time_per_stations
 
                 hh = np.floor(time_left / 3600)
                 mm = np.floor((time_left - hh*3600)/60)
                 ss = time_left - mm*60 - hh*3600
 
-                print(f"{rank=} at {i_station=} of {nstations_thisrank} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                print(f"{rank=} at {i_station=} of {nstations} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
                 next_station += skip_stations
+        
+        #Stage two! Collect all results at P0
 
+        #First all ranks other than 0 send their stuff to P0
         if rank > 0:
             print(f"     Rank {rank} sending to P0")
+            next_station = rank
+            skip_stations = nprocs
             for i_station, station in enumerate(self._receivers):
-                z,e,n,t = station.get_response()
+                if i_station == next_station:
+                    z,e,n,t = station.get_response()
 
-                #send to P0
-                t1 = perf_counter()
-                ant = np.array([len(z)], dtype=np.int32).copy()
-                printMPI(f"Rank {rank} sending to P0 1")
-                comm.Send(ant, dest=0, tag=2*i_station)
-                data = np.empty((len(z),4), dtype=np.float64)
-                printMPI(f"Rank {rank} done sending to P0 1")
-                data[:,0] = z
-                data[:,1] = e
-                data[:,2] = n
-                data[:,3] = t
-                printMPI(f"Rank {rank} sending to P0 2 ")
-                comm.Send(data, dest=0, tag=2*i_station+1)
-                printMPI(f"Rank {rank} done sending to P0 2")
-                t2 = perf_counter()
-                perf_time_send += t2 - t1
+                    #send to P0
+                    t1 = perf_counter()
+                    ant = np.array([len(z)], dtype=np.int32).copy()
+                    printMPI(f"Rank {rank} sending to P0 1")
+                    comm.Send(ant, dest=0, tag=2*i_station)
+                    data = np.empty((len(z),4), dtype=np.float64)
+                    printMPI(f"Rank {rank} done sending to P0 1")
+                    data[:,0] = z
+                    data[:,1] = e
+                    data[:,2] = n
+                    data[:,3] = t
+                    printMPI(f"Rank {rank} sending to P0 2 ")
+                    comm.Send(data, dest=0, tag=2*i_station+1)
+                    printMPI(f"Rank {rank} done sending to P0 2")
+                    t2 = perf_counter()
+                    perf_time_send += t2 - t1
 
+                    next_station += skip_stations
+
+        #Rank 0 recieves all the stuff
         if rank == 0:
             print("Rank 0 is gathering all the results and writing them to disk")
-            for i_station, station in enumerate(self._receivers):
-                #get from remote
-                t1 = perf_counter()
-                ant = np.empty(1, dtype=np.int32)
-                printMPI(f"P0 getting from remote {i_station} 1")
-                comm.Recv(ant, source=i_station, tag=2*i_station)
-                printMPI(f"P0 done getting from remote {i_station} 1")
-                nt = ant[0]
-                data = np.empty((nt,4), dtype=np.float64)
-                printMPI(f"P0 getting from remote {i_station} 2")
-                comm.Recv(data, source=i_station, tag=2*i_station+1)
-                printMPI(f"P0 done getting from remote {i_station} 2")
-                z = data[:,0]
-                e = data[:,1]
-                n = data[:,2]
-                t = data[:,3]
+            for remote_rank in range(1,nprocs):
+                next_station = remote_rank
+                skip_stations = nprocs
+                for i_station, station in enumerate(self._receivers):
 
-                t2 = perf_counter()
-                perf_time_recv += t2 - t1
+                    #get from remote
+                    t1 = perf_counter()
+                    ant = np.empty(1, dtype=np.int32)
+                    printMPI(f"P0 getting from remote {i_station} 1")
+                    comm.Recv(ant, source=remote_rank, tag=2*i_station)
+                    printMPI(f"P0 done getting from remote {i_station} 1")
+                    nt = ant[0]
+                    data = np.empty((nt,4), dtype=np.float64)
+                    printMPI(f"P0 getting from remote {i_station} 2")
+                    comm.Recv(data, source=remote_rank, tag=2*i_station+1)
+                    printMPI(f"P0 done getting from remote {i_station} 2")
+                    z = data[:,0]
+                    e = data[:,1]
+                    n = data[:,2]
+                    t = data[:,3]
 
-                station.add_to_response(z, e, n, t, tmin, tmax)
+                    t2 = perf_counter()
+                    perf_time_recv += t2 - t1
 
-                if writer:
-                    printMPI(f"Rank 0 is writing station {i_station}")
-                    writer.write_station(station, i_station)
-                    printMPI(f"Rank 0 is done writing station {i_station}")
+                    station.add_to_response(z, e, n, t, tmin, tmax)
+
+                    if writer:
+                        printMPI(f"Rank 0 is writing station {i_station}")
+                        writer.write_station(station, i_station)
+                        printMPI(f"Rank 0 is done writing station {i_station}")
 
             if writer and rank == 0:
                 writer.close()
