@@ -948,7 +948,7 @@ class ShakerMaker:
                             ss = time_left - mm*60 - hh*3600
 
                             if i_psource % 500 == 0:
-                                print(f"   RANK 0 Station progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                                print(f"   RANK 0 Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
 
 
@@ -961,7 +961,7 @@ class ShakerMaker:
                 print(f'ShakerMaker.run - finished my station {i_station} -->  ({rank=} {ipair=} {next_station=})')
             self._logger.debug(f'ShakerMaker.run - finished station {i_station} ({rank=} {ipair=} {next_station=})')
             
-            if showProgress and i_station == next_station:
+            if i_station == next_station:
                 nstations_thisrank = int(self._receivers.nstations / nprocs)
                 progress_percent = i_station/nstations_thisrank*100
                 tnow = perf_counter()
@@ -979,6 +979,7 @@ class ShakerMaker:
             next_station += next_station
 
         if rank > 0:
+            print(f"     Rank {rank} sending to P0")
             for i_station, station in enumerate(self._receivers):
                 z,e,n,t = station.get_response()
 
