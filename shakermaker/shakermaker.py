@@ -840,7 +840,6 @@ class ShakerMaker:
             writer.write_metadata(self._receivers.metadata)
 
 
-        i_my_current_station = 0
         if nprocs == 1 or rank == 0:
             next_station = rank
             skip_stations = 1
@@ -958,12 +957,7 @@ class ShakerMaker:
 
                             if i_psource % 1000 == 0:
                                 print(f"   RANK {rank} Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
-
-
-
-
-
-                else: 
+                else:  #if i_station == next_station:
                     pass
                 ipair += 1
             if verbose:
@@ -985,7 +979,7 @@ class ShakerMaker:
 
                 print(f"{rank=} at {i_station=} of {nstations_thisrank} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
 
-            next_station += skip_stations
+                next_station += skip_stations
 
         if rank > 0:
             print(f"     Rank {rank} sending to P0")
