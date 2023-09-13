@@ -933,7 +933,8 @@ class ShakerMaker:
                             if use_mpi and nprocs > 1:
                                 comm.Abort()
 
-                        if showProgress and rank == 0:
+                        # if showProgress and rank == 0:
+                        if True:
                             #report progress to screen
                             progress_percent = i_psource/len(self._source._pslist)*100
 
@@ -947,8 +948,8 @@ class ShakerMaker:
                             mm = np.floor((time_left - hh*3600)/60)
                             ss = time_left - mm*60 - hh*3600
 
-                            if i_psource % 500 == 0:
-                                print(f"   RANK 0 Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f} ({tmin=:0.4f} {tmax=:0.4f})")
+                            if i_psource % 1000 == 0:
+                                print(f"   RANK 0 Station {i_station} progress: {i_psource} of {len(self._source._pslist)} ({progress_percent:.4f}%) ETA = {hh:.0f}:{mm:02.0f}:{ss:02.1f} {t[0]=:0.4f} {t[-1]=:0.4f}")# ({tmin=:0.4f} {tmax=:0.4f})")
 
 
 
