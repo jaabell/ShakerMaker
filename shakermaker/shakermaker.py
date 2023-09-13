@@ -868,7 +868,7 @@ class ShakerMaker:
                 if i_station == next_station:
 
                     if not started:
-                        print(f"Rank {rank} of {nprocs} starting at station {i_station} of {len(self._receivers)}")
+                        print(f"Rank {rank} of {nprocs} starting at station {i_station}")
                         started = True
 
 
