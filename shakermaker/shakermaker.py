@@ -940,8 +940,7 @@ class ShakerMaker:
                             if use_mpi and nprocs > 1:
                                 comm.Abort()
 
-                        # if showProgress and rank == 0:
-                        if True:
+                        if showProgress and rank == 0:
                             #report progress to screen
                             progress_percent = i_psource/len(self._source._pslist)*100
 
