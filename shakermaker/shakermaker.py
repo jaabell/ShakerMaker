@@ -840,12 +840,12 @@ class ShakerMaker:
             writer.write_metadata(self._receivers.metadata)
 
 
-        if nprocs == 1 or rank == 0:
-            next_station = rank
-            skip_stations = 1
-        else :
-            next_station = rank
-            skip_stations = nprocs
+        # if nprocs == 1 or rank == 0:
+        #     next_station = rank
+        #     skip_stations = 1
+        # else :
+        next_station = rank
+        skip_stations = nprocs
 
         tstart = perf_counter()
 
