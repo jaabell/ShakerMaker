@@ -967,9 +967,9 @@ class ShakerMaker:
                 progress_percent = i_station/nstations*100
                 tnow = perf_counter()
 
-                time_per_stations = (tnow - tstart_source)/skip_stations
+                time_per_station = (tnow - tstart_source)
                 nstations_left_this_rank = (nstations - i_station - 1)//skip_stations
-                time_left = nstations_left_this_rank*time_per_stations
+                time_left = nstations_left_this_rank*time_per_station
 
                 hh = np.floor(time_left / 3600)
                 mm = np.floor((time_left - hh*3600)/60)
