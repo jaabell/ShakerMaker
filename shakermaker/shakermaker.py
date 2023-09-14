@@ -1016,32 +1016,34 @@ class ShakerMaker:
                 next_station = remote_rank
                 skip_stations = nprocs
                 for i_station, station in enumerate(self._receivers):
+                    if i_station == next_station:
+                        #get from remote
+                        t1 = perf_counter()
+                        ant = np.empty(1, dtype=np.int32)
+                        printMPI(f"P0 getting from remote {i_station} 1")
+                        comm.Recv(ant, source=remote_rank, tag=2*i_station)
+                        printMPI(f"P0 done getting from remote {i_station} 1")
+                        nt = ant[0]
+                        data = np.empty((nt,4), dtype=np.float64)
+                        printMPI(f"P0 getting from remote {i_station} 2")
+                        comm.Recv(data, source=remote_rank, tag=2*i_station+1)
+                        printMPI(f"P0 done getting from remote {i_station} 2")
+                        z = data[:,0]
+                        e = data[:,1]
+                        n = data[:,2]
+                        t = data[:,3]
 
-                    #get from remote
-                    t1 = perf_counter()
-                    ant = np.empty(1, dtype=np.int32)
-                    printMPI(f"P0 getting from remote {i_station} 1")
-                    comm.Recv(ant, source=remote_rank, tag=2*i_station)
-                    printMPI(f"P0 done getting from remote {i_station} 1")
-                    nt = ant[0]
-                    data = np.empty((nt,4), dtype=np.float64)
-                    printMPI(f"P0 getting from remote {i_station} 2")
-                    comm.Recv(data, source=remote_rank, tag=2*i_station+1)
-                    printMPI(f"P0 done getting from remote {i_station} 2")
-                    z = data[:,0]
-                    e = data[:,1]
-                    n = data[:,2]
-                    t = data[:,3]
+                        t2 = perf_counter()
+                        perf_time_recv += t2 - t1
 
-                    t2 = perf_counter()
-                    perf_time_recv += t2 - t1
+                        station.add_to_response(z, e, n, t, tmin, tmax)
 
-                    station.add_to_response(z, e, n, t, tmin, tmax)
+                        if writer:
+                            printMPI(f"Rank 0 is writing station {i_station}")
+                            writer.write_station(station, i_station)
+                            printMPI(f"Rank 0 is done writing station {i_station}")
 
-                    if writer:
-                        printMPI(f"Rank 0 is writing station {i_station}")
-                        writer.write_station(station, i_station)
-                        printMPI(f"Rank 0 is done writing station {i_station}")
+                        next_station += skip_stations
 
             if writer and rank == 0:
                 writer.close()
