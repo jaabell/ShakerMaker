@@ -1041,6 +1041,7 @@ class ShakerMaker:
                         count_stations += 1
 
             #print accouted for all stations
+            nstations -= 1
             assert count_stations == nstations, f"Rank 0 only got {count_stations} of {nstations} stations"
 
             if writer and rank == 0:
