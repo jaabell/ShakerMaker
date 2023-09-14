@@ -983,7 +983,6 @@ class ShakerMaker:
 
         #First all ranks other than 0 send their stuff to P0
         if rank > 0:
-            print(f"     Rank {rank} sending to P0")
             next_station = rank
             skip_stations = nprocs
             for i_station, station in enumerate(self._receivers):
@@ -1012,6 +1011,7 @@ class ShakerMaker:
         #Rank 0 recieves all the stuff
         if rank == 0:
             print("Rank 0 is gathering all the results and writing them to disk")
+            count_stations = 0
             for remote_rank in range(1,nprocs):
                 next_station = remote_rank
                 skip_stations = nprocs
@@ -1044,6 +1044,10 @@ class ShakerMaker:
                             printMPI(f"Rank 0 is done writing station {i_station}")
 
                         next_station += skip_stations
+                        count_stations += 1
+
+            #print accouted for all stations
+            assert count_stations == nstations, f"Rank 0 only got {count_stations} of {nstations} stations"
 
             if writer and rank == 0:
                 writer.close()
@@ -1061,6 +1065,9 @@ class ShakerMaker:
                 print("------------------------------------------------")
 
             if use_mpi and nprocs > 1:
+
+                print(f"rank {rank} @ gather all performances stats")
+
                 all_max_perf_time_core = np.array([-np.infty],dtype=np.double)
                 all_max_perf_time_send = np.array([-np.infty],dtype=np.double)
                 all_max_perf_time_recv = np.array([-np.infty],dtype=np.double)
