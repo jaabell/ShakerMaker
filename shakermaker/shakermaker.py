@@ -982,6 +982,7 @@ class ShakerMaker:
         if rank > 0:
             next_station = rank
             skip_stations = nprocs
+            print(f"Rank {rank} is sending its data.")
             for i_station, station in enumerate(self._receivers):
                 if i_station == next_station:
                     z,e,n,t = station.get_response()
@@ -1004,6 +1005,9 @@ class ShakerMaker:
                     perf_time_send += t2 - t1
 
                     next_station += skip_stations
+
+            print(f"Rank {rank} is DONE sending its data.")
+
 
         #Rank 0 recieves all the stuff
         if rank == 0:
@@ -1042,6 +1046,7 @@ class ShakerMaker:
 
                         next_station += skip_stations
                         count_stations += 1
+            print("Rank 0 is DONE gathering ")
 
             #print accouted for all stations
             count_stations += n_my_stations
