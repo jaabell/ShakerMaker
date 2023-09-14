@@ -1068,54 +1068,54 @@ class ShakerMaker:
                 print(f"ShakerMaker Run done. Total time: {perf_time_total} s")
                 print("------------------------------------------------")
 
-            if use_mpi and nprocs > 1:
+        if use_mpi and nprocs > 1:
 
-                print(f"rank {rank} @ gather all performances stats")
+            print(f"rank {rank} @ gather all performances stats")
 
-                all_max_perf_time_core = np.array([-np.infty],dtype=np.double)
-                all_max_perf_time_send = np.array([-np.infty],dtype=np.double)
-                all_max_perf_time_recv = np.array([-np.infty],dtype=np.double)
-                all_max_perf_time_conv = np.array([-np.infty],dtype=np.double)
-                all_max_perf_time_add = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_core = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_send = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_recv = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_conv = np.array([-np.infty],dtype=np.double)
+            all_max_perf_time_add = np.array([-np.infty],dtype=np.double)
 
-                all_min_perf_time_core = np.array([np.infty],dtype=np.double)
-                all_min_perf_time_send = np.array([np.infty],dtype=np.double)
-                all_min_perf_time_recv = np.array([np.infty],dtype=np.double)
-                all_min_perf_time_conv = np.array([np.infty],dtype=np.double)
-                all_min_perf_time_add = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_core = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_send = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_recv = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_conv = np.array([np.infty],dtype=np.double)
+            all_min_perf_time_add = np.array([np.infty],dtype=np.double)
 
-                # Gather statistics from all processes
+            # Gather statistics from all processes
 
-                comm.Reduce(perf_time_core,
-                    all_max_perf_time_core, op = MPI.MAX, root = 0)
-                comm.Reduce(perf_time_send,
-                    all_max_perf_time_send, op = MPI.MAX, root = 0)
-                comm.Reduce(perf_time_recv,
-                    all_max_perf_time_recv, op = MPI.MAX, root = 0)
-                comm.Reduce(perf_time_conv,
-                    all_max_perf_time_conv, op = MPI.MAX, root = 0)
-                comm.Reduce(perf_time_add,
-                    all_max_perf_time_add, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_core,
+                all_max_perf_time_core, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_send,
+                all_max_perf_time_send, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_recv,
+                all_max_perf_time_recv, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_conv,
+                all_max_perf_time_conv, op = MPI.MAX, root = 0)
+            comm.Reduce(perf_time_add,
+                all_max_perf_time_add, op = MPI.MAX, root = 0)
 
-                comm.Reduce(perf_time_core,
-                    all_min_perf_time_core, op = MPI.MIN, root = 0)
-                comm.Reduce(perf_time_send,
-                    all_min_perf_time_send, op = MPI.MIN, root = 0)
-                comm.Reduce(perf_time_recv,
-                    all_min_perf_time_recv, op = MPI.MIN, root = 0)
-                comm.Reduce(perf_time_conv,
-                    all_min_perf_time_conv, op = MPI.MIN, root = 0)
-                comm.Reduce(perf_time_add,
-                    all_min_perf_time_add, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_core,
+                all_min_perf_time_core, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_send,
+                all_min_perf_time_send, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_recv,
+                all_min_perf_time_recv, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_conv,
+                all_min_perf_time_conv, op = MPI.MIN, root = 0)
+            comm.Reduce(perf_time_add,
+                all_min_perf_time_add, op = MPI.MIN, root = 0)
 
-                if rank == 0:
-                    print("\n")
-                    print("Performance statistics for all processes")
-                    print(f"time_core     :  max: {all_max_perf_time_core[0]} ({all_max_perf_time_core[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core[0]} ({all_min_perf_time_core[0]/perf_time_total*100:0.3f}%)")
-                    print(f"time_send     :  max: {all_max_perf_time_send[0]} ({all_max_perf_time_send[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send[0]} ({all_min_perf_time_send[0]/perf_time_total*100:0.3f}%)")
-                    print(f"time_recv     :  max: {all_max_perf_time_recv[0]} ({all_max_perf_time_recv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv[0]} ({all_min_perf_time_recv[0]/perf_time_total*100:0.3f}%)")
-                    print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
-                    print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
+            if rank == 0:
+                print("\n")
+                print("Performance statistics for all processes")
+                print(f"time_core     :  max: {all_max_perf_time_core[0]} ({all_max_perf_time_core[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_core[0]} ({all_min_perf_time_core[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_send     :  max: {all_max_perf_time_send[0]} ({all_max_perf_time_send[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_send[0]} ({all_min_perf_time_send[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_recv     :  max: {all_max_perf_time_recv[0]} ({all_max_perf_time_recv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_recv[0]} ({all_min_perf_time_recv[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_conv :  max: {all_max_perf_time_conv[0]} ({all_max_perf_time_conv[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_conv[0]} ({all_min_perf_time_conv[0]/perf_time_total*100:0.3f}%)")
+                print(f"time_add      :  max: {all_max_perf_time_add[0]} ({all_max_perf_time_add[0]/perf_time_total*100:0.3f}%) min: {all_min_perf_time_add[0]} ({all_min_perf_time_add[0]/perf_time_total*100:0.3f}%)")
 
 
 
