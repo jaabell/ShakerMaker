@@ -856,7 +856,6 @@ class ShakerMaker:
         for i_station, station in enumerate(self._receivers):
 
             tstart_source = perf_counter()
-            started = False
             for i_psource, psource in enumerate(self._source):
                 aux_crust = copy.deepcopy(self._crust)
 
@@ -864,11 +863,6 @@ class ShakerMaker:
                 aux_crust.split_at_depth(station.x[2])
 
                 if i_station == next_station:
-
-                    if not started:
-                        print(f"    ! RANK {rank} of {nprocs} starting at station {i_station}")
-                        started = True
-
 
                     if verbose:
                         print(f"{rank=} {nprocs=} {i_station=} {skip_stations=} {npairs=} !!")
