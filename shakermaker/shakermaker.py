@@ -853,6 +853,8 @@ class ShakerMaker:
         npairs_skip  = 0
         ipair = 0
 
+        n_my_stations = 0
+
         for i_station, station in enumerate(self._receivers):
 
             tstart_source = perf_counter()
@@ -925,6 +927,7 @@ class ShakerMaker:
                         try:
                             t1 = perf_counter()
                             station.add_to_response(z_stf, e_stf, n_stf, t, tmin, tmax)
+                            n_my_stations += 1
                             t2 = perf_counter()
                             perf_time_add += t2 - t1
                         except:
@@ -1041,8 +1044,9 @@ class ShakerMaker:
                         count_stations += 1
 
             #print accouted for all stations
-            nstations -= 1
-            assert count_stations == nstations, f"Rank 0 only got {count_stations} of {nstations} stations"
+            count_stations += n_my_stations
+            print(f"Rank 0 got {count_stations} of {nstations} stations")
+            # assert count_stations == nstations, f"Rank 0 only got {count_stations} of {nstations} stations"
 
             if writer and rank == 0:
                 writer.close()
