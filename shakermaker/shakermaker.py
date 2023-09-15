@@ -1288,6 +1288,10 @@ class ShakerMaker:
                         z_rec = station.x[2]
                         # print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
 
+                        #Convert tdata from fortran format to numpy
+                        # tdata = np.array(tdata)
+                        # tdata = tdata.reshape((nt,9))
+
 
                         t1 = perf_counter()
                         # t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
@@ -1308,14 +1312,13 @@ class ShakerMaker:
                             printMPI(f"Rank {rank} sending to P0 1")
                             comm.Send(ant, dest=0, tag=2*ipair)
                             comm.Send(t, dest=0, tag=2*ipair+1)
-                            # data = np.empty((nt,4), dtype=np.float64)
                             printMPI(f"Rank {rank} done sending to P0 1")
-                            # data[:,0] = z_stf
-                            # data[:,1] = e_stf
-                            # data[:,2] = n_stf
-                            # data[:,3] = t
+
                             printMPI(f"Rank {rank} sending to P0 2 ")
-                            comm.Send(tdata, dest=0, tag=2*ipair+2)
+                            tdata_c_order = np.empty((nt,9), dtype=np.float64)
+                            for comp in range(9):
+                                tdata_c_order[:,comp] = tdata[0,comp,:]
+                            comm.Send(tdata_c_order, dest=0, tag=2*ipair+2)
                             printMPI(f"Rank {rank} done sending to P0 2")
                             next_pair += skip_pairs
                             t2 = perf_counter()
@@ -1336,19 +1339,17 @@ class ShakerMaker:
                                 printMPI(f"P0 done getting from remote {remote} 1")
                                 nt = ant[0]
 
+                                # tdata = np.empty((9,nt), dtype=np.float64)
                                 tdata = np.empty((nt,9), dtype=np.float64)
                                 printMPI(f"P0 getting from remote {remote} 2")
                                 comm.Recv(tdata, source=remote, tag=2*ipair+2)
                                 printMPI(f"P0 done getting from remote {remote} 2")
-                                # z_stf = data[:,0]
-                                # e_stf = data[:,1]
-                                # n_stf = data[:,2]
-                                # t = data[:,3]    
+
                                 dd = psource.x - station.x
                                 dh = np.sqrt(dd[0]**2 + dd[1]**2)
                                 dz = np.abs(dd[2])
                                 z_rec = station.x[2]
-                                tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh,dz,z_rec)
+                                tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh, dz, z_rec)
 
                                 t2 = perf_counter()
                                 perf_time_recv += t2 - t1
@@ -1745,6 +1746,8 @@ class ShakerMaker:
         # print(f"{tdata.shape=}")
         tdata_ = tdata.T
         tdata_ = tdata_.reshape((1, tdata_.shape[0], tdata_.shape[1]))
+        # tdata_ = tdata
+        # tdata_ = tdata_.reshape((1, tdata_.shape[1], tdata_.shape[0]))
         z, e, n, t0 = core.subgreen2(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
                                            smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, tdata_, sx, sy, rx, ry)
 
