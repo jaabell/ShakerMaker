@@ -1047,6 +1047,19 @@ class ShakerMaker:
                         next_station += skip_stations
                         count_stations += 1
             print("Rank 0 is DONE gathering ")
+            print("Rank 0 writing its own stations ")
+            #Now rank 0 writes its own stations
+            next_station = 0
+            skip_stations = nprocs
+            for i_station, station in enumerate(self._receivers):
+                if i_station == next_station:
+                    if writer:
+                        printMPI(f"Rank 0 is writing station {i_station}")
+                        writer.write_station(station, i_station)
+                        printMPI(f"Rank 0 is done writing station {i_station}")
+
+                    next_station += skip_stations
+                    count_stations += 1
 
             #print accouted for all stations
             count_stations += n_my_stations
