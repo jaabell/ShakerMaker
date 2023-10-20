@@ -880,16 +880,42 @@ class ShakerMaker:
                         dv = np.abs(d[2])
 
                         # Get the target Green's Functions
-                        ipair_target = 0
+                        # ipair_target = 0
                        
+                        # for i in range(len(dh_of_pairs)):
+                        #     dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
+                        #     if abs(dh - dh_p) < delta_h and \
+                        #         abs(z_src - zsrc_p) < delta_v_src and \
+                        #         abs(z_rec - zrec_p) < delta_v_rec:
+                        #         break
+                        #     else:
+                        #         ipair_target += 1
+                        min_distance = float('inf')
+                        best_match_index = -1
+
                         for i in range(len(dh_of_pairs)):
                             dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
+                            
+                            # Check if the current pair is within the tolerances
                             if abs(dh - dh_p) < delta_h and \
-                                abs(z_src - zsrc_p) < delta_v_src and \
-                                abs(z_rec - zrec_p) < delta_v_rec:
-                                break
-                            else:
-                                ipair_target += 1
+                               abs(dv - dv_p) < delta_v_src and \
+                               abs(z_src - zsrc_p) < delta_v_src and \
+                               abs(z_rec - zrec_p) < delta_v_rec:
+
+                                distance = (abs(dh - dh_p) + 
+                                            abs(dv - dv_p) + 
+                                            abs(z_src - zsrc_p) + 
+                                            abs(z_rec - zrec_p))
+                            
+                                if distance < min_distance:
+                                    min_distance = distance
+                                    best_match_index = i
+
+                        if best_match_index != -1:
+                            # Use best_match_index as your best match within the tolerances
+                            ipair_target = best_match_index
+                        else:
+                            print("No suitable match found!")
 
                         if ipair_target == len(dh_of_pairs):
                             print("Target not found in database -- SKIPPING")
