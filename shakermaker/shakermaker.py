@@ -1289,11 +1289,15 @@ class ShakerMaker:
         if rank == 0:
             tdata_dict = {}
 
+        if rank == 0:
+            # Create a group for tdata_dict
+            if "tdata_dict" in hfile:
+                print("Found TDATA group in the HFILE. Starting anew!")
+                del hfile["tdata_dict"]
 
-        # npairs = self._receivers.nstations*len(self._source._pslist)
+            tdata_group = hfile.create_group("tdata_dict")
 
-        # for i_station, station in enumerate(self._receivers):
-        #     for i_psource, psource in enumerate(self._source):
+
         if True:
             for i_station, i_psource in pairs_to_compute:
                 aux_crust = copy.deepcopy(self._crust)
@@ -1306,6 +1310,9 @@ class ShakerMaker:
 
 
                 if ipair == next_pair:
+
+                	tstart_pair = perf_counter()
+
                     if verbose:
                         print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs} !!")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
@@ -1388,14 +1395,25 @@ class ShakerMaker:
                                 dh = np.sqrt(dd[0]**2 + dd[1]**2)
                                 dz = np.abs(dd[2])
                                 z_rec = station.x[2]
-                                tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh, dz, z_rec)
+                                # tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh, dz, z_rec)
+
+				                tdata_group[str(key)+"_t0"] = t[0]
+				                tdata_group[str(key)+"_tdata"] = tdata
 
                                 t2 = perf_counter()
                                 perf_time_recv += t2 - t1
                         next_pair += 1
 
                         if showProgress:
-                            print(f"{ipair} of {npairs} done")# t[0]={t[0]:0.4f} t[-1]={t[-1]:0.4f} (tmin={tmin:0.4f}, tmax={tmax:0.4f})")
+                        	tend_pair = perf_counter()
+
+                        	time_left = (tend_pair - tstart_pair )*npairs
+
+							hh = np.floor(time_left / 3600)
+                            mm = np.floor((time_left - hh*3600)/60)
+                            ss = time_left - mm*60 - hh*3600
+
+                            print(f"{ipair} of {npairs} done ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} ")# t[0]={t[0]:0.4f} t[-1]={t[-1]:0.4f} (tmin={tmin:0.4f}, tmax={tmax:0.4f})")
 
 
                 else: 
@@ -1407,20 +1425,20 @@ class ShakerMaker:
             self._logger.debug(f'ShakerMaker.run_create_greens_function_database - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
 
-        if rank == 0:
-            # Create a group for tdata_dict
-            if "tdata_dict" in hfile:
-                print("Found TDATA group in the HFILE. Starting anew!")
-                del hfile["tdata_dict"]
+        # if rank == 0:
+        #     # Create a group for tdata_dict
+        #     if "tdata_dict" in hfile:
+        #         print("Found TDATA group in the HFILE. Starting anew!")
+        #         del hfile["tdata_dict"]
 
-            tdata_group = hfile.create_group("tdata_dict")
+        #     tdata_group = hfile.create_group("tdata_dict")
 
             # Store each key-value pair in tdata_dict as a dataset inside the group
-            for key, value in tdata_dict.items():
-                # tdata_group[str(key)] = value
-                t0, i_station, i_psource, tdata, dh, dz, z_rec = value
-                tdata_group[str(key)+"_t0"] = t0
-                tdata_group[str(key)+"_tdata"] = tdata
+            # for key, value in tdata_dict.items():
+            #     # tdata_group[str(key)] = value
+            #     t0, i_station, i_psource, tdata, dh, dz, z_rec = value
+            #     tdata_group[str(key)+"_t0"] = t0
+            #     tdata_group[str(key)+"_tdata"] = tdata
 
 
         fid_debug_mpi.close()
