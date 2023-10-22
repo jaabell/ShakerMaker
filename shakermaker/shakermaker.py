@@ -1299,6 +1299,7 @@ class ShakerMaker:
 
 
         if True:
+            tstart_pair = perf_counter()
             for i_station, i_psource in pairs_to_compute:
                 aux_crust = copy.deepcopy(self._crust)
 
@@ -1311,7 +1312,6 @@ class ShakerMaker:
 
                 if ipair == next_pair:
 
-                    tstart_pair = perf_counter()
 
                     if verbose:
                         print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs} !!")
@@ -1397,8 +1397,8 @@ class ShakerMaker:
                                 z_rec = station.x[2]
                                 # tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh, dz, z_rec)
 
-                                tdata_group[str(key)+"_t0"] = t[0]
-                                tdata_group[str(key)+"_tdata"] = tdata
+                                tdata_group[str(ipair)+"_t0"] = t[0]
+                                tdata_group[str(ipair)+"_tdata"] = tdata
 
                                 t2 = perf_counter()
                                 perf_time_recv += t2 - t1
@@ -1407,7 +1407,7 @@ class ShakerMaker:
                         if showProgress:
                             tend_pair = perf_counter()
 
-                            time_left = (tend_pair - tstart_pair )*npairs
+                            time_left = (tend_pair - tstart_pair )*(npairs-ipair)/ipair
 
                             hh = np.floor(time_left / 3600)
                             mm = np.floor((time_left - hh*3600)/60)
