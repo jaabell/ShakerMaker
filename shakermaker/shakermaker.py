@@ -1407,7 +1407,7 @@ class ShakerMaker:
                         if showProgress:
                             tend_pair = perf_counter()
 
-                            time_left = (tend_pair - tstart_pair )*(npairs-ipair)/ipair
+                            time_left = (tend_pair - tstart_pair )*(npairs-ipair)/(ipair+1)
 
                             hh = np.floor(time_left / 3600)
                             mm = np.floor((time_left - hh*3600)/60)
