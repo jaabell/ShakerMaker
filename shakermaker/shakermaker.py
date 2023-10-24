@@ -1444,6 +1444,7 @@ class ShakerMaker:
         perf_time_end = perf_counter()
 
         if rank > 0:
+            print(f"{rank=} done and waiting for all requests to finish")
             for req in request_list:
                 req.wait()
 
