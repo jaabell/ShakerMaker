@@ -1367,16 +1367,16 @@ class ShakerMaker:
 
                             #Check the completed requests
                             completed_indices = []
-                            for i, request in enumerate(request_list):
+                            for i_req, request in enumerate(request_list):
                                 # completed, status = request.Test()
                                 completed = request.Test()
                                 if completed:
-                                    completed_indices.append(i)
+                                    completed_indices.append(i_req)
 
                             # Remove completed requests and data from buffers
-                            for i in reversed(completed_indices):
-                                del request_list[i]
-                                del send_buffers[i]
+                            for i_req in reversed(completed_indices):
+                                del request_list[i_req]
+                                del send_buffers[i_req]
 
 
 
