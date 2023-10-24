@@ -1359,9 +1359,9 @@ class ShakerMaker:
                             }
                             send_buffers.append(buf)
 
-                            request_list.append(comm.Isend(buf['ant'], dest=0, tag=3*ipair))
-                            request_list.append(comm.Isend(buf['t'], dest=0, tag=3*ipair+1))
-                            request_list.append(comm.Isend(buf['tdata_c_order'], dest=0, tag=3*ipair+2))
+                            request_list.append(('ant', comm.Isend(buf['ant'], dest=0, tag=3*ipair)))
+                            request_list.append(('t', comm.Isend(buf['t'], dest=0, tag=3*ipair+1)))
+                            request_list.append(('tdata_c_order', comm.Isend(buf['tdata_c_order'], dest=0, tag=3*ipair+2)))
                             t2 = perf_counter()
                             perf_time_send += t2 - t1
 
@@ -1369,17 +1369,21 @@ class ShakerMaker:
                             completed_indices = []
                             for i_req, request in enumerate(request_list):
                                 # completed, status = request.Test()
-                                completed = request.Test()
+                                item, req = request
+                                completed = req.Test()
                                 if completed:
-                                    completed_indices.append(i_req)
+                                    completed_indices.append((i_req, item))
 
                             print(f"{rank=} {completed_indices=}")
 
-                            # Remove completed requests and data from buffers
-                            for i_req in reversed(completed_indices):
-                                print(f"{rank=} deleting {i_req=}")
-                                del request_list[i_req]
-                                del send_buffers[i_req]
+                            try:
+                                # Remove completed requests and data from buffers
+                                for i_req, item in reversed(completed_indices):
+                                    print(f"{rank=} deleting {i_req=}")
+                                    del request_list[i_req]
+                                    del send_buffers[i_req][item]
+                            except:
+                                print(f"{rank=} failed trying to remove {i_req} {completed_indices=}")
 
 
 
