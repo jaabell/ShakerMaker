@@ -1304,9 +1304,10 @@ class ShakerMaker:
 
 
                 if ipair == next_pair:
-                    if True:
-                        print(f"{rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!")
+                    # if True:
+                        # print(f"{rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
+                        print(f"     {rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 
                         if verbose:
                             print("calling core START")
@@ -1337,7 +1338,6 @@ class ShakerMaker:
                             # ant = np.array([nt], dtype=np.int32).copy()
                             # printMPI(f"Rank {rank} sending to P0 1")
                             # comm.ISend(ant, dest=0, tag=3*ipair)
-                            print(f"    {rank=} sent {ipair=}")
                             # comm.ISend(t, dest=0, tag=3*ipair+1)
                             # printMPI(f"Rank {rank} done sending to P0 1")
 
