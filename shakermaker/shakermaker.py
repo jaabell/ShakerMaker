@@ -1368,7 +1368,8 @@ class ShakerMaker:
                             #Check the completed requests
                             completed_indices = []
                             for i, request in enumerate(request_list):
-                                completed, status = request.Test()
+                                # completed, status = request.Test()
+                                completed = request.Test()
                                 if completed:
                                     completed_indices.append(i)
 
