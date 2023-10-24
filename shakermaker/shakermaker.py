@@ -1334,62 +1334,63 @@ class ShakerMaker:
 
 
                         if rank > 0:
-                            # t1 = perf_counter()
-                            # ant = np.array([nt], dtype=np.int32).copy()
-                            # printMPI(f"Rank {rank} sending to P0 1")
-                            # comm.ISend(ant, dest=0, tag=3*ipair)
-                            # comm.ISend(t, dest=0, tag=3*ipair+1)
-                            # printMPI(f"Rank {rank} done sending to P0 1")
+                            t1 = perf_counter()
+                            ant = np.array([nt], dtype=np.int32).copy()
+                            printMPI(f"Rank {rank} sending to P0 1")
+                            comm.Send(ant, dest=0, tag=3*ipair)
+                            comm.Send(t, dest=0, tag=3*ipair+1)
+                            printMPI(f"Rank {rank} done sending to P0 1")
 
-                            # printMPI(f"Rank {rank} sending to P0 2 ")
+                            printMPI(f"Rank {rank} sending to P0 2 ")
                             tdata_c_order = np.empty((nt,9), dtype=np.float64)
                             for comp in range(9):
                                 tdata_c_order[:,comp] = tdata[0,comp,:]
-                            # comm.ISend(tdata_c_order, dest=0, tag=3*ipair+2)
-                            # printMPI(f"Rank {rank} done sending to P0 2")
-                            # t2 = perf_counter()
-                            # perf_time_send += t2 - t1
-                            
-                            #Use buffered asynchronous sends
-                            t1 = perf_counter()
-                            # buf = {
-                            #     'ant': np.array([nt], dtype=np.int32).copy(),
-                            #     't': t.copy(),
-                            #     'tdata_c_order': tdata_c_order.copy()
-                            # }
-                            # send_buffers.append(buf)
-                            send_buffers.append(np.array([nt], dtype=np.int32).copy())
-                            request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair))
-                            send_buffers.append(t.copy())
-                            request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair+1))
-                            send_buffers.append(tdata_c_order.copy())
-                            request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair+2))
+                            comm.Send(tdata_c_order, dest=0, tag=3*ipair+2)
+                            printMPI(f"Rank {rank} done sending to P0 2")
                             t2 = perf_counter()
                             perf_time_send += t2 - t1
-
-                            print(f"    {rank=} sent {ipair=}")
-
                             next_pair += skip_pairs
-                            #Check the completed requests
-                            completed_indices = []
-                            for i_req, request in enumerate(request_list):
-                                # completed, status = request.Test()
-                                # item, req = request[0], request[1]
-                                completed = request.Test()
-                                if completed:
-                                    completed_indices.append(i_req)
 
-                            # print(f"{rank=} {completed_indices=}")
+                            #Use buffered asynchronous sends
+                            # t1 = perf_counter()
+                            # # buf = {
+                            # #     'ant': np.array([nt], dtype=np.int32).copy(),
+                            # #     't': t.copy(),
+                            # #     'tdata_c_order': tdata_c_order.copy()
+                            # # }
+                            # # send_buffers.append(buf)
+                            # send_buffers.append(np.array([nt], dtype=np.int32).copy())
+                            # request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair))
+                            # send_buffers.append(t.copy())
+                            # request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair+1))
+                            # send_buffers.append(tdata_c_order.copy())
+                            # request_list.append(comm.Isend(send_buffers[-1], dest=0, tag=3*ipair+2))
+                            # t2 = perf_counter()
+                            # perf_time_send += t2 - t1
 
-                            try:
-                                # Remove completed requests and data from buffers
-                                for i_req in reversed(completed_indices):
-                                    # print(f"{rank=} deleting {i_req=} ")
-                                    del request_list[i_req]
-                                    del send_buffers[i_req]
-                            except:
-                                print(f"{rank=} failed trying to remove {i_req=} \n{completed_indices=}\n {request_list=}\n {send_buffers=}\n")
-                                exit(-1)
+                            # print(f"    {rank=} sent {ipair=}")
+
+                            # next_pair += skip_pairs
+                            # #Check the completed requests
+                            # completed_indices = []
+                            # for i_req, request in enumerate(request_list):
+                            #     # completed, status = request.Test()
+                            #     # item, req = request[0], request[1]
+                            #     completed = request.Test()
+                            #     if completed:
+                            #         completed_indices.append(i_req)
+
+                            # # print(f"{rank=} {completed_indices=}")
+
+                            # try:
+                            #     # Remove completed requests and data from buffers
+                            #     for i_req in reversed(completed_indices):
+                            #         # print(f"{rank=} deleting {i_req=} ")
+                            #         del request_list[i_req]
+                            #         del send_buffers[i_req]
+                            # except:
+                            #     print(f"{rank=} failed trying to remove {i_req=} \n{completed_indices=}\n {request_list=}\n {send_buffers=}\n")
+                            #     exit(-1)
                             
 
 
@@ -1457,10 +1458,10 @@ class ShakerMaker:
 
         perf_time_end = perf_counter()
 
-        if rank > 0:
-            print(f"{rank=} done and waiting for all requests to finish")
-            for req in request_list:
-                req.wait()
+        # if rank > 0:
+        #     print(f"{rank=} done and waiting for all requests to finish")
+        #     for req in request_list:
+        #         req.wait()
 
         if rank == 0 and use_mpi:
             perf_time_total = perf_time_end - perf_time_begin
