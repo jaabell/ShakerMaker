@@ -1304,10 +1304,10 @@ class ShakerMaker:
 
 
                 if ipair == next_pair:
-                    # if True:
-                        # print(f"{rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!")
+                    if debugMPI:
+                        print(f"{rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
-                        print(f"     {rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+                        # print(f"     {rank=} {nprocs=} {ipair=} {skip_pairs=} {npairs=} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 
                         if verbose:
                             print("calling core START")
@@ -1405,7 +1405,7 @@ class ShakerMaker:
                                 ant = np.empty(1, dtype=np.int32)
                                 t = np.empty(1, dtype=np.double)
 
-                                print(f"{rank=} expecting {ipair=} from {remote=}")
+                                # print(f"{rank=} expecting {ipair=} from {remote=}")
 
                                 printMPI(f"P0 getting from remote {remote} 1")
                                 comm.Recv(ant, source=remote, tag=3*ipair)
@@ -1423,12 +1423,12 @@ class ShakerMaker:
                                 dz = np.abs(dd[2])
                                 z_rec = station.x[2]
 
-                                print(f"{rank=} writing {ipair=} ")
+                                # print(f"{rank=} writing {ipair=} ")
                                 tw1 = perf_counter()
                                 tdata_group[str(ipair)+"_t0"] = t[0]
                                 tdata_group[str(ipair)+"_tdata"] = tdata
                                 tw2 = perf_counter()
-                                print(f"{rank=} done writing {ipair=} {tw2-tw1=} ")
+                                # print(f"{rank=} done writing {ipair=} {tw2-tw1=} ")
 
                                 t2 = perf_counter()
                                 perf_time_recv += t2 - t1
