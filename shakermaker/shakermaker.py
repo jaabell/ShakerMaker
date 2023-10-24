@@ -1442,7 +1442,7 @@ class ShakerMaker:
         perf_time_end = perf_counter()
 
         if rank > 0:
-            for req in request_list:
+            for item, req in request_list:
                 req.wait()
 
         if rank == 0 and use_mpi:
