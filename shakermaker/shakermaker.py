@@ -1370,7 +1370,7 @@ class ShakerMaker:
                             for i_req, request in enumerate(request_list):
                                 # completed, status = request.Test()
                                 # item, req = request[0], request[1]
-                                print(f"{rank=} {request}")
+                                print(f"{rank=} {request} {request[1].Test()=}")
                                 completed = request[1].Test()
                                 if completed:
                                     completed_indices.append((i_req, request[0]))
@@ -1384,7 +1384,7 @@ class ShakerMaker:
                                     del request_list[i_req]
                                     del send_buffers[i_req][item]
                             except:
-                                print(f"{rank=} failed trying to remove {i_req} {item=} {completed_indices=} {request_list=} {send_buffers=}")
+                                print(f"{rank=} failed trying to remove {i_req=} {item=}\n{completed_indices=}\n {request_list=}\n {send_buffers=}\n")
                                 exit(0)
 
 
