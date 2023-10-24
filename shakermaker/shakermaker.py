@@ -1176,7 +1176,6 @@ class ShakerMaker:
         dk=0.3,
         nx=1, 
         kc=15.0, 
-        writer=None,
         verbose=False,
         debugMPI=False,
         tmin=0.,
@@ -1215,7 +1214,6 @@ class ShakerMaker:
         :param writer: Use this writer class to store outputs
         :type writer: StationListWriter
         
-
         """
         title = f"ShakerMaker Gen Green's functions database begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
         
@@ -1230,9 +1228,6 @@ class ShakerMaker:
         elif rank == 0:
             hfile = h5py.File(h5_database_name + '.h5', 'r+')
 
-
-
-        # dists= hfile["/dists"][:]
         pairs_to_compute = hfile["/pairs_to_compute"][:]
         dh_of_pairs = hfile["/dh_of_pairs"][:]
         dv_of_pairs = hfile["/dv_of_pairs"][:]
@@ -1270,14 +1265,7 @@ class ShakerMaker:
                           '\tTotal src-rcv pairs: {}\n\tdt: {}\n\tnfft: {}'
                           .format(self._source.nsources, self._receivers.nstations,
                                   self._source.nsources*self._receivers.nstations, dt, nfft))
-        if rank > 0:
-            writer = None
 
-        if writer and rank == 0:
-            assert isinstance(writer, StationListWriter), \
-                "'writer' must be an instance of the shakermaker.StationListWriter class or None"
-            writer.initialize(self._receivers, 2*nfft)
-            writer.write_metadata(self._receivers.metadata)
         ipair = 0
         if nprocs == 1 or rank == 0:
             next_pair = rank
@@ -1298,6 +1286,11 @@ class ShakerMaker:
             tdata_group = hfile.create_group("tdata_dict")
 
 
+        if rank > 0:
+            send_buffers = []
+            request_list = []
+
+
         if True:
             tstart_pair = perf_counter()
             for i_station, i_psource in pairs_to_compute:
@@ -1311,8 +1304,6 @@ class ShakerMaker:
 
 
                 if ipair == next_pair:
-
-
                     if verbose:
                         print(f"rank={rank} nprocs={nprocs} ipair={ipair} skip_pairs={skip_pairs} npairs={npairs} !!")
                     if nprocs == 1 or (rank > 0 and nprocs > 1):
@@ -1332,43 +1323,61 @@ class ShakerMaker:
                         dh = np.sqrt(dd[0]**2 + dd[1]**2)
                         dz = np.abs(dd[2])
                         z_rec = station.x[2]
-                        # print(f" *** {ipair} {psource.tt=} {t0[0]=} {dh=} {dz=}")
-
-                        #Convert tdata from fortran format to numpy
-                        # tdata = np.array(tdata)
-                        # tdata = tdata.reshape((nt,9))
-
 
                         t1 = perf_counter()
-                        # t = np.arange(0, len(z)*dt, dt) + psource.tt + t0
                         t = np.array([t0])
                         psource.stf.dt = dt
 
-
-                        # z_stf = psource.stf.convolve(z, t)
-                        # e_stf = psource.stf.convolve(e, t)
-                        # n_stf = psource.stf.convolve(n, t)
                         t2 = perf_counter()
                         perf_time_conv += t2 - t1
 
 
                         if rank > 0:
-                            t1 = perf_counter()
-                            ant = np.array([nt], dtype=np.int32).copy()
-                            printMPI(f"Rank {rank} sending to P0 1")
-                            comm.Send(ant, dest=0, tag=2*ipair)
-                            comm.Send(t, dest=0, tag=2*ipair+1)
-                            printMPI(f"Rank {rank} done sending to P0 1")
+                            # t1 = perf_counter()
+                            # ant = np.array([nt], dtype=np.int32).copy()
+                            # printMPI(f"Rank {rank} sending to P0 1")
+                            # comm.ISend(ant, dest=0, tag=3*ipair)
+                            # comm.ISend(t, dest=0, tag=3*ipair+1)
+                            # printMPI(f"Rank {rank} done sending to P0 1")
 
-                            printMPI(f"Rank {rank} sending to P0 2 ")
-                            tdata_c_order = np.empty((nt,9), dtype=np.float64)
-                            for comp in range(9):
-                                tdata_c_order[:,comp] = tdata[0,comp,:]
-                            comm.Send(tdata_c_order, dest=0, tag=2*ipair+2)
-                            printMPI(f"Rank {rank} done sending to P0 2")
-                            next_pair += skip_pairs
+                            # printMPI(f"Rank {rank} sending to P0 2 ")
+                            # tdata_c_order = np.empty((nt,9), dtype=np.float64)
+                            # for comp in range(9):
+                            #     tdata_c_order[:,comp] = tdata[0,comp,:]
+                            # comm.ISend(tdata_c_order, dest=0, tag=3*ipair+2)
+                            # printMPI(f"Rank {rank} done sending to P0 2")
+                            # next_pair += skip_pairs
+                            # t2 = perf_counter()
+                            # perf_time_send += t2 - t1
+                            
+                            #Use buffered asynchronous sends
+                            t1 = perf_counter()
+                            buf = {
+                                'ant': np.array([nt], dtype=np.int32).copy(),
+                                't': t.copy(),
+                                'tdata_c_order': tdata_c_order.copy()
+                            }
+                            send_buffers.append(buf)
+
+                            request_list.append(comm.Isend(buf['ant'], dest=0, tag=3*ipair))
+                            request_list.append(comm.Isend(buf['t'], dest=0, tag=3*ipair+1))
+                            request_list.append(comm.Isend(buf['tdata_c_order'], dest=0, tag=3*ipair+2))
                             t2 = perf_counter()
                             perf_time_send += t2 - t1
+
+                            #Check the completed requests
+                            completed_indices = []
+                            for i, request in enumerate(request_list):
+                                completed, status = request.Test()
+                                if completed:
+                                    completed_indices.append(i)
+
+                            # Remove completed requests and data from buffers
+                            for i in reversed(completed_indices):
+                                del request_list[i]
+                                del send_buffers[i]
+
+
 
                     if rank == 0:
                         if nprocs > 1:
@@ -1385,7 +1394,6 @@ class ShakerMaker:
                                 printMPI(f"P0 done getting from remote {remote} 1")
                                 nt = ant[0]
 
-                                # tdata = np.empty((9,nt), dtype=np.float64)
                                 tdata = np.empty((nt,9), dtype=np.float64)
                                 printMPI(f"P0 getting from remote {remote} 2")
                                 comm.Recv(tdata, source=remote, tag=2*ipair+2)
@@ -1395,7 +1403,6 @@ class ShakerMaker:
                                 dh = np.sqrt(dd[0]**2 + dd[1]**2)
                                 dz = np.abs(dd[2])
                                 z_rec = station.x[2]
-                                # tdata_dict[ipair] = (t[0], i_station, i_psource, tdata, dh, dz, z_rec)
 
                                 tdata_group[str(ipair)+"_t0"] = t[0]
                                 tdata_group[str(ipair)+"_tdata"] = tdata
@@ -1413,37 +1420,21 @@ class ShakerMaker:
                             mm = np.floor((time_left - hh*3600)/60)
                             ss = time_left - mm*60 - hh*3600
 
-                            print(f"{ipair} of {npairs} done ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} ")# t[0]={t[0]:0.4f} t[-1]={t[-1]:0.4f} (tmin={tmin:0.4f}, tmax={tmax:0.4f})")
-
-
-                else: 
-                    pass
+                            print(f"{ipair} of {npairs} done ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} ")
+                #endif
                 ipair += 1
 
             if verbose:
                 print(f'ShakerMaker.run_create_greens_function_database - finished my station {i_station} -->  (rank={rank} ipair={ipair} next_pair={next_pair})')
             self._logger.debug(f'ShakerMaker.run_create_greens_function_database - finished station {i_station} (rank={rank} ipair={ipair} next_pair={next_pair})')
 
-
-        # if rank == 0:
-        #     # Create a group for tdata_dict
-        #     if "tdata_dict" in hfile:
-        #         print("Found TDATA group in the HFILE. Starting anew!")
-        #         del hfile["tdata_dict"]
-
-        #     tdata_group = hfile.create_group("tdata_dict")
-
-            # Store each key-value pair in tdata_dict as a dataset inside the group
-            # for key, value in tdata_dict.items():
-            #     # tdata_group[str(key)] = value
-            #     t0, i_station, i_psource, tdata, dh, dz, z_rec = value
-            #     tdata_group[str(key)+"_t0"] = t0
-            #     tdata_group[str(key)+"_tdata"] = tdata
-
-
         fid_debug_mpi.close()
 
         perf_time_end = perf_counter()
+
+        if rank > 0:
+            for req in request_list:
+                req.wait()
 
         if rank == 0 and use_mpi:
             perf_time_total = perf_time_end - perf_time_begin
@@ -1466,7 +1457,6 @@ class ShakerMaker:
             all_min_perf_time_add = np.array([np.infty],dtype=np.double)
 
             # Gather statistics from all processes
-
             comm.Reduce(perf_time_core,
                 all_max_perf_time_core, op = MPI.MAX, root = 0)
             comm.Reduce(perf_time_send,
@@ -1488,7 +1478,6 @@ class ShakerMaker:
                 all_min_perf_time_conv, op = MPI.MIN, root = 0)
             comm.Reduce(perf_time_add,
                 all_min_perf_time_add, op = MPI.MIN, root = 0)
-
 
             if rank == 0:
                 print("\n")
