@@ -1366,6 +1366,9 @@ class ShakerMaker:
                             t2 = perf_counter()
                             perf_time_send += t2 - t1
 
+                            print(f"{rank=} sent {ipair=}")
+
+                            next_pair += skip_pairs
                             #Check the completed requests
                             completed_indices = []
                             for i_req, request in enumerate(request_list):
@@ -1385,9 +1388,8 @@ class ShakerMaker:
                                     del send_buffers[i_req]
                             except:
                                 print(f"{rank=} failed trying to remove {i_req=} \n{completed_indices=}\n {request_list=}\n {send_buffers=}\n")
-                                exit(0)
+                                exit(-1)
                             
-                            next_pair += skip_pairs
 
 
 
@@ -1434,6 +1436,9 @@ class ShakerMaker:
 
                             print(f"{ipair} of {npairs} done ETA = {hh:.0f}:{mm:.0f}:{ss:.1f} ")
                 #endif
+
+                else: 
+                    pass
                 ipair += 1
 
             if verbose:
