@@ -1369,10 +1369,11 @@ class ShakerMaker:
                             completed_indices = []
                             for i_req, request in enumerate(request_list):
                                 # completed, status = request.Test()
-                                item, req = request[0], request[1]
-                                completed = req.Test()
+                                # item, req = request[0], request[1]
+                                print(f"{rank=} {request}")
+                                completed = request[1].Test()
                                 if completed:
-                                    completed_indices.append((i_req, item))
+                                    completed_indices.append((i_req, request[0]))
 
                             print(f"{rank=} {completed_indices=}")
 
