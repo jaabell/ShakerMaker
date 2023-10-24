@@ -1380,11 +1380,12 @@ class ShakerMaker:
                             try:
                                 # Remove completed requests and data from buffers
                                 for i_req, item in reversed(completed_indices):
-                                    print(f"{rank=} deleting {i_req=}")
+                                    print(f"{rank=} deleting {i_req=} {item=}")
                                     del request_list[i_req]
                                     del send_buffers[i_req][item]
                             except:
-                                print(f"{rank=} failed trying to remove {i_req} {completed_indices=}")
+                                print(f"{rank=} failed trying to remove {i_req} {item=} {completed_indices=} {request_list=} {send_buffers=}")
+                                exit(0)
 
 
 
