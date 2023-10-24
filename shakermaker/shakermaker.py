@@ -1341,9 +1341,9 @@ class ShakerMaker:
                             # printMPI(f"Rank {rank} done sending to P0 1")
 
                             # printMPI(f"Rank {rank} sending to P0 2 ")
-                            # tdata_c_order = np.empty((nt,9), dtype=np.float64)
-                            # for comp in range(9):
-                            #     tdata_c_order[:,comp] = tdata[0,comp,:]
+                            tdata_c_order = np.empty((nt,9), dtype=np.float64)
+                            for comp in range(9):
+                                tdata_c_order[:,comp] = tdata[0,comp,:]
                             # comm.ISend(tdata_c_order, dest=0, tag=3*ipair+2)
                             # printMPI(f"Rank {rank} done sending to P0 2")
                             # next_pair += skip_pairs
