@@ -1400,14 +1400,14 @@ class ShakerMaker:
                                 ant = np.empty(1, dtype=np.int32)
                                 t = np.empty(1, dtype=np.double)
                                 printMPI(f"P0 getting from remote {remote} 1")
-                                comm.Recv(ant, source=remote, tag=2*ipair)
-                                comm.Recv(t, source=remote, tag=2*ipair+1)
+                                comm.Recv(ant, source=remote, tag=3*ipair)
+                                comm.Recv(t, source=remote, tag=3*ipair+1)
                                 printMPI(f"P0 done getting from remote {remote} 1")
                                 nt = ant[0]
 
                                 tdata = np.empty((nt,9), dtype=np.float64)
                                 printMPI(f"P0 getting from remote {remote} 2")
-                                comm.Recv(tdata, source=remote, tag=2*ipair+2)
+                                comm.Recv(tdata, source=remote, tag=3*ipair+2)
                                 printMPI(f"P0 done getting from remote {remote} 2")
 
                                 dd = psource.x - station.x
