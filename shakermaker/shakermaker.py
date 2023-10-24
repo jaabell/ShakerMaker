@@ -1376,7 +1376,7 @@ class ShakerMaker:
                                 if completed:
                                     completed_indices.append(i_req)
 
-                            print(f"{rank=} {completed_indices=}")
+                            # print(f"{rank=} {completed_indices=}")
 
                             try:
                                 # Remove completed requests and data from buffers
