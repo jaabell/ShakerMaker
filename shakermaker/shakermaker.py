@@ -1366,7 +1366,7 @@ class ShakerMaker:
                             t2 = perf_counter()
                             perf_time_send += t2 - t1
 
-                            print(f"{rank=} sent {ipair=}")
+                            print(f"    {rank=} sent {ipair=}")
 
                             next_pair += skip_pairs
                             #Check the completed requests
@@ -1402,6 +1402,9 @@ class ShakerMaker:
 
                                 ant = np.empty(1, dtype=np.int32)
                                 t = np.empty(1, dtype=np.double)
+
+                                print(f"{rank=} expecting {ipair=} from {remote=}")
+
                                 printMPI(f"P0 getting from remote {remote} 1")
                                 comm.Recv(ant, source=remote, tag=3*ipair)
                                 comm.Recv(t, source=remote, tag=3*ipair+1)
@@ -1418,8 +1421,12 @@ class ShakerMaker:
                                 dz = np.abs(dd[2])
                                 z_rec = station.x[2]
 
+                                print(f"{rank=} writing {ipair=} ")
+                                tw1 = perf_counter()
                                 tdata_group[str(ipair)+"_t0"] = t[0]
                                 tdata_group[str(ipair)+"_tdata"] = tdata
+                                tw2 = perf_counter()
+                                print(f"{rank=} done writing {ipair=} {tw2-tw1=} ")
 
                                 t2 = perf_counter()
                                 perf_time_recv += t2 - t1
