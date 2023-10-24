@@ -1346,7 +1346,6 @@ class ShakerMaker:
                                 tdata_c_order[:,comp] = tdata[0,comp,:]
                             # comm.ISend(tdata_c_order, dest=0, tag=3*ipair+2)
                             # printMPI(f"Rank {rank} done sending to P0 2")
-                            # next_pair += skip_pairs
                             # t2 = perf_counter()
                             # perf_time_send += t2 - t1
                             
@@ -1387,6 +1386,8 @@ class ShakerMaker:
                             except:
                                 print(f"{rank=} failed trying to remove {i_req=} \n{completed_indices=}\n {request_list=}\n {send_buffers=}\n")
                                 exit(0)
+                            
+                            next_pair += skip_pairs
 
 
 
