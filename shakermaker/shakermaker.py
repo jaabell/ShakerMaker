@@ -928,7 +928,7 @@ class ShakerMaker:
                         
                         #New approach using KD-tree
                         # Query for the current point
-                        point = [dh, z_src, z_rec]
+                        point = [dh, z_rec, z_src]
                         distance, best_match_index = tree.query(point)
                         # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
                         #                 np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
