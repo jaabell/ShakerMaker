@@ -797,13 +797,13 @@ class ShakerMaker:
         # dists= hfile["/dists"][:]
         pairs_to_compute = hfile["/pairs_to_compute"][:]
         dh_of_pairs = hfile["/dh_of_pairs"][:]
-        dv_of_pairs = hfile["/dv_of_pairs"][:]
+        # dv_of_pairs = hfile["/dv_of_pairs"][:]
         zrec_of_pairs= hfile["/zrec_of_pairs"][:]
         zsrc_of_pairs= hfile["/zsrc_of_pairs"][:]
 
         #Initialize seach KD-tree:
         # Construct the data for KD-tree
-        data_for_tree = list(zip(dh_of_pairs, dv_of_pairs, zrec_of_pairs, zsrc_of_pairs))
+        data_for_tree = list(zip(dh_of_pairs, zrec_of_pairs, zsrc_of_pairs))
         tree = KDTree(data_for_tree)
 
         if rank == 0:
@@ -883,7 +883,7 @@ class ShakerMaker:
 
                         d = x_rec - x_src
                         dh = np.sqrt(np.dot(d[0:2],d[0:2]))
-                        dv = np.abs(d[2])
+                        # dv = np.abs(d[2])
 
                         # Get the target Green's Functions
                         # OLD APPROACH ======================================================================================
@@ -928,7 +928,7 @@ class ShakerMaker:
                         
                         #New approach using KD-tree
                         # Query for the current point
-                        point = [dh, dv, z_src, z_rec]
+                        point = [dh, z_src, z_rec]
                         distance, best_match_index = tree.query(point)
                         # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
                         #                 np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
