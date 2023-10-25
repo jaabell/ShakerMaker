@@ -741,7 +741,8 @@ class ShakerMaker:
         debugMPI=False,
         tmin=0.,
         tmax=100,
-        showProgress=True
+        showProgress=True,
+        allow_out_of_bounds=False,
         ):
         """Run the simulation. 
         
@@ -897,10 +898,11 @@ class ShakerMaker:
                             dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
                             
                             # Check if the current pair is within the tolerances
-                            if abs(dh - dh_p) < delta_h and \
+                            if (abs(dh - dh_p) < delta_h and \
                                abs(dv - dv_p) < delta_v_src and \
                                abs(z_src - zsrc_p) < delta_v_src and \
-                               abs(z_rec - zrec_p) < delta_v_rec:
+                               abs(z_rec - zrec_p) < delta_v_rec) or \
+                               allow_out_of_bounds:
 
                                 distance = (abs(dh - dh_p) + 
                                             abs(dv - dv_p) + 
