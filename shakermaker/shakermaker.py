@@ -778,13 +778,14 @@ class ShakerMaker:
         
 
         """
+        import h5py
+        from scipy.spatial import KDTree
         title = f"ShakerMaker Run Fase begin. {dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}"
         
 
         if rank==0:
             print(f"Loading pairs-to-compute info from HDF5 database: {h5_database_name}")
 
-        import h5py
 
         if rank > 0:
             hfile = h5py.File(h5_database_name + '.h5', 'r')
@@ -800,6 +801,10 @@ class ShakerMaker:
         zrec_of_pairs= hfile["/zrec_of_pairs"][:]
         zsrc_of_pairs= hfile["/zsrc_of_pairs"][:]
 
+        #Initialize seach KD-tree:
+        # Construct the data for KD-tree
+        data_for_tree = list(zip(dh_of_pairs, dv_of_pairs, zrec_of_pairs, zsrc_of_pairs))
+        tree = KDTree(data_for_tree)
 
         if rank == 0:
             print("\n\n")
@@ -881,53 +886,65 @@ class ShakerMaker:
                         dv = np.abs(d[2])
 
                         # Get the target Green's Functions
-                        # ipair_target = 0
-                       
+                        # OLD APPROACH ======================================================================================
+                        # min_distance = float('inf')
+                        # best_match_index = -1
+
                         # for i in range(len(dh_of_pairs)):
                         #     dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
-                        #     if abs(dh - dh_p) < delta_h and \
-                        #         abs(z_src - zsrc_p) < delta_v_src and \
-                        #         abs(z_rec - zrec_p) < delta_v_rec:
+                            
+                        #     # Check if the current pair is within the tolerances
+                        #     if (abs(dh - dh_p) < delta_h and \
+                        #        abs(dv - dv_p) < delta_v_src and \
+                        #        abs(z_src - zsrc_p) < delta_v_src and \
+                        #        abs(z_rec - zrec_p) < delta_v_rec) or \
+                        #        allow_out_of_bounds:
+
+                        #         distance = (abs(dh - dh_p) + 
+                        #                     abs(dv - dv_p) + 
+                        #                     abs(z_src - zsrc_p) + 
+                        #                     abs(z_rec - zrec_p))
+                            
+                        #         if distance < min_distance:
+                        #             min_distance = distance
+                        #             best_match_index = i
+
+                        # if best_match_index != -1:
+                        #     # Use best_match_index as your best match within the tolerances
+                        #     ipair_target = best_match_index
+                        # else:
+                        #     print(f"No suitable match found! {allow_out_of_bounds=} {min_distance=}")
+
+                        # if ipair_target == len(dh_of_pairs):
+                        #     print("Target not found in database -- SKIPPING")
+                        #     npairs_skip += 1
+                        #     if npairs_skip > 500:
+                        #         print(f"Rank {rank} skipped too many pairs, giving up!")
+                        #         exit(-1)
                         #         break
                         #     else:
-                        #         ipair_target += 1
-                        min_distance = float('inf')
-                        best_match_index = -1
-
-                        for i in range(len(dh_of_pairs)):
-                            dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
-                            
-                            # Check if the current pair is within the tolerances
-                            if (abs(dh - dh_p) < delta_h and \
-                               abs(dv - dv_p) < delta_v_src and \
-                               abs(z_src - zsrc_p) < delta_v_src and \
-                               abs(z_rec - zrec_p) < delta_v_rec) or \
-                               allow_out_of_bounds:
-
-                                distance = (abs(dh - dh_p) + 
-                                            abs(dv - dv_p) + 
-                                            abs(z_src - zsrc_p) + 
-                                            abs(z_rec - zrec_p))
-                            
-                                if distance < min_distance:
-                                    min_distance = distance
-                                    best_match_index = i
-
-                        if best_match_index != -1:
-                            # Use best_match_index as your best match within the tolerances
+                        #         continue
+                        # END OLD APPROACH ==================================================================================
+                        
+                        #New approach using KD-tree
+                        # Query for the current point
+                        point = [dh, dv, z_src, z_rec]
+                        distance, best_match_index = tree.query(point)
+                        # condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
+                        #                 np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                        #                 np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+                        # Check if the closest match is within the tolerances
+                        if abs(dh - dh_of_pairs[best_match_index]) < delta_h and \
+                           abs(z_src - zsrc_of_pairs[best_match_index]) < delta_v_src and \
+                           abs(z_rec - zrec_of_pairs[best_match_index]) < delta_v_rec:
                             ipair_target = best_match_index
                         else:
-                            print(f"No suitable match found! {allow_out_of_bounds=} {min_distance=}")
+                            print(f"No suitable match found! {best_match_index=}")
+                            print(f"{abs(dh - dh_of_pairs[best_match_index])=} < {delta_h=} -> {abs(dh - dh_of_pairs[best_match_index]) < delta_h}" )
+                            print(f"{abs(z_src - zsrc_of_pairs[best_match_index])=} < {delta_v_src=} -> {abs(z_src - zsrc_of_pairs[best_match_index]) < delta_v_src}" )
+                            print(f"{abs(z_rec - zrec_of_pairs[best_match_index])=} < {delta_v_rec=} -> {abs(z_rec - zrec_of_pairs[best_match_index]) < delta_v_rec}" )
 
-                        if ipair_target == len(dh_of_pairs):
-                            print("Target not found in database -- SKIPPING")
-                            npairs_skip += 1
-                            if npairs_skip > 500:
-                                print(f"Rank {rank} skipped too many pairs, giving up!")
-                                exit(-1)
-                                break
-                            else:
-                                continue
+
 
                         ipair_string = "/tdata_dict/"+str(ipair_target)+"_tdata"
                         tdata = hfile[ipair_string][:]
