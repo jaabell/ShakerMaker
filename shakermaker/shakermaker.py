@@ -917,7 +917,7 @@ class ShakerMaker:
                             # Use best_match_index as your best match within the tolerances
                             ipair_target = best_match_index
                         else:
-                            print("No suitable match found!")
+                            print(f"No suitable match found! {allow_out_of_bounds=} {min_distance=}")
 
                         if ipair_target == len(dh_of_pairs):
                             print("Target not found in database -- SKIPPING")
@@ -1690,6 +1690,9 @@ class ShakerMaker:
                 hf.create_dataset("dv_of_pairs", data=dv_of_pairs)
                 hf.create_dataset("zrec_of_pairs", data=zrec_of_pairs)
                 hf.create_dataset("zsrc_of_pairs", data=zsrc_of_pairs)
+                hf.create_dataset("delta_h", data=delta_h)
+                hf.create_dataset("delta_v_rec", data=delta_v_rec)
+                hf.create_dataset("delta_v_src", data=delta_v_src)
 
 
         # return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs, zrec_of_pairs
