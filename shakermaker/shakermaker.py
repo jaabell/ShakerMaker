@@ -891,7 +891,7 @@ class ShakerMaker:
                         best_match_index = -1
 
                         for i in range(len(dh_of_pairs)):
-                            dh_p, dv_p, zrec_p, zsrc_p = dh_of_pairs[i], dv_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
+                            dh_p, zrec_p, zsrc_p = dh_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
                             
                             # Check if the current pair is within the tolerances
                             if (abs(dh - dh_p) < delta_h and \
