@@ -895,13 +895,11 @@ class ShakerMaker:
                             
                             # Check if the current pair is within the tolerances
                             if (abs(dh - dh_p) < delta_h and \
-                               abs(dv - dv_p) < delta_v_src and \
                                abs(z_src - zsrc_p) < delta_v_src and \
                                abs(z_rec - zrec_p) < delta_v_rec) or \
                                allow_out_of_bounds:
 
                                 distance = (abs(dh - dh_p) + 
-                                            abs(dv - dv_p) + 
                                             abs(z_src - zsrc_p) + 
                                             abs(z_rec - zrec_p))
                             
