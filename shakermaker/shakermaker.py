@@ -1628,8 +1628,11 @@ class ShakerMaker:
         # Initialize the counter for the number of computed pairs.
         n_computed_pairs = 0
 
-        def lor(a,b,c):
-            return np.logical_or(a,np.logical_or(b,c))
+        # def lor(a,b,c):
+        #     return np.logical_or(a,np.logical_or(b,c))
+        def lor(a, b, c):
+            return a | b | c
+
 
         for i_station, station in enumerate(self._receivers):
             for i_psource, psource in enumerate(self._source):
