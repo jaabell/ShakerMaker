@@ -51,7 +51,7 @@ class DRMHDF5StationListWriter(HDF5StationListWriter):
         # grp_drm_data.create_dataset("velocity", (3 * self.nstations, num_samples), dtype=np.double,
                                 # chunks=(3, num_samples))
         grp_drm_data.create_dataset("xyz", (self.nstations, 3), dtype=np.double)
-        grp_drm_data.create_dataset("internal", [self.nstations], dtype=np.bool)
+        grp_drm_data.create_dataset("internal", [self.nstations], dtype=bool)
         data_location = np.arange(0, self.nstations, dtype=np.int32) * 3
         grp_drm_data.create_dataset("data_location", data=data_location)
 

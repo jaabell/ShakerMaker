@@ -31,7 +31,7 @@ model.run(
  dt=0.005,   # Output time-step
  nfft=2048,  # N timesteps
  dk=0.1,     # wavenumber discretization
- tb=20,      # Initial zero-padding
+ tb=500,      # Initial zero-padding
  )
 
 #Visualize results

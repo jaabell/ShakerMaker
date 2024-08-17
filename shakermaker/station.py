@@ -2,7 +2,7 @@ import abc
 import scipy as sp
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.integrate import cumtrapz
+# from scipy.integrate import cumtrapz
 import scipy.signal as sig
 
 
@@ -62,7 +62,7 @@ class Station:
             # self._initialized = True
 
             dt = t[1] - t[0]
-            self._t = sp.arange(tmin,tmax,dt)
+            self._t = np.arange(tmin,tmax,dt)
             self._z = 0*self._t
             self._e = 0*self._t
             self._n = 0*self._t
