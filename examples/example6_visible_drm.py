@@ -11,7 +11,7 @@ from shakermaker.tools.plotting import ZENTPlot
 
 import numpy as np
 
-do_DRM = True
+do_DRM = False
 
 #Fault mechanism geometry
 ϕ,θ,λ = 0., 90., 0.    #Strike, dip, rake angles
@@ -92,8 +92,6 @@ if not do_DRM:
 	z,e,n,t = z[t<10.], e[t<10.], n[t<10.], t[t<10.]
 
 	Z, E, N = fft(z), fft(e), fft(n)
-
-	fftshift
 
 	f = fftfreq(z.size, t[1]-t[0])
 
