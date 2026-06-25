@@ -1,0 +1,120 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module ffsp_core
+    interface
+        subroutine ffsp_run_wrapper( &
+            id_sf_type_in, freq_min_in, freq_max_in, &
+            fault_length_in, fault_width_in, &
+            x_hypc_in, y_hypc_in, depth_hypc_in, &
+            xref_hypc_in, yref_hypc_in, &
+            magnitude_in, fc_main_1_in, fc_main_2_in, rv_avg_in, &
+            ratio_rise_in, &
+            strike_in, dip_in, rake_in, &
+            pdip_max_in, prake_max_in, &
+            nsubx_in, nsuby_in, &
+            nb_taper_trbl_in, &
+            seeds_in, &
+            id_ran1_in, id_ran2_in, &
+            angle_north_to_x_in, &
+            is_moment_in, &
+            nlayers_in, &
+            vp_in, vs_in, rho_in, thick_in, qa_in, qb_in, &
+            n_realizations_out, npts_out, &
+            x_out, y_out, z_out, &
+            slip_out, rupture_time_out, rise_time_out, peak_time_out, &
+            strike_out, dip_out, rake_out, &
+            ave_tr_out, ave_tp_out, ave_vr_out, err_spectra_out, pdf_out, &
+            ntime_spec_out, nphf_spec_out, lnpt_spec_out, &
+            stf_time_out, stf_out, &
+            freq_spec_out, moment_rate_out, dcf_out, &
+            freq_center_out, logmean_synth_out, logmean_dcf_out &
+        )
+
+            ! Input: Fault parameters
+            integer intent(in) :: id_sf_type_in
+            real intent(in) :: freq_min_in
+            real intent(in) :: freq_max_in
+            real intent(in) :: fault_length_in
+            real intent(in) :: fault_width_in
+            real intent(in) :: x_hypc_in
+            real intent(in) :: y_hypc_in
+            real intent(in) :: depth_hypc_in
+            real intent(in) :: xref_hypc_in
+            real intent(in) :: yref_hypc_in
+            real intent(in) :: magnitude_in
+            real intent(in) :: fc_main_1_in
+            real intent(in) :: fc_main_2_in
+            real intent(in) :: rv_avg_in
+            real intent(in) :: ratio_rise_in
+            real intent(in) :: strike_in
+            real intent(in) :: dip_in
+            real intent(in) :: rake_in
+            real intent(in) :: pdip_max_in
+            real intent(in) :: prake_max_in
+            integer intent(in) :: nsubx_in
+            integer intent(in) :: nsuby_in
+            integer dimension(4),intent(in) :: nb_taper_trbl_in
+            integer dimension(3),intent(in) :: seeds_in
+            integer intent(in) :: id_ran1_in
+            integer intent(in) :: id_ran2_in
+            real intent(in) :: angle_north_to_x_in
+            integer intent(in) :: is_moment_in
+            
+            ! Input: Velocity model
+            integer intent(in) :: nlayers_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: vp_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: vs_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: rho_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: thick_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: qa_in
+            real dimension(nlayers_in),intent(in),depend(nlayers_in) :: qb_in
+            
+            ! Output: Dimensions
+            integer intent(out) :: n_realizations_out
+            integer intent(out) :: npts_out
+            
+            ! Output: Source parameters (explicit dimensions based on inputs)
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: x_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: y_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: z_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: slip_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: rupture_time_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: rise_time_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: peak_time_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: strike_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: dip_out
+            real dimension(nsubx_in*nsuby_in,id_ran2_in-id_ran1_in+1),intent(out),depend(nsubx_in,nsuby_in,id_ran1_in,id_ran2_in) :: rake_out
+            
+            ! Output: Statistics
+            real dimension(id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: ave_tr_out
+            real dimension(id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: ave_tp_out
+            real dimension(id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: ave_vr_out
+            real dimension(id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: err_spectra_out
+            real dimension(id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: pdf_out
+            
+            ! Output: Spectral data dimensions
+            integer intent(out) :: ntime_spec_out
+            integer intent(out) :: nphf_spec_out
+            integer intent(out) :: lnpt_spec_out
+            
+            ! Output: STF time domain (max size 131072, actual size in ntime_spec_out)
+            real dimension(131072),intent(out) :: stf_time_out
+            real dimension(131072),intent(out) :: stf_out
+            
+            ! Output: Spectrum frequency domain (max size 65536, actual size in nphf_spec_out)
+            real dimension(65536),intent(out) :: freq_spec_out
+            real dimension(65536),intent(out) :: moment_rate_out
+            real dimension(65536),intent(out) :: dcf_out
+            
+            ! Output: Octave-averaged spectrum (max size 17, actual size in lnpt_spec_out)
+            real dimension(17),intent(out) :: freq_center_out
+            real dimension(17),intent(out) :: logmean_synth_out
+            real dimension(17),intent(out) :: logmean_dcf_out
+
+        end subroutine ffsp_run_wrapper
+    end interface
+end python module ffsp_core
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
