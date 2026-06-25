@@ -15,23 +15,17 @@ from scipy.integrate import cumulative_trapezoid
 
 
 try:
-    imp.find_module('mpi4py')
-    found_mpi4py = True
-except ImportError:
-    found_mpi4py = False
-
-if found_mpi4py:
-    # print "Found MPI"
     from mpi4py import MPI
     use_mpi = True
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    comm   = MPI.COMM_WORLD
+    rank   = comm.Get_rank()
     nprocs = comm.Get_size()
-else:
-    # print "Not-Found MPI"
-    rank = 0
-    nprocs = 1
+# except ImportError:
+except (ImportError, RuntimeError):
     use_mpi = False
+    rank   = 0
+    nprocs = 1
+
 
 
 def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differentiate=0, savefigname="", linestyle="-", linewidth=2):
@@ -236,7 +230,7 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
 
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
-    from scipy.integrate import trapz
+    from scipy.integrate import trapezoid
     
     if fig == 0:
         fighandle = plt.figure()
@@ -292,7 +286,7 @@ def SourcePlot(sources, fig=0, show=False, autoscale=False, colorby="maxstf", co
         elif case==5: #"slip"
             t = stf.t
             v = stf.data
-            slip = trapz(v, t)
+            slip = trapezoid(v, t)
             c = slip
 
         x_src[i] = x[0]
