@@ -1,0 +1,151 @@
+site_name: ShakerMaker
+site_description: FK ground motion synthesis, DRM boundary motions, and FFSP stochastic ruptures — a Python framework for earthquake ground motion simulation.
+site_url: https://ppalacios92.github.io/ShakerMaker/
+repo_url: https://github.com/ppalacios92/ShakerMaker
+repo_name: ppalacios92/ShakerMaker
+edit_uri: edit/master/docs/web/
+
+# All MkDocs content lives in its own folder so the legacy Sphinx
+# build under docs/source/ stays untouched during the migration.
+docs_dir: docs/web
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  # API reference auto-generated from docstrings. Requires the package
+  # (and its compiled `shakermaker.core` extension) to be importable.
+  # On CI the Fortran extension is built; locally you may need it too.
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_source: true
+            show_if_no_docstring: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            docstring_section_style: table
+            merge_init_into_class: true
+            filters:
+              - "!^_"
+
+nav:
+  - Home: index.md
+  - Background:
+      - Overview: background/overview.md
+      - The FK method: background/fk_method.md
+      - Numerical solution: background/numerics.md
+      - Coordinates & conventions: background/conventions.md
+      - Finite faults & FFSP: background/finite_fault.md
+  - Guides:
+      - Installation & compilation: guides/installation.md
+      - Getting started: guides/first_steps.md
+      - Crust model: guides/crust_model.md
+      - Sources: guides/sources.md
+      - Source time functions: guides/source_time_functions.md
+      - Receivers: guides/receivers.md
+      - Running a simulation: guides/running.md
+      - FK parameters: guides/parameters.md
+      - Domain Reduction Method: guides/drm.md
+      - FFSP stochastic rupture: guides/ffsp.md
+      - Outputs & writers: guides/outputs.md
+      - SW4 export: guides/sw4_export.md
+      - Plotting & visualisation: guides/plotting.md
+  - Exercises:
+      - Overview: exercises/index.md
+      - "1 · First run & the four arrivals": exercises/01_first_run.md
+      - "2 · Numerical convergence": exercises/02_convergence.md
+      - "3 · A sedimentary basin": exercises/03_basin.md
+      - "4 · Source time functions compared": exercises/04_stf.md
+      - "5 · DRM box → H5DRM": exercises/05_drm.md
+      - "6 · FFSP stochastic rupture": exercises/06_ffsp.md
+      - "7 · Receiver geometries & the fast pipeline": exercises/07_receivers_pipeline.md
+      - "8 · Sources: point & finite faults": exercises/08_sources.md
+      - "9 · Saving results & writers": exercises/09_writers.md
+      - "10 · Exporting to SW4": exercises/10_sw4_export.md
+      - "11 · Plotting & visualisation": exercises/11_plotting.md
+      - "12 · Validation: SCEC LOH.1": exercises/12_validation.md
+      - "13 · ShakerMaker vs SW4": exercises/13_shakermaker_sw4.md
+  - Examples: examples/index.md
+  - API Reference:
+      - Overview: api/index.md
+      - ShakerMaker engine: api/shakermaker.md
+      - CrustModel: api/crustmodel.md
+      - Sources: api/sources.md
+      - Source time functions: api/stf.md
+      - Receivers: api/receivers.md
+      - Writers: api/writers.md
+      - FFSP: api/ffsp.md
+      - SW4 export: api/sw4.md
+      - Plotting: api/plotting.md
+      - CRUST 1.0: api/crust1.md
