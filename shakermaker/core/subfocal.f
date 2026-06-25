@@ -27,11 +27,11 @@ C       include 'model.h'
 
       z = tdata(j,7,:)*((f1*n1-f2*n2)*cos(2*p)+(f1*n2+f2*n1)*sin(2*p))
      & + tdata(j,4,:)*((f1*n3+f3*n1)*cos(p)+(f2*n3+f3*n2)*sin(p))
-     & + tdata(j,1,:)*(f3*n3)
+     & - tdata(j,1,:)*(f3*n3)
 
       r = tdata(j,8,:)*((f1*n1-f2*n2)*cos(2*p)+(f1*n2+f2*n1)*sin(2*p))
      & + tdata(j,5,:)*((f1*n3+f3*n1)*cos(p)+(f2*n3+f3*n2)*sin(p))
-     & + tdata(j,2,:)*(f3*n3)
+     & - tdata(j,2,:)*(f3*n3)
 
       t = tdata(j,9,:)*((f1*n1-f2*n2)*sin(2*p)-(f1*n2+f2*n1)*cos(2*p))
      & + tdata(j,6,:)*((f1*n3+f3*n1)*sin(p)-(f2*n3+f3*n2)*cos(p))
