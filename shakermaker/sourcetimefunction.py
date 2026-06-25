@@ -36,58 +36,53 @@ class SourceTimeFunction(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _generate_data(self):
-        raise NotImplementedError('derived class must define method generate_data')
+        raise NotImplementedError('derived class must define method _generate_data')
 
     def convolve(self, val, t, debug=False):
+        """Convolve the signal ``val`` sampled on ``t`` with this source time function.
+
+        The source time function is resampled onto the signal sampling step
+        ``dt = t[1] - t[0]`` and convolved with ``val`` using an FFT. The
+        result is returned on the same time grid as ``val``, which is the grid
+        used by the rest of the pipeline (``add_to_response``, HDF5 output).
+
+        The STF is resampled onto the signal grid (rather than the signal onto
+        the STF grid) because the STF is always short while ``val`` has ``nfft``
+        points, so resampling the STF is the cheaper operation.
+
+        :param val: Signal samples.
+        :type val: np.array
+        :param t: Time vector for ``val``; assumed uniformly sampled.
+        :type t: np.array
+        :param debug: If True, plot the signal, the convolved signal and the STF.
+        :type debug: bool
+
+        :returns: ``val`` convolved with the source time function, on grid ``t``.
+        :rtype: np.array
+        """
         if len(self.data) == 1:
-            val_stf = val*self.data[0]
-        else:
-            dt_old = t[1] - t[0]
-            dt_new = self.dt
-            # print(f"Resampling VAL from {dt_old} to {dt_new}")
-            # val = 0*val
-            # val[len(val)//2]=1
-            t_resampled = np.arange(t[0], t[-1], dt_new)
-            val_resampled = interp1d(t, val, bounds_error=False, fill_value=(val[0], val[-1]))(t_resampled)
-            # val_resampled = sig.resample(val, len(t_resampled))
-            # val_resampled *= 0
-            # val_resampled[len(val_resampled)//2]=1
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]*dt_new
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] / sum(self.data)
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") / (sum(self.data)*dt_new)
-            val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)] * dt_new 
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") * dt_new / dt_old
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="same") 
-            # val_stf_resampled = sig.convolve(val_resampled, self.data, mode="full")[0:len(val_resampled)]
-            val_stf = interp1d(t_resampled, val_stf_resampled, bounds_error=False, fill_value=(val[0], val[-1]))(t)
-            # print(f"Resampling VAL from {t_resampled[1] - t_resampled[0]} to {t[1] - t[0]}")
-            # print(f"  len before = {len(val_stf_resampled)} len after = {len(val_stf)}")
-            # interp1d
-            # tstf_resampled = np.arange(0, self.t.max(), self.dt)
-            # dstf_resampled = interp1d(self.t, self.data)(tstf_resampled)
-            # val_stf = sig.convolve(val, dstf_resampled, mode="full")[0:len(val)]
-            # sig.convolve
-            if debug:
-                import matplotlib.pylab as plt
+            # Dirac or unit impulse: trivial scaling, no convolution needed.
+            return val * self.data[0]
 
-                plt.figure(1)
-                # plt.plot(tstf_resampled, dstf_resampled, label="resampled STF")
-                # plt.legend()
-                plt.plot(t, val, label="original val")
-                plt.plot(t_resampled, val_resampled, ".", label="resampled val")
+        dt = t[1] - t[0]
 
-                t1 = t_resampled[val_stf_resampled.argmax()]
-                t2 = self.t[self.data.argmax()]
-                plt.legend()
+        # Resample the STF to the signal's dt. self.t may have a finer
+        # resolution than dt (e.g. Brune generates self.t at self._dt/10 for
+        # internal waveform accuracy); this brings it onto the signal grid.
+        t_stf_r = np.arange(self.t[0], self.t[-1] + dt, dt)
+        stf_r   = interp1d(self.t, self.data,
+                            bounds_error=False, fill_value=0.0)(t_stf_r)
 
-                plt.figure(2)
-                plt.plot(t, val,  label="original val")
-                plt.plot(t_resampled, val_resampled, ".", label="original val")
-                plt.plot(t_resampled, val_stf_resampled, ".", label="convolved resampled val")
-                plt.plot(t, val_stf, label="convolved val")
-                plt.plot(self.t-t2+t1, self.data, label="original STF")
-                plt.legend()
-                plt.show()
+        # FFT convolution. Result truncated to the val grid and scaled by dt.
+        val_stf = sig.fftconvolve(val, stf_r, mode="full")[0:len(val)] * dt
 
+        if debug:
+            import matplotlib.pylab as plt
+            plt.figure(1)
+            plt.plot(t, val,     label="original val")
+            plt.plot(t, val_stf, label="convolved val")
+            plt.plot(self.t, self.data / (self.data.max() or 1) * np.abs(val).max(),
+                     label="STF (normalised)", alpha=0.6)
+            plt.legend(); plt.show()
 
         return val_stf
