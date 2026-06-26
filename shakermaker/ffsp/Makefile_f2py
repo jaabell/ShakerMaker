@@ -1,0 +1,75 @@
+# Makefile para compilar FFSP con f2py
+#
+# Uso:
+#   make           - Compila el módulo ffsp_core
+#   make clean     - Limpia archivos compilados
+#   make test      - Prueba el módulo compilado
+
+F90     = gfortran
+F77     = gfortran
+F2PY    = f2py
+
+# Flags de compilación
+F90FLAGS = -O3 -fPIC
+F77FLAGS = -O3 -std=legacy -fPIC
+
+# Archivos fuente
+FORTRAN_SOURCES = ffsp_wrapper.f90 \
+                  ffsp_comm.f90 \
+                  spfield_n.f90 \
+                  dcf_subs_1.f90 \
+                  slip_rate.f90 \
+                  ffsp_tool.f
+
+# Nombre del módulo Python
+MODULE_NAME = ffsp_core
+
+# Archivo de salida
+SO_FILE = $(MODULE_NAME).cpython-*.so
+
+.PHONY: all clean test help
+
+all: $(MODULE_NAME)
+
+# Compilar módulo con f2py
+$(MODULE_NAME): $(FORTRAN_SOURCES) ffsp.pyf
+	@echo "=================================================="
+	@echo "Compilando módulo FFSP con f2py..."
+	@echo "=================================================="
+	$(F2PY) -c ffsp.pyf $(FORTRAN_SOURCES) \
+		--f90flags="$(F90FLAGS)" \
+		--f77flags="$(F77FLAGS)" \
+		-m $(MODULE_NAME)
+	@echo ""
+	@echo "✓ Compilación exitosa!"
+	@echo "✓ Módulo generado: $(SO_FILE)"
+	@echo ""
+
+# Limpiar archivos compilados
+clean:
+	@echo "Limpiando archivos compilados..."
+	rm -f *.so *.o *.mod *.pyc __pycache__/*
+	rm -rf build/
+	@echo "✓ Limpieza completa"
+
+# Test básico del módulo
+test:
+	@echo "=================================================="
+	@echo "Probando módulo FFSP..."
+	@echo "=================================================="
+	python3 -c "import ffsp_core; print('✓ Módulo importado exitosamente'); print(dir(ffsp_core))"
+
+# Ayuda
+help:
+	@echo "Makefile para compilar FFSP con f2py"
+	@echo ""
+	@echo "Comandos disponibles:"
+	@echo "  make           - Compila el módulo ffsp_core"
+	@echo "  make clean     - Limpia archivos compilados"
+	@echo "  make test      - Prueba el módulo compilado"
+	@echo "  make help      - Muestra esta ayuda"
+	@echo ""
+	@echo "Archivos necesarios:"
+	@echo "  - ffsp_wrapper.f90 (wrapper principal)"
+	@echo "  - ffsp.pyf (interfaz f2py)"
+	@echo "  - ffsp_comm.f90, spfield_n.f90, etc. (código FFSP original)"
