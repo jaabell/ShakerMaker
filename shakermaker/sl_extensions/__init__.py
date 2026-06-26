@@ -1,1 +1,3 @@
 from shakermaker.sl_extensions.DRMBox import DRMBox
+from shakermaker.sl_extensions.SurfaceGrid import SurfaceGrid
+from shakermaker.sl_extensions.PointCloudDRMReceiver import PointCloudDRMReceiver
