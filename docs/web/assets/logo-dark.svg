@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" aria-label="ShakerMaker mark">
+  <circle cx="50" cy="50" r="46" stroke="#6fb0d6" stroke-width="3"/>
+  <path d="M8 50 L22 50 L29 26 L38 50 L46 18 L56 82 L64 40 L71 58 L78 50 L92 50"
+        stroke="#e8623f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
