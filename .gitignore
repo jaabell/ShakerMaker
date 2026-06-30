@@ -1,3 +1,22 @@
+﻿# Build output
 build/
-.idea/
+dist/
+*.egg-info/
+
+# Compiled extensions
+*.so
+*.pyd
+*.dll
+
+# f2py generated sources (do not commit)
+shakermaker/core/coremodule.c
+shakermaker/core/core-f2pywrappers.f
+
+# Python cache
 __pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
