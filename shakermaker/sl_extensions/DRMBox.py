@@ -69,28 +69,27 @@ class DRMBox(StationList):
     :type nelems: (int)
     :param h:  Spacings in each direction ``h = [hx, hy, hz]``
     :type h: (double)
-    :param azimuth:  Azimuthal orientation of the box. 
-    :type azimuth: (double)
 
     .. note::
         Side lengths of the DRM box are ``[Nx*hx, Ny*hy, Nz*hz]`` up to the interior
         boundary of the box. Exterior boundary has side lengths: ``[(Nx+2)*hx, (Ny+2)*hy, (Nz+1)*hz]``
 
     """
-    def __init__(self, pos, nelems, h, metadata={},azimuth=0.):
+    def __init__(self, pos, nelems, h, metadata=None):
+        if metadata is None:
+            metadata = {}
         StationList.__init__(self,[], metadata)
 
         self._x0 = np.array(pos)
         self._h = np.array(h)
         self._nelems = np.array(nelems)
-        self._azimuth = azimuth
 
         self._planes = []
-        self._tstart = np.infty
-        self._tend = -np.infty
+        self._tstart = np.inf
+        self._tend = -np.inf
         self._dt = 0
-        self._xmax = [-np.infty, -np.infty, -np.infty]
-        self._xmin = [np.infty, np.infty, np.infty]
+        self._xmax = [-np.inf, -np.inf, -np.inf]
+        self._xmin = [np.inf, np.inf, np.inf]
 
         self._create_DRM_stations()
 
@@ -128,7 +127,6 @@ class DRMBox(StationList):
             new_plane.set_station_id(i, j, new_station.metadata['id'])
 
     def _create_DRM_stations(self):
-        # DRM box orientation (TODO: add azimuthal rotation)
         e1 = np.array([1.,0.,0.])
         e2 = np.array([0.,1.,0.])
         e3 = np.array([0.,0.,1.])
