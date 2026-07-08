@@ -9,6 +9,7 @@ from shakermaker import core
 import imp
 import traceback
 from time import perf_counter
+from tqdm import tqdm
 
 
 try:
@@ -912,6 +913,7 @@ class ShakerMaker:
                             ipair_target = best_match_index
                         else:
                             print(f"No suitable match found! {allow_out_of_bounds=} {min_distance=}")
+                            print(f"{rank=} {i_station=} {i_psource=}")
 
                         if ipair_target == len(dh_of_pairs):
                             print("Target not found in database -- SKIPPING")
@@ -1561,6 +1563,10 @@ class ShakerMaker:
         showProgress=True,
         store_here=None,
         npairs_max=100000,
+        using_vectorize_manner=False,
+        cfactor = 0.5,
+        finalcheck=True,
+        StationType="DRM",
         ):
         """Run the simulation. 
         
@@ -1610,113 +1616,618 @@ class ShakerMaker:
                           .format(self._source.nsources, self._receivers.nstations,
                                   self._source.nsources*self._receivers.nstations, dt, nfft))
 
-        ipair = 0
+        if rank == 0:        
+            print("SahkerMaker.run - starting")
+            print(f"Number of sources: {self._source.nsources}")
+            print(f"Number of receivers: {self._receivers.nstations}")
+            print(f"Total src-rcv pairs: {self._source.nsources*self._receivers.nstations}")
+            print(f"{dt=}")
+            print(f"{nfft=}")
 
-        npairs = self._receivers.nstations*len(self._source._pslist)
 
-        print(f"{npairs=}")
+        factor = cfactor
+        
 
-        # dists = np.zeros((npairs, 2))
+        
 
-        pairs_to_compute = np.empty((npairs_max, 2), dtype=np.int32)
-        dd_of_pairs = np.empty(npairs_max, dtype=np.double)
-        dh_of_pairs = np.empty(npairs_max, dtype=np.double)
-        dv_of_pairs = np.empty(npairs_max, dtype=np.double)
-        zrec_of_pairs = np.empty(npairs_max, dtype=np.double)
-        zsrc_of_pairs = np.empty(npairs_max, dtype=np.double)
-
-        # Initialize the counter for the number of computed pairs.
-        n_computed_pairs = 0
-
-        # def lor(a,b,c):
-        #     return np.logical_or(a,np.logical_or(b,c))
         def lor(a, b, c):
             return a | b | c
 
+        # wait for all ranks to reach here
 
-        for i_station, station in enumerate(self._receivers):
+        toatalnumberofpairs = self._receivers.nstations*self._source.nsources
+        # parst the indcies from zero to totalnumberofpairs into nprocs parts
+        # and assign each part to a rank
+        # the rank 0 will have the first part, rank 1 will have the second part and so on
+        istart = rank * toatalnumberofpairs // nprocs
+        iend = (rank + 1) * toatalnumberofpairs // nprocs
+        if rank == 0:
+            istartList = []
+            iendList = []
+            for i in range(nprocs):
+                istartList.append(i * toatalnumberofpairs // nprocs)
+                iendList.append((i + 1) * toatalnumberofpairs // nprocs)
+            # print(f"{istartList=}")
+            # print(f"{iendList=}")
+        
+
+        
+
+
+        if rank == 0:
+            # start timing
+            perf_time_begin = perf_counter()
+            npairs = self._receivers.nstations*self._source.nsources
+            print(f"{npairs=}")
+            pairs_to_compute = np.empty((npairs, 2), dtype=np.int32)
+
+            print ("Creating source matrix")
+            source_matrix = np.empty((self._source.nsources, 3), dtype=np.double)
             for i_psource, psource in enumerate(self._source):
+                source_matrix[i_psource, :] = psource.x
+            
+            print ("Creating receiver matrix")
+            receiver_matrix = np.empty((self._receivers.nstations, 3), dtype=np.double)
+            for i_station, station in enumerate(self._receivers):
+                receiver_matrix[i_station, :] = station.x
 
 
-                if n_computed_pairs >= npairs_max:
-                    print("Exceeded number of pairs!!")
-                    exit(0)
+            # creating DRM stations in csv file
+            if StationType.lower() == "drm":
+                import os
+                if not os.path.dirname(store_here):  # If the path is just a filename
+                    mother_directory = os.getcwd()  # Get the current working directory
+                else:
+                    mother_directory = os.path.dirname(os.path.abspath(store_here))
 
-                t1 = perf_counter()
-
-                x_src = psource.x
-                x_rec = station.x
+                np.savetxt(mother_directory + "/DRMPoints.csv", receiver_matrix, delimiter=",", header="x,y,z", comments="")
                 
-                z_rec = station.x[2]
-                z_src = psource.x[2]
+                
 
-                d = x_rec - x_src
+            
+            z_rec           = receiver_matrix[:,2]
+            z_src           = source_matrix[:,2]
 
-                dd = np.linalg.norm(d)
-                dh = np.linalg.norm(d[0:2])
-                dv = np.abs(d[2])
+            # compute the distance matrix
+            print ("Computing the distance matrix")
+            dd = np.linalg.norm(receiver_matrix[:, np.newaxis, :] - source_matrix[np.newaxis, :, :], axis=2)
+            dd = dd.flatten()
 
-                # dists[ipair,0] = dh
-                # dists[ipair,1] = dv
-               
-                condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
-                                np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
-                                np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+            # compute the horizontal distance matrix
+            print ("Computing the horizontal distance matrix")
+            receiver_matrix = receiver_matrix[:,:2]
+            source_matrix   = source_matrix[:,:2]
+            dh = np.linalg.norm(receiver_matrix[:, np.newaxis, :] - source_matrix[np.newaxis, :, :], axis=2)
+            dh = dh.flatten()
 
-                # condition = (np.abs(dd - dd_of_pairs[:n_computed_pairs]) < delta_h) & \
-                            # (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) 
-                # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
-                #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v_src) &\
-                #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v_rec) 
-                # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
-                #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) & \
-                #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v)
-                            # (np.abs(dv - dv_of_pairs[:n_computed_pairs]) < delta_v) & \
+            # compute the vertical distance matrix
+            print ("Computing the vertical distance matrix")
+            z_rec, z_src = np.meshgrid(z_rec, z_src, indexing='ij')
+            z_rec = z_rec.flatten()
+            z_src = z_src.flatten()
+            dv = np.abs(z_rec - z_src)
 
-                if n_computed_pairs == 0 or np.all(condition):
-                    pairs_to_compute[n_computed_pairs,:] = [i_station, i_psource]
-                    dd_of_pairs[n_computed_pairs] = dd
-                    dh_of_pairs[n_computed_pairs] = dh
-                    dv_of_pairs[n_computed_pairs] = dv
-                    zrec_of_pairs[n_computed_pairs] = z_rec
-                    zsrc_of_pairs[n_computed_pairs] = z_src
+        comm.Barrier()
+        if nprocs > 1:
+            # create dh z_rec and z_src for all ranks
+            mini_dh    = np.empty(iend-istart, dtype=np.double)
+            mini_z_rec = np.empty(iend-istart, dtype=np.double)
+            mini_z_src = np.empty(iend-istart, dtype=np.double)
+            if rank == 0:
+                # send sub dh, z_rec and z_src to all ranks
+                for i in range(1, nprocs):
+                    istart = istartList[i]
+                    iend = iendList[i]
+                    comm.Send(dh[istart:iend], dest=i, tag=1)
+                    comm.Send(z_rec[istart:iend], dest=i, tag=2)
+                    comm.Send(z_src[istart:iend], dest=i, tag=3)
+                istart = istartList[0]
+                iend = iendList[0]
+            else:
+                comm.Recv(mini_dh, source=0, tag=1)
+                comm.Recv(mini_z_rec, source=0, tag=2)
+                comm.Recv(mini_z_src, source=0, tag=3)    
 
-                    n_computed_pairs += 1
-                t2 = perf_counter()
+        comm.Barrier()            
 
-                if ipair % 10000 == 0:
-                    ETA = (t2-t1)*(npairs-ipair)/3600.
-                    print(f"On {ipair=} of {npairs} {n_computed_pairs=} ({n_computed_pairs/npairs*100}% reduction) {ETA=}h")
+ 
+        if using_vectorize_manner==True:
+            if rank == 0:
+                # Creating bins
+                print ("Computing the bins")
+                eps = 1e-8
+                dh_max , dh_min = np.max(dh), np.min(dh)
+                binsnumber = int((dh_max - dh_min) // (delta_h*factor) + 1)
+                dh_bins = np.linspace(dh_min, dh_max + eps, binsnumber+1)
+                assert np.all(np.diff(dh_bins) <= delta_h*factor)
+                
 
-                ipair += 1
-     
+                dzrec_max , dzrec_min = np.max(z_rec), np.min(z_rec)
+                binsnumber = int((dzrec_max - dzrec_min) // (delta_v_rec*factor) + 1)
+                dzrec_bins = np.linspace(dzrec_min, dzrec_max + eps, binsnumber+1)
+                assert np.all(np.diff(dzrec_bins) <= delta_v_rec*factor)
 
-        pairs_to_compute = pairs_to_compute[:n_computed_pairs,:]
-        dd_of_pairs = dd_of_pairs[:n_computed_pairs]
-        dh_of_pairs = dh_of_pairs[:n_computed_pairs]
-        dv_of_pairs = dv_of_pairs[:n_computed_pairs]
-        zrec_of_pairs = zrec_of_pairs[:n_computed_pairs]
-        zsrc_of_pairs = zsrc_of_pairs[:n_computed_pairs]
+                dzsrc_max , dzsrc_min = np.max(z_src), np.min(z_src)
+                binsnumber = int((dzsrc_max - dzsrc_min) // (delta_v_src*factor) + 1)
+                dzsrc_bins = np.linspace(dzsrc_min, dzsrc_max + eps, binsnumber+1)
+                assert np.all(np.diff(dzsrc_bins) <= delta_v_src*factor)
 
-        print(f"Need only {n_computed_pairs} pairs of {npairs} ({n_computed_pairs/npairs*100}% reduction)")
+                # computing total number of bins
+                num_bins = len(dh_bins) * len(dzrec_bins) * len(dzsrc_bins)
+                print(f"Total number of bins: {num_bins}")
 
-        if store_here is not None:
-            import h5py
-            with h5py.File(store_here + '.h5', 'w') as hf:
-                # hf.create_dataset("dists", data=dists)
-                hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
-                hf.create_dataset("dd_of_pairs", data=dd_of_pairs)
-                hf.create_dataset("dh_of_pairs", data=dh_of_pairs)
-                hf.create_dataset("dv_of_pairs", data=dv_of_pairs)
-                hf.create_dataset("zrec_of_pairs", data=zrec_of_pairs)
-                hf.create_dataset("zsrc_of_pairs", data=zsrc_of_pairs)
-                hf.create_dataset("delta_h", data=delta_h)
-                hf.create_dataset("delta_v_rec", data=delta_v_rec)
-                hf.create_dataset("delta_v_src", data=delta_v_src)
+                # digitizing the data
+                print ("Digitizing the data")
+                dh_digitized = np.digitize(dh, dh_bins)
+                z_rec_digitized = np.digitize(z_rec, dzrec_bins)
+                z_src_digitized = np.digitize(z_src, dzsrc_bins)
+
+                
+                
+                
+                # creat matrix of pairs
+                print ("Creating the pairs")
+                dh_digitized    -= 1
+                z_rec_digitized -= 1
+                z_src_digitized -= 1
+                # pairs_to_compute =[categories[dh_digitized[i], z_rec_digitized[i], z_src_digitized[i]] for i in range(npairs)]
+                pairs_to_compute = dh_digitized * len(dzrec_bins) * len(dzsrc_bins) + z_rec_digitized * len(dzsrc_bins) + z_src_digitized
+                pairs_to_compute, indices,reverseIndicies = np.unique(pairs_to_compute, return_index=True,return_inverse=True)
+                indices = np.sort(indices)
+                i_station = indices // len(self._source._pslist)
+                i_psource = indices % len(self._source._pslist)
+
+
+
+
+
+
+
+                npairs_max = len(pairs_to_compute)
+                pairs_to_compute = np.empty((npairs_max, 2), dtype=np.int32)
+                dd_of_pairs   = np.empty(npairs_max, dtype=np.double)
+                dh_of_pairs   = np.empty(npairs_max, dtype=np.double)
+                dv_of_pairs   = np.empty(npairs_max, dtype=np.double)
+                zrec_of_pairs = np.empty(npairs_max, dtype=np.double)
+                zsrc_of_pairs = np.empty(npairs_max, dtype=np.double)
+
+                print(f"npairs_max = {npairs_max}")
+                # ====================================================================================================
+                # optimizing the number of pairs
+                # ====================================================================================================
+
+
+
+                n_computed_pairs = 0
+                print ("Optimizing the number of pairs")
+                print("\titeration 1")
+                print("\t\treducing the number of pairs:")
+            
+                # reducing the number of pairs
+                
+                for j in tqdm(range(len(indices))):
+                    i = indices[j]
+                    condition = lor(np.abs(dh[i]    - dh_of_pairs[:n_computed_pairs])   > delta_h,     \
+                                    np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                    np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+                    
+                    if n_computed_pairs == 0 or np.all(condition):
+                        pairs_to_compute[n_computed_pairs,:] = [i_station[j], i_psource[j]]
+                        dd_of_pairs[n_computed_pairs] = dd[i]
+                        dh_of_pairs[n_computed_pairs] = dh[i]
+                        dv_of_pairs[n_computed_pairs] = dv[i]
+                        zrec_of_pairs[n_computed_pairs] = z_rec[i]
+                        zsrc_of_pairs[n_computed_pairs] = z_src[i]
+
+                        n_computed_pairs += 1
+
+                print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+                    # if j % 10000 == 0 or j == len(indices) - 1:
+                    #     print(f"\t\t\tOn {j=} of {npairs_max} {n_computed_pairs} ({n_computed_pairs/npairs*100}% reduction)")
+
+            # wait for all ranks to reach here
+            comm.Barrier()
+            if nprocs ==1 :
+                print("using single processor:")
+                # now check that the founded pairs cover all the points 
+                notcoverd = []
+                for i in tqdm(range(len(dh))):
+                    if np.all(lor(np.abs(dh[i] - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+                                np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)):
+                        notcoverd.append(i)
+                
+                # print(len(notcoverd))
+                print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+                print(f"\t\tnumber of pairs skipped: {npairs_max - n_computed_pairs}")                
+                print(f"\t\tnumber of pairs notcovered yet: {len(notcoverd)}")
+                # # print notcoverd in a file
+                # np.savetxt("notcoverd_single.txt", notcoverd, fmt='%d')
+            else:
+
+
+                if rank == 0:
+                    # On rank 0, calculate or set the value of n_computed_pairs
+                    n_computed_pairs = np.array(n_computed_pairs, dtype='i')  # Example value
+                else:
+                    # On other ranks, create an empty array to receive the value
+                    n_computed_pairs = np.empty(1, dtype='i')
+
+                # Broadcast the value from rank 0 to all other ranks
+                comm.Bcast(n_computed_pairs, root=0)
+
+                # Extract the integer from the NumPy array
+                # check that if the array is zero dimensional
+                n_computed_pairs = n_computed_pairs.item()
+
+
+                
+                comm.Barrier()
+
+                if rank > 0:    
+                    dh_of_pairs = np.empty(n_computed_pairs, dtype=np.double)
+                    zrec_of_pairs = np.empty(n_computed_pairs, dtype=np.double)
+                    zsrc_of_pairs = np.empty(n_computed_pairs, dtype=np.double)              
+                
+                comm.Barrier()
+                # send dh_of_pairs, dv_of_pairs, zrec_of_pairs, zsrc_of_pairs to all ranks
+                if rank == 0:
+                    for i in range(1, nprocs):
+                        comm.Send(dh_of_pairs[:n_computed_pairs],   dest=i, tag=5)
+                        comm.Send(zrec_of_pairs[:n_computed_pairs], dest=i, tag=6)
+                        comm.Send(zsrc_of_pairs[:n_computed_pairs], dest=i, tag=7)
+                else:
+                    comm.Recv(dh_of_pairs,   source=0, tag=5)
+                    comm.Recv(zrec_of_pairs, source=0, tag=6)
+                    comm.Recv(zsrc_of_pairs, source=0, tag=7)
+                comm.Barrier()
+                # now found uncovered points for each rank
+                notcoverd = []
+                if rank == 0:
+                    # measure the percentage of the cheking
+                    print(f"\t\tchecking the uncovered points")
+                    for i in tqdm(range(iend)):
+                        if np.all(lor(np.abs(dh[i]  - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+                                    np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                    np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)):
+                            notcoverd.append(i)
+                            
+                else:
+                    for i in range(len(mini_dh)):
+                        if np.all(lor(np.abs(mini_dh[i]  - dh_of_pairs) > delta_h, \
+                                    np.abs(mini_z_src[i] - zsrc_of_pairs) > delta_v_src, \
+                                    np.abs(mini_z_rec[i] - zrec_of_pairs) > delta_v_rec)):
+                            notcoverd.append(i)
+                
+                # if rank == 0:
+                # print(f"{rank=} {notcoverd=}")
+                notcoverd = np.array(notcoverd) + istart
+            
+                comm.Barrier()
+                # print(f"{rank=} {len(notcoverd)=}")
+                # Gather the sizes of the notcoverd arrays from all processes
+                notcoverd_sizes = comm.gather(len(notcoverd), root=0)
+
+                if rank == 0:
+                    # Calculate the total size and create a buffer to hold all data
+                    total_size = sum(notcoverd_sizes)
+                    all_notcoverd = np.empty(total_size, dtype=int)
+                else:
+                    all_notcoverd = None
+
+                # Gather all notcoverd arrays to the root process
+                comm.Gatherv(sendbuf=notcoverd, recvbuf=(all_notcoverd, notcoverd_sizes), root=0)
+                notcoverd = all_notcoverd
+                if rank == 0:
+                    print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+                    print(f"\t\tnumber of pairs skipped: {npairs_max - n_computed_pairs}")
+                    print(f"\t\tnumber of pairs notcovered yet: {len(all_notcoverd)}")
+                    # # print notcoverd in a file
+                    # np.savetxt("notcoverd_multi.txt", notcoverd, fmt='%d')
+
+            
+                
+                    
+                     
+
+            # wait for all ranks to reach here
+            comm.Barrier()
+            if rank == 0:
+
+                iteration = 2
+                while len(notcoverd) > 0:
+                    print(f"\titeration {iteration}")
+                    dh_copy    = dh[notcoverd]
+                    z_rec_copy = z_rec[notcoverd]
+                    z_src_copy = z_src[notcoverd]
+                    indexes    = np.array(notcoverd)
+
+                    # digitizing the data
+
+                    eps = 1e-8
+                    factor = 0.99
+                    dh_max , dh_min = np.max(dh), np.min(dh)
+                    binsnumber = int((dh_max - dh_min) // (delta_h*factor) + 1)
+                    dh_bins = np.linspace(dh_min-eps, dh_max + eps, binsnumber+1)
+                    assert np.all(np.diff(dh_bins) <= delta_h*factor)
+                    
+
+                    dzrec_max , dzrec_min = np.max(z_rec), np.min(z_rec)
+                    binsnumber = int((dzrec_max - dzrec_min) // (delta_v_rec*factor) + 1)
+                    dzrec_bins = np.linspace(dzrec_min-eps, dzrec_max + eps, binsnumber+1)
+                    assert np.all(np.diff(dzrec_bins) <= delta_v_rec*factor)
+
+                    dzsrc_max , dzsrc_min = np.max(z_src), np.min(z_src)
+                    binsnumber = int((dzsrc_max - dzsrc_min) // (delta_v_src*factor) + 1)
+                    dzsrc_bins = np.linspace(dzsrc_min-eps, dzsrc_max + eps, binsnumber+1)
+                    assert np.all(np.diff(dzsrc_bins) <= delta_v_src*factor)
+
+                    dh_digitized    = np.digitize(dh[notcoverd], dh_bins)
+                    z_rec_digitized = np.digitize(z_rec[notcoverd], dzrec_bins)
+                    z_src_digitized = np.digitize(z_src[notcoverd], dzsrc_bins)
+
+                    dh_digitized    -= 1
+                    z_rec_digitized -= 1
+                    z_src_digitized -= 1
+
+                    additional_pairs = dh_digitized * len(dzrec_bins) * len(dzsrc_bins) + z_rec_digitized * len(dzsrc_bins) + z_src_digitized
+                    additional_pairs, indices = np.unique(additional_pairs, return_index=True)
+                    indices = np.sort(indices)
+                    indices = indexes[indices]
+
+
+                    
+
+                    # print(f"\t\treducing the number of pairs:")
+                    for j in tqdm(range(len(indices))):
+                        i = indices[j]
+                        # condition = lor(np.abs(dh[i]    - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+                        #                 np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                        #                 np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+                        # if np.all(condition):
+                        if True:
+                            istation = i // len(self._source._pslist)
+                            ipsource = i % len(self._source._pslist)
+                            pairs_to_compute[n_computed_pairs,:] = [istation, ipsource]
+                            dd_of_pairs[n_computed_pairs] = dd[i]
+                            dh_of_pairs[n_computed_pairs] = dh[i]
+                            dv_of_pairs[n_computed_pairs] = dv[i]
+                            zrec_of_pairs[n_computed_pairs] = z_rec[i]
+                            zsrc_of_pairs[n_computed_pairs] = z_src[i]
+                            n_computed_pairs += 1
+                        # if (j+1) % 1000 == 0:
+                        #     print(f"\t\t\tOn {j=} of {len(indices)} {n_computed_pairs} ({n_computed_pairs/npairs*100}% reduction)")   
+                    
+                    notcoverd = []
+                    # print(f"\t\tchecking the uncovered points")
+                    # for j in tqdm(range(len(indexes))):
+                    #     i = indexes[j]
+                    #     if np.all(lor(np.abs(dh[i] - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+                    #                 np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                    #                 np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)):
+                    #         notcoverd.append(i)
+                    # print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+                    # print(f"\t\tnumber of points not covered yet: {len(notcoverd)}")
+                    iteration += 1
+                            
+                # if finalcheck:
+                #     if rank == 0:
+                #         print("final check")
+                #         # checking the not covered points
+                #         notcoverd = []
+                #         for i in range(len(dh)):
+                #             if np.all(lor(np.abs(dh[i] - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+                #                         np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                #                         np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)):
+                #                 notcoverd.append(i)
+                #             if i % (len(dh)//10) == 0:
+                #                 print(f"{((i+1)//len(dh)*100)}%")
+                #         print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+                #         print(f"\t\tnumber of points not covered yet: {len(notcoverd)}")
+                # print timin
+                        
+                print("Optimization done")
+                print(f"Number of pairs founded: {n_computed_pairs}")
+                print(f"Number of pairs skipped: {npairs_max - n_computed_pairs}")
+                print(f"Number of points not covered yet: {len(notcoverd)}")
+                # print timing 
+                perf_time_end = perf_counter()
+                time = perf_time_end - perf_time_begin
+                # conver time to hours, minutes and seconds
+                print(f" Time: hours: {time//3600} minutes: {(time%3600)//60} seconds: {time%60}")
+                
+           
+            # if rank == 0:
+            #     print("final check")
+            #     # checking the not covered points
+            #     notcoverd = []
+            #     for i in range(len(dh)):
+            #         if np.all(lor(np.abs(dh[i] - dh_of_pairs[:n_computed_pairs]) > delta_h, \
+            #                     np.abs(z_src[i] - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+            #                     np.abs(z_rec[i] - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)):
+            #             notcoverd.append(i)
+            #             # print(f"Error: {i} not found in the pairs notcoverd={notcoverd}")     
+
+            #     print(f"\t\tnumber of pairs founded: {n_computed_pairs}")
+            #     print(f"\t\tnumber of points not covered yet: {len(notcoverd)}")
+        
+        comm.Barrier()
+
+        if using_vectorize_manner==False:
+            srart = perf_counter()
+
+            ipair = 0
+
+            npairs = self._receivers.nstations*len(self._source._pslist)
+
+            print(f"{npairs=}")
+
+            # dists = np.zeros((npairs, 2))
+
+            pairs_to_compute = np.empty((npairs_max, 2), dtype=np.int32)
+            dd_of_pairs = np.empty(npairs_max, dtype=np.double)
+            dh_of_pairs = np.empty(npairs_max, dtype=np.double)
+            dv_of_pairs = np.empty(npairs_max, dtype=np.double)
+            zrec_of_pairs = np.empty(npairs_max, dtype=np.double)
+            zsrc_of_pairs = np.empty(npairs_max, dtype=np.double)
+
+            # Initialize the counter for the number of computed pairs.
+            n_computed_pairs = 0
+
+            # def lor(a,b,c):
+            #     return np.logical_or(a,np.logical_or(b,c))
+
+
+
+            for i_station, station in enumerate(self._receivers):
+                for i_psource, psource in enumerate(self._source):
+
+
+                    if n_computed_pairs >= npairs_max:
+                        print("Exceeded number of pairs!!")
+                        exit(0)
+
+                    t1 = perf_counter()
+
+                    x_src = psource.x
+                    x_rec = station.x
+                    
+                    z_rec = station.x[2]
+                    z_src = psource.x[2]
+
+                    d = x_rec - x_src
+
+                    dd = np.linalg.norm(d)
+                    dh = np.linalg.norm(d[0:2])
+                    dv = np.abs(d[2])
+
+                    # dists[ipair,0] = dh
+                    # dists[ipair,1] = dv
+                
+                    condition = lor(np.abs(dh - dh_of_pairs[:n_computed_pairs])      > delta_h,     \
+                                    np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) > delta_v_src, \
+                                    np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) > delta_v_rec)
+
+                    # condition = (np.abs(dd - dd_of_pairs[:n_computed_pairs]) < delta_h) & \
+                                # (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) 
+                    # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
+                    #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v_src) &\
+                    #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v_rec) 
+                    # condition = (np.abs(dh - dh_of_pairs[:n_computed_pairs]) < delta_h) & \
+                    #             (np.abs(z_rec - zrec_of_pairs[:n_computed_pairs]) < delta_v) & \
+                    #             (np.abs(z_src - zsrc_of_pairs[:n_computed_pairs]) < delta_v)
+                                # (np.abs(dv - dv_of_pairs[:n_computed_pairs]) < delta_v) & \
+
+                    if n_computed_pairs == 0 or np.all(condition):
+                        pairs_to_compute[n_computed_pairs,:] = [i_station, i_psource]
+                        dd_of_pairs[n_computed_pairs] = dd
+                        dh_of_pairs[n_computed_pairs] = dh
+                        dv_of_pairs[n_computed_pairs] = dv
+                        zrec_of_pairs[n_computed_pairs] = z_rec
+                        zsrc_of_pairs[n_computed_pairs] = z_src
+
+                        n_computed_pairs += 1
+                        # print on normal file with 4 percision
+                    t2 = perf_counter()
+
+                    if ipair % 10000 == 0:
+                        ETA = (t2-t1)*(npairs-ipair)/3600.
+                        print(f"On {ipair=} of {npairs} {n_computed_pairs=} ({n_computed_pairs/npairs*100}% reduction) {ETA=}h")
+                    
+                    ipair += 1
+            end = perf_counter()
+
+            print(f"Time: hours: {(end-srart)//3600} minutes: {((end-srart)%3600)//60} seconds: {(end-srart)%60}")
+
+
+        if rank == 0:
+            pairs_to_compute = pairs_to_compute[:n_computed_pairs,:]
+            dd_of_pairs = dd_of_pairs[:n_computed_pairs]
+            dh_of_pairs = dh_of_pairs[:n_computed_pairs]
+            dv_of_pairs = dv_of_pairs[:n_computed_pairs]
+            zrec_of_pairs = zrec_of_pairs[:n_computed_pairs]
+            zsrc_of_pairs = zsrc_of_pairs[:n_computed_pairs]
+
+            print(f"Need only {n_computed_pairs} pairs of {npairs} ({n_computed_pairs/npairs*100}% reduction)")
+
+            if store_here is not None:
+                import h5py
+                with h5py.File(store_here + '.h5', 'w') as hf:
+                    # hf.create_dataset("dists", data=dists)
+                    hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
+                    hf.create_dataset("dd_of_pairs", data=dd_of_pairs)
+                    hf.create_dataset("dh_of_pairs", data=dh_of_pairs)
+                    hf.create_dataset("dv_of_pairs", data=dv_of_pairs)
+                    hf.create_dataset("zrec_of_pairs", data=zrec_of_pairs)
+                    hf.create_dataset("zsrc_of_pairs", data=zsrc_of_pairs)
+                    hf.create_dataset("delta_h", data=delta_h)
+                    hf.create_dataset("delta_v_rec", data=delta_v_rec)
+                    hf.create_dataset("delta_v_src", data=delta_v_src)
 
 
         # return dists, pairs_to_compute, dh_of_pairs, dv_of_pairs, zrec_of_pairs, zrec_of_pairs
         return 
+
+
+
+    def check_greens_function_database_pairs(self,  h5_database_name, delta_h=0.04, delta_v_rec=0.002, delta_v_src=0.2):
+        import h5py
+        if rank == 0:
+            hfile = h5py.File(h5_database_name + '.h5', 'r+')
+
+            pairs_to_compute = hfile["/pairs_to_compute"][:]
+            dh_of_pairs      = hfile["/dh_of_pairs"][:]
+            zrec_of_pairs    = hfile["/zrec_of_pairs"][:]
+            zsrc_of_pairs    = hfile["/zsrc_of_pairs"][:]
+            f = open("check.txt", "w")
+            bar = tqdm(total=self._receivers.nstations)
+            bar2 = tqdm(total=self._source.nsources)
+            for i_station, station in enumerate(self._receivers):
+                bar.update(1)
+                bar2.reset()
+                for i_psource, psource in enumerate(self._source):
+                    bar2.update(1)
+
+                    x_src = psource.x
+                    x_rec = station.x
+                
+                    z_src = psource.x[2]
+                    z_rec = station.x[2]
+
+                    d = x_rec - x_src
+                    dh = np.sqrt(np.dot(d[0:2],d[0:2]))
+
+                    min_distance = float('inf')
+                    best_match_index = -1
+
+                    for i in range(len(dh_of_pairs)):
+                        dh_p, zrec_p, zsrc_p = dh_of_pairs[i], zrec_of_pairs[i], zsrc_of_pairs[i]
+                        
+                        # Check if the current pair is within the tolerances
+                        if (abs(dh - dh_p) < delta_h and abs(z_src - zsrc_p) < delta_v_src and abs(z_rec - zrec_p) < delta_v_rec):
+                            best_match_index = i
+                            
+                    if best_match_index == -1:
+                        # print(f"No suitable match found! {min_distance=}")
+                        # print(f"{rank=} {i_station=} {i_psource=}")
+                        # write on the file
+                        f.write(f"{rank=} {i_station=} {i_psource=}\n")
+                    if i_psource % 1000 == 0:
+                        # flush the file
+                        f.flush()
+            f.close()
+            bar.close()
+            bar2.close()
+
+                    
+
+            
+
+            
+
+
+
+
 
     def write(self, writer):
         writer.write(self._receivers)
