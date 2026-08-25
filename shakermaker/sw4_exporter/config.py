@@ -100,6 +100,40 @@ class SW4ExportConfig:
         export. Default ``False``.
     plot_geometry_sw4 : bool
         Same viewer, but in SW4 local coordinates. Default ``False``.
+    plot_stratigraphy : bool
+        Add the stratigraphy (real SW4 node spacing per crust layer,
+        colour-coded like ``CrustModel.plot_profile()``, filling the full
+        domain footprint) to the viewer(s) opened by
+        ``plot_geometry``/``plot_geometry_sw4``. Drawn on top of the
+        existing scene, nothing is replaced or hidden. Uses the
+        ``refine_fmax``/``refine_n_per_wavelength`` scheme when set,
+        otherwise a uniform ``h`` for every layer. Has no effect unless
+        ``plot_geometry`` or ``plot_geometry_sw4`` is also ``True``.
+        Default ``False``.
+    stratigraphy_flat : bool
+        Keep the stratigraphy overlay's deep layers perfectly flat instead
+        of following the real terrain: anchors the whole layer stack at
+        the lowest real elevation in the topography grid (that point
+        becomes the flat model's own "z=0"), then fills the gap up to the
+        real terrain surface at each point with the shallowest crust layer
+        only -- a thin cap that follows the relief, sitting on an
+        otherwise flat body. No effect without a ``topo_file`` (already
+        flat in that case) or without ``plot_stratigraphy``. Default
+        ``False``.
+    stratigraphy_max_display_depth_m : float, optional
+        Depth crop for the stratigraphy overlay -- layers starting below
+        this are skipped (their ``h`` stays in the diagnostics table, just
+        not drawn). Default ``None``: no cap, the overlay reaches the real
+        ``z_domain`` (the actual SW4 domain floor). Set an explicit value
+        only for a shallower, lighter preview.
+    stratigraphy_max_points_per_layer : int
+        Point budget per crust layer for the stratigraphy overlay. A full-
+        resolution grid at real node spacing over the whole domain (and,
+        with no depth cap, potentially down to the domain floor) is
+        billions of points for the shallow, finely-refined layers or for a
+        deep half-space slab; once a layer's full-resolution count would
+        exceed this, x/y/z sampling is decimated isotropically (``h``
+        itself is unchanged) just enough to fit. Default ``300000``.
     h5_export_name : str
         Filename of the transport HDF5 package inside
         ``shakermakerexports/``. Default ``"sw4_package.h5"``.
@@ -137,6 +171,10 @@ class SW4ExportConfig:
     domain_sw4_z: Optional[float] = None
     plot_geometry: bool = False
     plot_geometry_sw4: bool = False
+    plot_stratigraphy: bool = False
+    stratigraphy_flat: bool = False
+    stratigraphy_max_display_depth_m: Optional[float] = None
+    stratigraphy_max_points_per_layer: int = 300000
     h5_export_name: str = "sw4_package.h5"
 
     def __post_init__(self):

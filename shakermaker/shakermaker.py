@@ -2176,6 +2176,10 @@ class ShakerMaker:
                    domain_sw4_size=None,
                    plot_geometry=False,
                    plot_geometry_sw4=False,
+                   plot_stratigraphy=False,
+                   stratigraphy_flat=False,
+                   stratigraphy_max_points_per_layer=300000,
+                   stratigraphy_max_display_depth_m=None,
                    h5_export_name="sw4_package.h5"):
         """Export model sources and receivers to SW4 without topography.
 
@@ -2188,6 +2192,11 @@ class ShakerMaker:
         a finer grid than the deep fast ones instead of forcing ``h`` fine
         enough for the softest layer everywhere. See
         ``shakermaker.sw4_exporter.refinement.compute_layer_refinement``.
+
+        Set ``plot_stratigraphy`` (needs ``plot_geometry``/``plot_geometry_sw4``
+        too) to add a stratigraphic cross-section to the viewer -- real node
+        spacing per crust layer, colour-coded like ``CrustModel.plot_profile()``,
+        drawn on top of the existing scene without replacing anything.
         """
         from shakermaker.sw4_exporter import SW4ExportConfig, SW4Exporter
 
@@ -2211,6 +2220,10 @@ class ShakerMaker:
             domain_sw4_size=domain_sw4_size,
             plot_geometry=plot_geometry,
             plot_geometry_sw4=plot_geometry_sw4,
+            plot_stratigraphy=plot_stratigraphy,
+            stratigraphy_flat=stratigraphy_flat,
+            stratigraphy_max_points_per_layer=stratigraphy_max_points_per_layer,
+            stratigraphy_max_display_depth_m=stratigraphy_max_display_depth_m,
             h5_export_name=h5_export_name,
         )
         return SW4Exporter(self, config).write()
@@ -2238,6 +2251,10 @@ class ShakerMaker:
                         domain_sw4_size=None,
                         plot_geometry=False,
                         plot_geometry_sw4=False,
+                        plot_stratigraphy=False,
+                        stratigraphy_flat=False,
+                        stratigraphy_max_points_per_layer=300000,
+                        stratigraphy_max_display_depth_m=None,
                         h5_export_name="sw4_package.h5"):
         """Export model sources and receivers to SW4 with cartesian topography.
 
@@ -2251,6 +2268,12 @@ class ShakerMaker:
         a finer grid than the deep fast ones instead of forcing ``h`` fine
         enough for the softest layer everywhere. See
         ``shakermaker.sw4_exporter.refinement.compute_layer_refinement``.
+
+        Set ``plot_stratigraphy`` (needs ``plot_geometry``/``plot_geometry_sw4``
+        too) to add a stratigraphic cross-section to the viewer -- real node
+        spacing per crust layer, colour-coded like ``CrustModel.plot_profile()``,
+        drawn on top of the existing scene without replacing anything. Its top
+        surface follows the real topography.
         """
         if topo_file is None:
             raise ValueError("export_sw4_topo requires topo_file.")
@@ -2281,6 +2304,10 @@ class ShakerMaker:
             domain_sw4_size=domain_sw4_size,
             plot_geometry=plot_geometry,
             plot_geometry_sw4=plot_geometry_sw4,
+            plot_stratigraphy=plot_stratigraphy,
+            stratigraphy_flat=stratigraphy_flat,
+            stratigraphy_max_points_per_layer=stratigraphy_max_points_per_layer,
+            stratigraphy_max_display_depth_m=stratigraphy_max_display_depth_m,
             h5_export_name=h5_export_name,
         )
         return SW4Exporter(self, config).write()

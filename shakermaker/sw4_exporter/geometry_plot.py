@@ -103,6 +103,11 @@ def read_sw4_geometry(path):
     topo_original_bounds : dict or None
         ``{"xmin", "xmax", "ymin", "ymax"}`` from the ``.in`` header
         comment or the HDF5 ``original_bounds`` field.
+    source_slip : ndarray, shape (Ns,) or None
+        Total slip per source (metres), integrated from its slip-rate
+        function. Only available from the HDF5 path (the text ``.in``
+        does not carry the discretised STF, only a pointer to the sidecar
+        ``.txt`` file) -- ``None`` here.
     """
     path = Path(path)
     if path.suffix.lower() in (".h5", ".hdf5"):
@@ -169,6 +174,7 @@ def read_sw4_geometry(path):
         np.asarray(receiver_kinds, dtype=object),
         topo_points,
         topo_original_bounds,
+        None,  # source_slip: not recoverable from the text .in, see docstring
     )
 
 
@@ -190,11 +196,26 @@ def read_sw4_geometry_h5(path):
             float(config["y_domain"][()]),
             float(config["z_domain"][()]),
         )
+        has_sources = "sources" in hf and len(hf["sources/id"])
         sources = np.column_stack([
             hf["sources/x_km"][:],
             hf["sources/y_km"][:],
             hf["sources/z_km"][:],
-        ]).astype(float) * 1000.0 - sw4_origin_m if "sources" in hf and len(hf["sources/id"]) else np.empty((0, 3), dtype=float)
+        ]).astype(float) * 1000.0 - sw4_origin_m if has_sources else np.empty((0, 3), dtype=float)
+
+        source_slip = None
+        if has_sources and "npts" in hf["sources"]:
+            dt = hf["sources/dt"][:].astype(float)
+            npts = hf["sources/npts"][:].astype(int)
+            offsets = hf["sources/data_offsets"][:].astype(int)
+            values = hf["sources/data_values"][:].astype(float)
+            # Total slip per source = integral of its slip-rate function
+            # (SourceTimeFunction.data), regardless of STF type -- matches
+            # how e.g. SRF2 itself normalises to unit area and scales by slip.
+            source_slip = np.array([
+                float(np.trapz(values[off:off + n], dx=d)) if n > 1 else 0.0
+                for off, n, d in zip(offsets, npts, dt)
+            ])
 
         if "receivers" in hf and "xyz_km" in hf["receivers"]:
             receivers = np.asarray(hf["receivers/xyz_km"][:], dtype=float) * 1000.0 - sw4_origin_m
@@ -219,7 +240,7 @@ def read_sw4_geometry_h5(path):
                     "ymax": float(bounds[3]),
                 }
 
-    return grid, sources, receivers, receiver_kinds, topo_points, topo_original_bounds
+    return grid, sources, receivers, receiver_kinds, topo_points, topo_original_bounds, source_slip
 
 
 def _h5_sw4_origin_m(hf):
@@ -316,7 +337,7 @@ def _nearest_topography_z(topo_points, x, y):
     return float(topo_points[int(np.argmin(d2)), 2])
 
 
-def plot_sw4_geometry(path, origin_m=None):
+def plot_sw4_geometry(path, origin_m=None, stratigraphy=None):
     """Open a PyVista window with the SW4 box, sources, receivers and topography.
 
     The viewer expects ``pyvista``, ``pyvistaqt`` and ``PyQt5`` to be
@@ -332,6 +353,14 @@ def plot_sw4_geometry(path, origin_m=None):
         SW4 origin expressed in ShakerMaker metres. When given, the scene
         is shifted so receivers, sources and topography are shown in the
         georef frame. When omitted, the scene stays in SW4 local metres.
+    stratigraphy : (ndarray, ndarray), optional
+        ``(xyz, colors_rgba)`` from
+        :func:`shakermaker.sw4_exporter.refinement.stratigraphy_profile_points`,
+        in SW4 local metres, same sign convention as topography (real
+        elevation minus depth, not yet flipped for the plot). Added on top
+        of everything else -- does not replace or hide any existing
+        element. ``None`` (default) draws nothing extra, unchanged
+        behaviour.
 
     Returns
     -------
@@ -357,7 +386,7 @@ def plot_sw4_geometry(path, origin_m=None):
             os.environ["QT_QPA_PLATFORM"] = "xcb"
 
     path = Path(path)
-    (grid_x, grid_y, grid_z), sources, receivers, receiver_kinds, topo_points, topo_original_bounds = read_sw4_geometry(path)
+    (grid_x, grid_y, grid_z), sources, receivers, receiver_kinds, topo_points, topo_original_bounds, source_slip = read_sw4_geometry(path)
     receivers = _resolve_receivers(receivers, topo_points)
     origin_m = None if origin_m is None else np.asarray(origin_m, dtype=float)
     georef = origin_m is not None
@@ -452,12 +481,44 @@ def plot_sw4_geometry(path, origin_m=None):
             )
 
     if len(sources):
-        plotter.add_points(
-            pv.PolyData(sources.astype(float)),
-            color="red",
-            point_size=18,
-            render_points_as_spheres=True,
-        )
+        src_cloud = pv.PolyData(sources.astype(float))
+        if source_slip is not None and len(source_slip) == len(sources) and np.any(source_slip > 0):
+            src_cloud["Slip [m]"] = np.abs(source_slip).astype(float)
+            plotter.add_points(
+                src_cloud,
+                scalars="Slip [m]",
+                cmap=_slip_cmap_white(),
+                point_size=8,
+                render_points_as_spheres=True,
+                show_scalar_bar=True,
+                scalar_bar_args={"title": "Slip [m]", "vertical": True},
+            )
+        else:
+            plotter.add_points(
+                src_cloud,
+                color="red",
+                point_size=18,
+                render_points_as_spheres=True,
+            )
+
+    if stratigraphy is not None:
+        strat_xyz, strat_rgba = stratigraphy
+        if strat_xyz is not None and len(strat_xyz):
+            strat_plot = np.column_stack([
+                strat_xyz[:, 0],
+                strat_xyz[:, 1],
+                -strat_xyz[:, 2],
+            ]).astype(float)
+            if georef:
+                strat_plot = _shift_points(strat_plot, origin_m)
+            rgb = (np.asarray(strat_rgba)[:, :3] * 255).astype(np.uint8)
+            plotter.add_points(
+                pv.PolyData(strat_plot),
+                scalars=rgb,
+                rgb=True,
+                point_size=3,
+                render_points_as_spheres=False,
+            )
 
     label = "SW4 georeferenced coordinates" if georef else "SW4 local Cartesian"
     plotter.add_text(label, position="upper_left", font_size=11)
@@ -475,6 +536,21 @@ def plot_sw4_geometry(path, origin_m=None):
 
     window.show()
     app.exec_()
+
+
+def _slip_cmap_white():
+    """White-start ``YlOrRd`` colormap, same recipe ``FFSPSource.plot_spacial_distribution``
+    uses for ``cmap='cmap_white'`` (``shakermaker/ffspsource.py``) -- zero/near-zero
+    slip renders white instead of pale yellow, so the sources here read
+    consistently with the fault's own slip-distribution plots.
+    """
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+
+    base = plt.get_cmap("YlOrRd", 256)
+    colors = base(np.linspace(0, 1, 256))
+    colors[0] = [1, 1, 1, 1]
+    return mcolors.ListedColormap(colors)
 
 
 def _shift_points(points, origin_m):
