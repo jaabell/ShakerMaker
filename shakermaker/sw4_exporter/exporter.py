@@ -37,6 +37,7 @@ from .grid import grid_line
 from .input_writer import sw4_input_text
 from .materials import deepest_interface, material_lines
 from .package_h5 import write_sw4_package_h5, write_unpack_script
+from .refinement import compute_layer_refinement, print_refinement_diagnostics
 from .receivers import (
     domain_receiver_lines,
     model_receiver_lines,
@@ -291,6 +292,20 @@ class SW4Exporter:
             interface_blocks=self.config.interface_blocks,
             interface_block_delta=self.config.interface_block_delta,
         )
+
+        refinement = None
+        refinement_lines = None
+        if self.config.refine_fmax is not None:
+            refinement = compute_layer_refinement(
+                self.model._crust,
+                h_base=self.config.h,
+                fmax=self.config.refine_fmax,
+                n_per_wavelength=self.config.refine_n_per_wavelength,
+                round_zmax=self.config.refine_round_zmax,
+            )
+            refinement_lines = refinement["refinement_lines"]
+            print_refinement_diagnostics(refinement)
+
         source_lines = sw4_source_lines(rows, self.config.m0)
         input_text = sw4_input_text(
             grid,
@@ -301,6 +316,7 @@ class SW4Exporter:
             source_lines,
             receiver_lines,
             topo_line,
+            refinement_lines,
         )
 
         paths = self.paths()
@@ -330,6 +346,7 @@ class SW4Exporter:
 
         self.model.sw4_export_paths = paths
         self.model.sw4_export_config = self.config
+        self.model.sw4_export_refinement = refinement
 
         print(SEPARATOR)
         print("SW4 export files")

@@ -2167,6 +2167,9 @@ class ShakerMaker:
                    supergrid_pad_gp=10,
                    interface_blocks=True,
                    interface_block_delta=1.0,
+                   refine_fmax=None,
+                   refine_n_per_wavelength=10.0,
+                   refine_round_zmax="outward",
                    station_prefix="sf",
                    shakermaker_stations=True,
                    domain_sw4=False,
@@ -2179,6 +2182,12 @@ class ShakerMaker:
         The SW4 domain is built from the model geometry. If size_domain has
         None for x or y, that direction is computed automatically. The exported
         SW4 input is written in a local box whose origin is one domain corner.
+
+        Set ``refine_fmax`` to have the exporter derive SW4 ``refinement
+        zmax=...`` lines from the crust layering, so shallow soft layers get
+        a finer grid than the deep fast ones instead of forcing ``h`` fine
+        enough for the softest layer everywhere. See
+        ``shakermaker.sw4_exporter.refinement.compute_layer_refinement``.
         """
         from shakermaker.sw4_exporter import SW4ExportConfig, SW4Exporter
 
@@ -2193,6 +2202,9 @@ class ShakerMaker:
             supergrid_pad_gp=supergrid_pad_gp,
             interface_blocks=interface_blocks,
             interface_block_delta=interface_block_delta,
+            refine_fmax=refine_fmax,
+            refine_n_per_wavelength=refine_n_per_wavelength,
+            refine_round_zmax=refine_round_zmax,
             station_prefix=station_prefix,
             shakermaker_stations=shakermaker_stations,
             domain_sw4=domain_sw4,
@@ -2213,6 +2225,9 @@ class ShakerMaker:
                         supergrid_pad_gp=10,
                         interface_blocks=True,
                         interface_block_delta=1.0,
+                        refine_fmax=None,
+                        refine_n_per_wavelength=10.0,
+                        refine_round_zmax="outward",
                         station_prefix="sf",
                         topo_file=None,
                         topo_zmax=None,
@@ -2230,6 +2245,12 @@ class ShakerMaker:
         has None for x or y, that direction is computed automatically. The SW4
         input is written in local coordinates; plot_geometry shows the original
         coordinates, and plot_geometry_sw4 shows the local SW4 box.
+
+        Set ``refine_fmax`` to have the exporter derive SW4 ``refinement
+        zmax=...`` lines from the crust layering, so shallow soft layers get
+        a finer grid than the deep fast ones instead of forcing ``h`` fine
+        enough for the softest layer everywhere. See
+        ``shakermaker.sw4_exporter.refinement.compute_layer_refinement``.
         """
         if topo_file is None:
             raise ValueError("export_sw4_topo requires topo_file.")
@@ -2247,6 +2268,9 @@ class ShakerMaker:
             supergrid_pad_gp=supergrid_pad_gp,
             interface_blocks=interface_blocks,
             interface_block_delta=interface_block_delta,
+            refine_fmax=refine_fmax,
+            refine_n_per_wavelength=refine_n_per_wavelength,
+            refine_round_zmax=refine_round_zmax,
             station_prefix=station_prefix,
             topo_file=topo_file,
             topo_zmax=topo_zmax,

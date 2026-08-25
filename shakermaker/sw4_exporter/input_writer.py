@@ -8,7 +8,7 @@ receivers, optional topography) somewhere else and hands the parts to
 
 def sw4_input_text(grid_line, tmax, fileio_path, supergrid_gp,
                    material_lines, source_lines, receiver_lines,
-                   topography_line=None):
+                   topography_line=None, refinement_lines=None):
     """Build the SW4 ``.in`` file body from already-formatted pieces.
 
     Inputs
@@ -31,6 +31,11 @@ def sw4_input_text(grid_line, tmax, fileio_path, supergrid_gp,
     topography_line : str, optional
         ``topography input=cartesian file=...`` line. When ``None``, no
         topography keyword is emitted.
+    refinement_lines : list of str, optional
+        ``"refinement zmax=..."`` lines, in the decreasing-``zmax`` order
+        SW4 expects (see :func:`shakermaker.sw4_exporter.refinement.compute_layer_refinement`).
+        Emitted right after ``grid_line``, before ``time t=...``. When
+        ``None`` or empty, no ``refinement`` keyword is emitted.
 
     Returns
     -------
@@ -42,6 +47,7 @@ def sw4_input_text(grid_line, tmax, fileio_path, supergrid_gp,
         "# Source time functions are read from sources/",
         "",
         grid_line,
+        *(refinement_lines or []),
         f"time t={float(tmax):.16g}",
         f"fileio path={fileio_path}",
         "",
