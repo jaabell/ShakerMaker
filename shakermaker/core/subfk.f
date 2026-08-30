@@ -112,12 +112,25 @@ c n=0
                sum(ix,2,j) = sum(ix,2,j) - u(1,2)*aj1
                sum(ix,3,j) = sum(ix,3,j) - u(1,3)*aj1
 c n=1
-               nf =    (u(2,2)+u(2,3))*aj1/z
+c              aj1/z has a removable singularity at z=0 (receiver directly
+c              above/below the source): lim(z->0) J1(z)/z = 1/2. Without this,
+c              0/0 (both aj1 and z vanish exactly at z=0) yields NaN that
+c              contaminates the whole radial/tangential spectrum.
+               if (abs(z).lt.1.0e-6) then
+                  nf = 0.5*(u(2,2)+u(2,3))
+               else
+                  nf =    (u(2,2)+u(2,3))*aj1/z
+               endif
                sum(ix,4,j) = sum(ix,4,j) + u(2,1)*aj1*flip
                sum(ix,5,j) = sum(ix,5,j) + u(2,2)*aj0 - nf
                sum(ix,6,j) = sum(ix,6,j) + u(2,3)*aj0 - nf
 c n=2
-               nf = 2.*(u(3,2)+u(3,3))*aj2/z
+c              lim(z->0) J2(z)/z = 0 (same removable singularity as above).
+               if (abs(z).lt.1.0e-6) then
+                  nf = (0.,0.)
+               else
+                  nf = 2.*(u(3,2)+u(3,3))*aj2/z
+               endif
                sum(ix,7,j) = sum(ix,7,j) + u(3,1)*aj2*flip
                sum(ix,8,j) = sum(ix,8,j) + u(3,2)*aj1 - nf
                sum(ix,9,j) = sum(ix,9,j) + u(3,3)*aj1 - nf
