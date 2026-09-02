@@ -131,22 +131,44 @@ def _perf_counters():
             for k in ('core', 'send', 'recv', 'conv', 'add')}
 
 
+_PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
+
+
+def _dbg(msg):
+    """Per-rank, timestamped, flushed diagnostic print -- only when
+    SHAKERMAKER_PERF_STATS_DEBUG=1 is set in the environment. Used to
+    pinpoint exactly which rank/call hangs inside a blocking MPI collective,
+    since a hang (unlike an exception) leaves no trace otherwise. See
+    BUG_stage2_mpi_hang -- this is for the *second*, still-unexplained hang
+    that reproduces even with the comm.Abort() and close()-timeout fixes in
+    place, so the culprit must be somewhere neither of those covers.
+    """
+    if _PERF_STATS_DEBUG:
+        print(f"[DBG t={perf_counter():.1f}] rank={rank} {msg}", flush=True)
+
+
 def _print_perf_stats(c, total):
     """Reduce timing counters across MPI ranks and print on rank 0."""
     if not (use_mpi and nprocs > 1):
         return
     labels = {'core': 'time_core', 'send': 'time_send', 'recv': 'time_recv',
               'conv': 'time_conv', 'add':  'time_add'}
+    _dbg("entered _print_perf_stats")
     if rank == 0:
         print("\nPerformance statistics (all MPI processes):")
     for key in ('core', 'send', 'recv', 'conv', 'add'):
         mx = np.array([-np.inf]); mn = np.array([np.inf])
+        _dbg(f"before Reduce(MAX, {key})")
         comm.Reduce(c[key], mx, op=MPI.MAX, root=0)
+        _dbg(f"after  Reduce(MAX, {key})")
+        _dbg(f"before Reduce(MIN, {key})")
         comm.Reduce(c[key], mn, op=MPI.MIN, root=0)
+        _dbg(f"after  Reduce(MIN, {key})")
         if rank == 0 and total > 0:
             print(f"  {labels[key]:12s}:  "
                   f"max={mx[0]:.3f}s ({mx[0]/total*100:.2f}%)  "
                   f"min={mn[0]:.3f}s ({mn[0]/total*100:.2f}%)")
+    _dbg("leaving _print_perf_stats")
 
 
 def _eta_str(elapsed, done, total):
@@ -190,6 +212,42 @@ def _wait_and_open_h5(path, mode, timeout=60.0, poll_interval=1.0):
         f"Timed out after {timeout:.0f}s waiting for {path!r} to become "
         f"visible on this node (last error: {last_error})."
     )
+
+
+def _close_with_timeout(f, timeout=30.0, label=""):
+    """Close a file handle without letting a stuck close() hang the whole MPI job.
+
+    An HDF5 file's close() can block for a long time under NFS close-to-open
+    consistency (the client may sync/invalidate state with the server on
+    close), even for a handle that was only ever opened read-only. A rank
+    stuck here never reaches the comm.Reduce() calls in _print_perf_stats(),
+    and unlike an exception, a blocked call raises nothing for any
+    try/except to catch -- every other rank just waits forever.
+
+    Run the close in a daemon thread and give up waiting after `timeout`
+    seconds: if it's still not done, warn and move on rather than block
+    indefinitely. The abandoned thread keeps running in the background (or
+    the OS reclaims the fd when the process eventually exits) -- we only
+    care about not hanging the collective that follows.
+    """
+    result = {}
+
+    def _do_close():
+        try:
+            f.close()
+            result['ok'] = True
+        except Exception as exc:
+            result['exc'] = exc
+
+    t = threading.Thread(target=_do_close, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        print(f"[WARNING] rank={rank} close() of {label!r} did not finish "
+              f"within {timeout:.0f}s (possible NFS stall) -- abandoning it "
+              f"and continuing.", flush=True)
+    elif 'exc' in result:
+        raise result['exc']
 
 
 class ShakerMaker:
@@ -1417,6 +1475,7 @@ class ShakerMaker:
             traceback.print_exc()
             if use_mpi and nprocs > 1:
                 comm.Abort()
+        _dbg("passed pre-loop open/read/assert block")
 
         # Only rank 0 owns the writer
         if rank > 0:
@@ -1479,7 +1538,8 @@ class ShakerMaker:
         slot_matrix = pair_to_slot.reshape(nstations, nsources)
         # Cache all source objects once to avoid repeated get_source_by_id() calls
         source_list_cache = [self._source.get_source_by_id(j) for j in range(nsources)]
-        
+        _dbg(f"entering main station loop (nstations={nstations})")
+
         for i_station in range(nstations):
             owner = i_station % nprocs
 
@@ -1661,17 +1721,31 @@ class ShakerMaker:
                     if use_mpi and nprocs > 1:
                         comm.Abort()
 
-            # other ranks (rank > 0, rank != owner): idle this iteration
+            else:
+                # other ranks (rank > 0, rank != owner): idle this iteration
+                _dbg(f"idle at i_station={i_station} (owner={owner})")
 
         # ------------------------------------------------------------------
         # All stations processed — close resources
+        #
+        # Timeout-guarded: see _close_with_timeout(). A stuck NFS close()
+        # here on any single rank would otherwise hang every rank forever
+        # in the comm.Reduce() calls inside _print_perf_stats() below --
+        # exactly the same externally-visible symptom as BUG_stage2_mpi_hang,
+        # but caused by a blocking call instead of an uncaught exception, so
+        # the try/except-based fix for that bug does not help here.
         # ------------------------------------------------------------------
-        hfile.close()
-        hfile_gf.close()
-        fid.close()
+        _dbg("loop over stations finished, entering close-resources block")
+        _close_with_timeout(hfile, label="map_file")
+        _dbg("closed hfile")
+        _close_with_timeout(hfile_gf, label="gf_file")
+        _dbg("closed hfile_gf")
+        _close_with_timeout(fid, label="debug fid")
+        _dbg("closed fid")
 
         if rank == 0 and writer:
-            writer.close()
+            _close_with_timeout(writer, label="writer")
+            _dbg("closed writer")
 
         perf_time_total = perf_counter() - perf_time_begin
 
