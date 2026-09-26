@@ -60,6 +60,9 @@ class TestAllRealizationProducts(unittest.TestCase):
         self.assertEqual(results["spectrum"]["moment_rate_synth"].shape, (65536, 3))
         self.assertEqual(results["spectrum_octave"]["logmean_synth"].shape, (16, 3))
         np.testing.assert_array_equal(results["realization_id"], [1, 2, 3])
+        self.assertTrue(np.all(np.isfinite(results["metrics"]["ave_vr"])))
+        self.assertTrue(np.all(results["metrics"]["ave_vr"] > 0.0))
+        self.assertFalse(np.allclose(results["metrics"]["ave_vr"], 3.0))
 
     def test_stf_normalization_and_spectral_misfit_are_consistent(self):
         results = self.batch.all_realizations
@@ -113,6 +116,9 @@ class TestAllRealizationProducts(unittest.TestCase):
             self.assertIn("shakermaker_version", h5.attrs)
             self.assertIn("spectrum", h5["realizations"])
             self.assertEqual(h5["realizations/spectrum/moment_rate_synth"].shape, (65536, 3))
+            self.assertEqual(h5["parameters"].attrs["ntime"], 131072)
+            self.assertEqual(h5["parameters"].attrs["nphf"], 65536)
+            self.assertEqual(h5["parameters"].attrs["lnpt"], 16)
             for dataset_name in (
                     "realizations/stf_time/stf",
                     "realizations/spectrum/moment_rate_synth"):
@@ -138,11 +144,12 @@ class TestAllRealizationProducts(unittest.TestCase):
         self.assertEqual(self.batch.params["fc_main_1_requested"], 0.09)
         self.assertEqual(self.batch.params["fc_main_2_requested"], 3.0)
         self.assertAlmostEqual(self.batch.params["fc_main_1"], 0.073282577, places=7)
-        self.assertAlmostEqual(self.batch.params["fc_main_2"], 1.778281, places=6)
+        self.assertAlmostEqual(self.batch.params["fc_main_2"], 1.7782804, places=6)
 
     def test_invalid_spectral_band_is_rejected_before_fortran(self):
         source = make_source(1, 1)
         source.params.update({
+            "freq_min": 1.0e-5,
             "fault_length": 1.0,
             "fault_width": 1.0,
             "x_hypc": 0.5,

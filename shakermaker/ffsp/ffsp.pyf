@@ -101,14 +101,14 @@ python module ffsp_core
             integer intent(out) :: nphf_spec_out
             integer intent(out) :: lnpt_spec_out
             
-            ! Output: STF time domain (max size 131072, actual size in ntime_spec_out)
-            real dimension(131072),intent(out) :: stf_time_out
-            real dimension(131072,id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: stf_out
+            ! Output: STF time domain (maximum capacity 262144)
+            real dimension(262144),intent(out) :: stf_time_out
+            real dimension(262144,id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: stf_out
             
-            ! Output: Spectrum frequency domain (max size 65536, actual size in nphf_spec_out)
-            real dimension(65536),intent(out) :: freq_spec_out
-            real dimension(65536,id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: moment_rate_out
-            real dimension(65536),intent(out) :: dcf_out
+            ! Output: Spectrum frequency domain (maximum capacity 131072)
+            real dimension(131072),intent(out) :: freq_spec_out
+            real dimension(131072,id_ran2_in-id_ran1_in+1),intent(out),depend(id_ran1_in,id_ran2_in) :: moment_rate_out
+            real dimension(131072),intent(out) :: dcf_out
             
             ! Output: Octave-averaged spectrum (max size 17, actual size in lnpt_spec_out)
             real dimension(17),intent(out) :: freq_center_out
