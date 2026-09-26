@@ -100,6 +100,7 @@ def _compile_ffsp_linux(ffsp_dir):
         sys.executable, "-m", "numpy.f2py",
         "-c", "ffsp.pyf",
         *fortran_sources,
+        "--backend", "meson",
         "--f90flags=-O3 -fPIC",
         "--f77flags=-O3 -std=legacy -fPIC",
         "-m", "ffsp_core",
