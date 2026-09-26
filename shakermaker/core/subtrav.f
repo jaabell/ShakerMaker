@@ -16,8 +16,16 @@ cJORGE
       real, intent(in) ::  vab(max_num_lay),hh(max_num_lay)
       integer, intent(in) :: srclay,rcvlay,ne 
       num_lay=ne
-      src_lay=srclay
-      rcv_lay=rcvlay
+c     Layer-index convention: srclay/rcvlay are 1-based Fortran layer
+c     indices (e.g. from CrustModel.get_layer()+1); the ray-path loop
+c     below needs 0-based interior-layer bounds, the same "-1" shift
+c     PyWISP's own trav_fk (fortran_code/src_dc_f95/wave_travel.f95)
+c     applies. Without it, topp/bttm are off by one layer, so the ray
+c     is traced through the wrong pair of layers whenever src and rcv
+c     aren't in adjacent layers (verified: gives a travel time matching
+c     the wrong layer pair to 6 significant figures, not just noise).
+      src_lay=srclay-1
+      rcv_lay=rcvlay-1
       nx=1
 cJORGE
       !open(5,file='trav_input.dat')
