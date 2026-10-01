@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Enforce agent commit signing (see AGENTS.md, "Signing commits").
+# An AI-authored commit must carry both an `Agent:` trailer and an AI
+# `Co-Authored-By:` trailer. Purely human commits pass through untouched.
+msg_file="$1"
+trailers=$(git interpret-trailers --parse < "$msg_file")
+
+has_agent=$(grep -ciE '^Agent: *[^ ]+' <<<"$trailers")
+has_ai_coauthor=$(grep -ciE '^Co-Authored-By: .*(claude|anthropic|codex|openai|copilot|gemini|noreply@anthropic\.com)' <<<"$trailers")
+
+if (( has_ai_coauthor > 0 && has_agent == 0 )); then
+    echo "commit-msg: AI co-authored commit is missing an 'Agent: <name>' trailer (see AGENTS.md)." >&2
+    exit 1
+fi
+if (( has_agent > 0 && has_ai_coauthor == 0 )); then
+    echo "commit-msg: 'Agent:' trailer present but no AI 'Co-Authored-By:' trailer (see AGENTS.md)." >&2
+    exit 1
+fi
+exit 0
