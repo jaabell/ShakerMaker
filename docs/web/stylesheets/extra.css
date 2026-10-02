@@ -151,6 +151,28 @@
   color: var(--sm-ink);
 }
 
+/* Full banner variant: the README artwork is a flat, opaque-white raster
+   (not theme-aware), so it sits on its own "plate" rather than bleeding
+   into the page background — on the slate scheme that background is dark
+   and the banner would otherwise read as a stray white rectangle. */
+.sm-hero--banner {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.sm-hero__plate {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  line-height: 0;
+}
+.sm-hero__banner {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+}
+
 /* ---------- "Where do you want to start?" cards ---------- */
 .md-typeset .grid.cards > ul > li,
 .md-typeset .grid > .card {

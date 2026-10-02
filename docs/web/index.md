@@ -3,12 +3,11 @@ hide:
   - navigation
 ---
 
-<div class="sm-hero" markdown>
-<img class="sm-hero__mark" src="assets/logo.svg" alt="ShakerMaker mark" />
-<div>
-  <h1 class="sm-hero__word">ShakerMaker</h1>
-  <div class="sm-hero__sub">FK Ground Motion · DRM · FFSP</div>
+<div class="sm-hero sm-hero--banner" markdown>
+<div class="sm-hero__plate">
+<img class="sm-hero__banner" src="assets/banner.png" alt="ShakerMaker" />
 </div>
+<div class="sm-hero__sub">FK Ground Motion · DRM · FFSP</div>
 </div>
 
 ShakerMaker is a Python framework for computing earthquake ground motions
