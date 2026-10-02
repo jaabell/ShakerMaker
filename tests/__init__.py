@@ -1,0 +1,1 @@
+"""ShakerMaker test suite."""

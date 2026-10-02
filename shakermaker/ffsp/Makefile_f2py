@@ -1,0 +1,75 @@
+# Makefile to build FFSP with f2py
+#
+# Usage:
+#   make           - Build the ffsp_core module
+#   make clean     - Remove build artefacts
+#   make test      - Test the built module
+
+F90     = gfortran
+F77     = gfortran
+F2PY    = f2py
+
+# Compilation flags
+F90FLAGS = -O3 -fPIC
+F77FLAGS = -O3 -std=legacy -fPIC
+
+# Source files
+FORTRAN_SOURCES = ffsp_wrapper.f90 \
+                  ffsp_comm.f90 \
+                  spfield_n.f90 \
+                  dcf_subs_1.f90 \
+                  slip_rate.f90 \
+                  ffsp_tool.f
+
+# Python module name
+MODULE_NAME = ffsp_core
+
+# Output file
+SO_FILE = $(MODULE_NAME).cpython-*.so
+
+.PHONY: all clean test help
+
+all: $(MODULE_NAME)
+
+# Build the module with f2py
+$(MODULE_NAME): $(FORTRAN_SOURCES) ffsp.pyf
+	@echo "=================================================="
+	@echo "Building the FFSP module with f2py..."
+	@echo "=================================================="
+	$(F2PY) -c ffsp.pyf $(FORTRAN_SOURCES) \
+		--f90flags="$(F90FLAGS)" \
+		--f77flags="$(F77FLAGS)" \
+		-m $(MODULE_NAME)
+	@echo ""
+	@echo "Build succeeded"
+	@echo "Module written: $(SO_FILE)"
+	@echo ""
+
+# Remove build artefacts
+clean:
+	@echo "Removing build artefacts..."
+	rm -f *.so *.o *.mod *.pyc __pycache__/*
+	rm -rf build/
+	@echo "Clean complete"
+
+# Basic module test
+test:
+	@echo "=================================================="
+	@echo "Testing the FFSP module..."
+	@echo "=================================================="
+	python3 -c "import ffsp_core; print('Module imported successfully'); print(dir(ffsp_core))"
+
+# Help
+help:
+	@echo "Makefile to build FFSP with f2py"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  make           - Build the ffsp_core module"
+	@echo "  make clean     - Remove build artefacts"
+	@echo "  make test      - Test the built module"
+	@echo "  make help      - Show this help"
+	@echo ""
+	@echo "Required files:"
+	@echo "  - ffsp_wrapper.f90 (main wrapper)"
+	@echo "  - ffsp.pyf (f2py interface)"
+	@echo "  - ffsp_comm.f90, spfield_n.f90, etc. (original FFSP code)"
