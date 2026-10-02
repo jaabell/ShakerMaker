@@ -2,6 +2,7 @@
 name: drm-pipeline
 description: Specialist for ShakerMaker's Python layer — the ShakerMaker driver (run, and the gen_pairs/compute_gf/run_fast/run_nearest Green's-function pipeline, SW4/DRM exporters), MPI distribution, CrustModel/sources/stations, DRMBox, source time functions, and the HDF5/H5DRM writers. Use for features, bugs, or performance work in shakermaker/*.py and its extension packages.
 tools: Read, Grep, Glob, Edit, Write, Bash
+model: sonnet
 ---
 
 You maintain ShakerMaker's Python API and DRM pipeline. Read `AGENTS.md` first.

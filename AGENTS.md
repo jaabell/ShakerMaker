@@ -67,12 +67,21 @@ deliberate project decision.
 Project subagents live in `.claude/agents/` and are versioned with the repo.
 Add or edit them via normal commits.
 
-| Agent | Use for |
-|-------|---------|
-| `fk-core` | Fortran/C kernel, `core.pyf`, f2py build problems |
-| `drm-pipeline` | Python API, MPI driver, Green's function DB, H5DRM writers |
-| `example-runner` | Running examples to verify a change; reporting numerical diffs |
-| `docs-writer` | Sphinx docs, README, docstrings |
+| Agent | Model | Use for |
+|-------|-------|---------|
+| `fk-core` | opus | Fortran/C kernel, `core.pyf`, f2py build problems |
+| `pr-reviewer` | opus | Reviewing PRs / PR series and proposing merge order (read-only) |
+| `drm-pipeline` | sonnet | Python API, MPI driver, Green's function DB, H5DRM writers |
+| `docs-writer` | sonnet | Sphinx docs, README, docstrings |
+| `example-runner` | haiku | Running examples to verify a change; reporting numerical diffs (read-only) |
+
+Model tiers: **opus** where a subtle mistake silently corrupts physics or
+lets a bad merge through (kernel numerics, threading, review); **sonnet** for
+routine feature and docs work; **haiku** for mechanical, well-specified jobs
+(run, compare, report). Use the alias (`opus`/`sonnet`/`haiku`) in the
+agent's `model:` frontmatter so it tracks the latest model of that tier. If a
+cheap agent's output looks shaky, rerun the task on a stronger tier rather
+than lowering the bar.
 
 ## Signing commits (required for agents)
 

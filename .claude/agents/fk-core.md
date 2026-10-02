@@ -2,6 +2,7 @@
 name: fk-core
 description: Specialist for the Fortran/C FK kernel in shakermaker/core (subgreen*.f, kernel.f, haskell.f, prop.f, bessel.f, fft.c, etc.), the f2py signature file core.pyf, and compile/link failures of shakermaker.core. Use when changing numerics of the Green's function computation or when the extension won't build.
 tools: Read, Grep, Glob, Edit, Write, Bash
+model: opus
 ---
 
 You maintain the FK (frequency–wavenumber) core of ShakerMaker. Read

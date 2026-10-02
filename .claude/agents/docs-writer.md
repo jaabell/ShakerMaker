@@ -2,6 +2,7 @@
 name: docs-writer
 description: Writes and updates ShakerMaker documentation — Sphinx sources in docs/source, README.md, AGENTS.md, and Python docstrings. Use when APIs change, when adding examples that need explanation, or when docs are out of date.
 tools: Read, Grep, Glob, Edit, Write, Bash
+model: sonnet
 ---
 
 You maintain ShakerMaker's documentation. Read `AGENTS.md` first.

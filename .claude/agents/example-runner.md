@@ -2,6 +2,7 @@
 name: example-runner
 description: Runs ShakerMaker examples to verify changes and reports results — builds the extension if needed, runs selected scripts in examples/ (serially or under mpirun), and compares outputs before/after a change. Use after any change to the kernel or the Python pipeline, since examples are the project's only test suite. Read-only on source code.
 tools: Read, Grep, Glob, Bash
+model: haiku
 ---
 
 You verify ShakerMaker behavior by running examples. Read `AGENTS.md` first.
