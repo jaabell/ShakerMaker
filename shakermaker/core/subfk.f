@@ -14,6 +14,7 @@
       complex w,att,nf,u(3,3)
       real aj0,aj1,aj2,z,tdata(nx,9,2*nfft)
       complex sum(nx,9,2*nfft), data(2*nfft)
+      complex ka_local(mb), kb_local(mb) 
 
       nCom = 3 + 3*stype
       idx0 = 47
@@ -81,21 +82,28 @@ c*************** do wavenumber integration for each frequency
             enddo
          enddo
       enddo
+!$OMP PARALLEL DO DEFAULT(SHARED)
+!$OMP& PRIVATE(j,omega,w,att,i,k,n,ix,z,aj0,aj1,aj2,u,nf,l,filter,phi,ka_local,kb_local)
+!$OMP& SCHEDULE(DYNAMIC)
       do j=1,nfft2              ! start frequency loop
          omega = (j-1)*dw
          w = cmplx(omega,-sigma)        ! complex frequency
          do i = 1, mb
             att = clog(w/pi2)/pi + cmplx(0.,0.5)                ! A&R, p182
-            ka(i) = w/(a(i)*(1.+att/qa(i)))
-            kb(i) = w/(b(i)*(1.+att/qb(i)))
-            ka(i) = ka(i)*ka(i)
-            kb(i) = kb(i)*kb(i)
+C             ka(i) = w/(a(i)*(1.+att/qa(i)))
+C             kb(i) = w/(b(i)*(1.+att/qb(i)))
+C             ka(i) = ka(i)*ka(i)
+C             kb(i) = kb(i)*kb(i)
+            ka_local(i) = w/(a(i)*(1.+att/qa(i)))
+            kb_local(i) = w/(b(i)*(1.+att/qb(i))) 
+            ka_local(i) = ka_local(i)*ka_local(i)
+            kb_local(i) = kb_local(i)*kb_local(i)
          enddo
-         !k = omega*pmin + 0.5*dk
+C          !k = omega*pmin + 0.5*dk
          k=dk/2
          n = int((sqrt(kc+(pmax*omega)**2)-k)/dk)
          do i=1,n               ! start k-loop
-            call kernel(k,u,mb,stype,src,rcv,updn,ka,kb,d,rho,mu,xi,si)
+            call kernel(k,u,mb,stype,src,rcv,updn,ka_local,kb_local,d,rho,mu,xi,si)
             do ix=1,nx
                z = k*x(ix)
                call besselFn(z,aj0,aj1,aj2)
@@ -126,7 +134,16 @@ c n=2
             enddo
          enddo
       enddo                     ! end of freqency loop
-      
+!$OMP END PARALLEL DO
+c***************************************************************
+c*************** extraer sum
+C       do ix=1,nx
+C          do l=1,nCom
+C             do j=1,nfft2
+C                spectrum(ix,l,j) = sum(ix,l,j)
+C             enddo
+C          enddo
+C       enddo
 c***************************************************************
 c*************** do inverse fourier transform
       dt = dt/smth
@@ -134,6 +151,9 @@ c*************** do inverse fourier transform
       nfft3 = nfft/2
       dfac = exp(sigma*dt)
 C       write(*,*) "subfk 4"
+!$OMP PARALLEL DO DEFAULT(SHARED) 
+!$OMP& PRIVATE(ix,l,j,data,z)
+!$OMP& SCHEDULE(STATIC)
       do ix=1,nx
          !if ( nfft2.EQ.1 ) then
          !   write(*,'(f5.1,9e11.3)')x(ix),(real(sum(ix,l,1)),l=1,nCom)
@@ -162,6 +182,7 @@ C                write(*,*) "l=", l, "(2)"
             enddo
          !endif
       enddo
+!$OMP END PARALLEL DO
       nfft=nfft/smth
       return 
       end
