@@ -1,0 +1,4 @@
+# Include CRUST 1.0 data grids in source distributions.
+# (wheels pick them up via package_data in setup.py; this is for sdist)
+recursive-include shakermaker/crust1/crust1.0 *
+include shakermaker/crust1/__init__.py
