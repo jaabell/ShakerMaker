@@ -49,21 +49,22 @@ Isolating the install matters because of the next point, the build is
 
 ### 3. Python dependencies
 
-ShakerMaker **runs on NumPy 2.x** — the engine was ported to NumPy 2 + Numba.
-NumPy is only constrained when you **compile the Fortran from source**: `setup.py`
-drives `f2py` through `numpy.distutils`, which NumPy removed in 2.0 and Python
-removed from its standard library in 3.12. So the *build* step (and only the
-build step) needs a NumPy 1.x together with `setuptools<60`, under Python
-3.8–3.11:
+`setup.py` drives `f2py` through `numpy.distutils`, which NumPy removed in
+2.0 and Python removed from its standard library in 3.12. **Both the build
+and the runtime currently need NumPy 1.x** (an extension compiled against
+NumPy 1.x fails to import under NumPy 2.x: `ImportError: numpy.core.multiarray
+failed to import`), together with `setuptools<60`, under Python 3.8–3.11.
+`shakermaker.sl_extensions` also imports `pandas` unconditionally, so it's
+needed even for a minimal install:
 
 ```bash
-pip install "setuptools<60.0" "numpy<2.0" wheel scipy h5py mpi4py matplotlib
+pip install "setuptools<60.0" "numpy<2.0" wheel scipy h5py mpi4py matplotlib pandas
 ```
 
 `setuptools<60` keeps the classic `setup.py`/`numpy.distutils` path working
-(later setuptools shadows the stdlib `distutils` and breaks it). Once the
-extensions are compiled — or if you install the prebuilt `.so`/`.pyd` shipped in
-the repository — you can run under NumPy 2.x.
+(later setuptools shadows the stdlib `distutils` and breaks it). No prebuilt
+`.so`/`.pyd` files ship in the repository — they're build artifacts and are
+gitignored.
 
 ### 4. Build & install
 
@@ -78,25 +79,39 @@ pip install . --no-build-isolation
 the compile, instead of fetching fresh (newer) build deps into a throwaway
 environment, which would re-introduce the `numpy.distutils` problem at build time.
 
-For development you usually want the compiled extensions **in the source tree**
+For development you usually want the compiled extension **in the source tree**
 so you can edit Python and re-import without reinstalling:
 
 ```bash
 python setup.py build_ext --inplace
 ```
 
-That drops `core.*.so` and `ffsp/ffsp_core.*.so` next to the sources.
+That drops `core.*.so` next to the sources. It does **not** build
+`ffsp/ffsp_core.*`; see the next step.
 
-### 5. Let FFSP run
+### 5. Build the FFSP extension
 
-The FFSP generator ships a small Fortran executable that needs the execute
-bit:
+FFSP is compiled by a `cmdclass` hook on setuptools' `install` command, which
+only runs for a literal `python setup.py install` — `pip install` builds a
+wheel and never calls it, so neither of the commands above produces
+`ffsp_core`. Either run the legacy installer directly:
 
 ```bash
-chmod +x ~/shakermaker_env/lib/python3.10/site-packages/shakermaker/ffsp/ffsp_dcf_v2
+python setup.py install
 ```
 
-(Adjust the path to your environment and Python version.)
+or, for an in-place/development build, invoke the same `f2py` command setup.py
+uses, from `shakermaker/ffsp/`:
+
+```bash
+cd shakermaker/ffsp
+python -m numpy.f2py -c ffsp.pyf \
+    ffsp_wrapper.f90 ffsp_comm.f90 spfield_n.f90 dcf_subs_1.f90 slip_rate.f90 ffsp_tool.f \
+    --f90flags="-O3 -fPIC" --f77flags="-O3 -std=legacy -fPIC" -m ffsp_core
+```
+
+You only need this if you use `FFSPSource`; the rest of ShakerMaker (FK
+engine, DRM, SW4 export) does not depend on it.
 
 ### 6. Verify
 
@@ -132,8 +147,8 @@ internal build log; the order matters.
       space-free path and build from there.
     - **Use CMD, not PowerShell, for build steps.** PowerShell quoting breaks
       the compiler invocations.
-    - **To compile, use NumPy 1.x** (same `numpy.distutils` reason as Linux);
-      once built, ShakerMaker runs fine under NumPy 2.x.
+    - **Use NumPy 1.x, to build and to run** (same `numpy.distutils` reason as
+      Linux — an extension built against NumPy 1.x fails to import under 2.x).
     - **Don't install MSYS2/gfortran** alongside Intel, it contaminates PATH.
 
 ### Required tools
@@ -144,7 +159,7 @@ internal build log; the order matters.
 | Intel oneAPI Base Toolkit | 2025.x | MKL |
 | Intel oneAPI HPC Toolkit | 2025.x | the `ifx` Fortran compiler |
 | Python | 3.10.x | matches the `.pyd` suffix; build needs 3.8–3.11 |
-| NumPy | 1.26.4 (build) | 1.x only to compile; runs under 2.x |
+| NumPy | 1.26.4 | 1.x to compile **and** to run (2.x breaks the compiled extension) |
 
 ### 1. Junction around the space-in-path problem
 

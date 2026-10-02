@@ -228,7 +228,7 @@ The three-stage pipeline (`gen_pairs()` → `compute_gf()` → `run_fast()`) sep
 The [`examples/`](examples) folder is organised by **topic**, one folder per
 concept. Each script is a small, self-contained input → result; most end in
 `print("PASS")` so they double as smoke tests. A full walkthrough lives in the
-[documentation site](https://ppalacios92.github.io/ShakerMaker/examples/).
+[documentation site](https://jaabell.github.io/ShakerMaker/examples/).
 
 | Folder | Topic | Highlights |
 |--------|-------|-----------|

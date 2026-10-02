@@ -1,8 +1,8 @@
 site_name: ShakerMaker
 site_description: FK ground motion synthesis, DRM boundary motions, and FFSP stochastic ruptures — a Python framework for earthquake ground motion simulation.
-site_url: https://ppalacios92.github.io/ShakerMaker/
-repo_url: https://github.com/ppalacios92/ShakerMaker
-repo_name: ppalacios92/ShakerMaker
+site_url: https://jaabell.github.io/ShakerMaker/
+repo_url: https://github.com/jaabell/ShakerMaker
+repo_name: jaabell/ShakerMaker
 edit_uri: edit/master/docs/web/
 
 # All MkDocs content lives in its own folder so the legacy Sphinx

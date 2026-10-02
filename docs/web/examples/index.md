@@ -1,13 +1,13 @@
 # Examples
 
-The [`examples/`](https://github.com/ppalacios92/ShakerMaker/tree/master/examples)
+The [`examples/`](https://github.com/jaabell/ShakerMaker/tree/master/examples)
 tree is organised by **topic**, one folder per concept. Each script is a small,
 self-contained input → result and is the fastest way to see which inputs produce
 which output. Most scripts end in a `print("PASS")` so they double as smoke
 tests.
 
 !!! tip "Run everything at once"
-    [`examples/run_all_smoke.py`](https://github.com/ppalacios92/ShakerMaker/blob/master/examples/run_all_smoke.py)
+    [`examples/run_all_smoke.py`](https://github.com/jaabell/ShakerMaker/blob/master/examples/run_all_smoke.py)
     walks every example `.py`, runs it, and reports **PASS / SKIP / FAIL**.
     Scripts that need an optional dependency (`h5py`, MPI) or an external data
     file print `SKIP` instead of failing. Pass `--full` to also run the slow
@@ -186,7 +186,7 @@ are copied from a real SW4 run. Needs `obspy`. See the
 
 ## Legacy examples
 
-[`examples/legacy_examples/`](https://github.com/ppalacios92/ShakerMaker/tree/master/examples/legacy_examples)
+[`examples/legacy_examples/`](https://github.com/jaabell/ShakerMaker/tree/master/examples/legacy_examples)
 holds José Abell's original upstream examples (`example0_readme_example.py`,
 `example1_simple.py`, `example2_drm.py`, `example3-save-station.py`,
 `example4-load-station.py`, `example5-exploregreen.py`). They are kept

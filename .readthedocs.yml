@@ -1,24 +1,27 @@
 # .readthedocs.yml
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+#
+# Builds the MkDocs Material site under docs/web/ (see mkdocs.yml) — the same
+# site deployed to GitHub Pages by .github/workflows/docs.yml. The old Sphinx
+# tree under docs/source/ (pre-2.0, API docs only) is no longer built here.
 
-# Required
-version: 1
+version: 2
 
-# Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/source/conf.py
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  jobs:
+    # mkdocstrings needs to import shakermaker to read its docstrings, which
+    # means building the Fortran shakermaker.core extension. That needs
+    # NumPy 1.x + setuptools<60 at build time (numpy.distutils) and pandas is
+    # a hard import of shakermaker.sl_extensions — see
+    # docs/web/guides/installation.md for why.
+    post_install:
+      - pip install "setuptools<60.0" "numpy<2.0" wheel scipy h5py mpi4py matplotlib pandas
+      - pip install . --no-build-isolation
+      - pip install -r docs/web/requirements-docs.txt
 
-# Build documentation with MkDocs
-#mkdocs:
-#  configuration: mkdocs.yml
-
-# Optionally build your docs in additional formats such as PDF
-# formats:
-#   - pdf
-
-# Optionally set the version of Python and requirements required to build your docs
-python:
-  version: 3.7
-  install:
-    - requirements: docs/requirements.txt
+mkdocs:
+  configuration: mkdocs.yml

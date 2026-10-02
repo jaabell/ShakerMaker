@@ -28,7 +28,7 @@ except (ImportError, RuntimeError):
 
 
 
-def ZENTPlot(station, fig=0, show=False, xlim=[], label=[], integrate=0, differentiate=0, savefigname="", linestyle="-", linewidth=2):
+def ZENTPlot(station, fig=0, show=False, xlim=[], label=None, integrate=0, differentiate=0, savefigname="", linestyle="-", linewidth=2):
     """Plot (using matplotlib) the response at a given station.
 
     :param station: The station response to plot.

@@ -31,15 +31,21 @@ jobs:
           cache: pip
 
       # The package must be importable for mkdocstrings to read docstrings,
-      # which means building the Fortran `shakermaker.core` extension.
+      # which means building the Fortran `shakermaker.core` extension via
+      # f2py/numpy.distutils. That requires NumPy 1.x and setuptools<60 at
+      # build time (see docs/web/guides/installation.md); --no-build-isolation
+      # keeps pip from fetching a newer NumPy into an isolated build env.
+      # pandas is a hard import of shakermaker.sl_extensions, so it must be
+      # present for mkdocstrings to import the package at all.
       - name: Install build tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y gfortran
-          python -m pip install --upgrade pip numpy scipy h5py
+          python -m pip install --upgrade pip
+          pip install "setuptools<60.0" "numpy<2.0" wheel scipy h5py mpi4py matplotlib pandas
 
       - name: Install ShakerMaker (builds Fortran extension)
-        run: pip install -e .
+        run: pip install . --no-build-isolation
 
       - name: Install docs dependencies
         run: pip install -r docs/web/requirements-docs.txt
