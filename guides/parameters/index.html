@@ -1,0 +1,3008 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="FK ground motion synthesis, DRM boundary motions, and FFSP stochastic ruptures — a Python framework for earthquake ground motion simulation.">
+      
+      
+      
+        <link rel="canonical" href="https://jaabell.github.io/ShakerMaker/guides/parameters/">
+      
+      
+        <link rel="prev" href="../running/">
+      
+      
+        <link rel="next" href="../drm/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>FK parameters - ShakerMaker</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#fk-parameters" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ShakerMaker" class="md-header__button md-logo" aria-label="ShakerMaker" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ShakerMaker
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              FK parameters
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/jaabell/ShakerMaker" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jaabell/ShakerMaker
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../background/overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Background
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../exercises/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Exercises
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ShakerMaker" class="md-nav__button md-logo" aria-label="ShakerMaker" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    ShakerMaker
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/jaabell/ShakerMaker" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jaabell/ShakerMaker
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Background
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Background
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/fk_method/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The FK method
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/numerics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Numerical solution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordinates & conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/finite_fault/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Finite faults & FFSP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation & compilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../first_steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crust_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crust model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../source_time_functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source time functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../receivers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Receivers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../running/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running a simulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FK parameters
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FK parameters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-code-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the code lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-you-choose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two you choose
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The two you choose">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dt-output-time-step-the-frequency-band" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dt — output time step → the frequency band
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="dt — output time step → the frequency band">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-mesh-dt-implies-drm-sw4-downstream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The mesh dt implies (DRM / SW4 downstream)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tmax-and-tmin-the-output-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tmax (and tmin) — the output window
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-derived" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three derived
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three derived">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nfft-fft-length-record-length" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nfft — FFT length → record length
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dk-wavenumber-spacing-resolution-the-ghost-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dk — wavenumber spacing → resolution + the ghost source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tb-pre-arrival-padding-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tb — pre-arrival padding (samples)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ten-defaults-and-why-they-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ten defaults (and why they hold)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#case-study-is-pmax-1-safe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case study: is pmax = 1 safe?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-check_parameters-pre-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The check_parameters pre-flight
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The check_parameters pre-flight">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-failing-report-looks-like" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a failing report looks like
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-parameter-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full parameter map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration recipe
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Domain Reduction Method
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ffsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFSP stochastic rupture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../outputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outputs & writers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sw4_export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SW4 export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../exercises/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exercises
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Exercises
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/01_first_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1 · First run & the four arrivals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/02_convergence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2 · Numerical convergence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/03_basin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3 · A sedimentary basin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/04_stf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4 · Source time functions compared
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/05_drm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5 · DRM box → H5DRM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/06_ffsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6 · FFSP stochastic rupture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/07_receivers_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7 · Receiver geometries & the fast pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/08_sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8 · Sources: point & finite faults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/09_writers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9 · Saving results & writers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/10_sw4_export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    10 · Exporting to SW4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/11_plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    11 · Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/12_validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    12 · Validation: SCEC LOH.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exercises/13_shakermaker_sw4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    13 · ShakerMaker vs SW4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shakermaker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ShakerMaker engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/crustmodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CrustModel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source time functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/receivers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Receivers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/writers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ffsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FFSP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/sw4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SW4 export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/crust1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CRUST 1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-code-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the code lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-you-choose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The two you choose
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The two you choose">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dt-output-time-step-the-frequency-band" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dt — output time step → the frequency band
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="dt — output time step → the frequency band">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-mesh-dt-implies-drm-sw4-downstream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The mesh dt implies (DRM / SW4 downstream)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tmax-and-tmin-the-output-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tmax (and tmin) — the output window
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-derived" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three derived
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The three derived">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nfft-fft-length-record-length" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nfft — FFT length → record length
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dk-wavenumber-spacing-resolution-the-ghost-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dk — wavenumber spacing → resolution + the ghost source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tb-pre-arrival-padding-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tb — pre-arrival padding (samples)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ten-defaults-and-why-they-hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ten defaults (and why they hold)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#case-study-is-pmax-1-safe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case study: is pmax = 1 safe?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-check_parameters-pre-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The check_parameters pre-flight
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The check_parameters pre-flight">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-failing-report-looks-like" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a failing report looks like
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-parameter-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full parameter map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calibration recipe
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="fk-parameters">FK parameters<a class="headerlink" href="#fk-parameters" title="Permanent link">&para;</a></h1>
+<p>This page documents <strong>every numerical input</strong> of <code>ShakerMaker.run</code> (and of the
+identical core arguments in <code>compute_gf</code> / <code>run_fast</code> / <code>run_nearest</code>), what
+each one controls in the Fortran FK kernel, the exact formula behind it, and
+the <strong>source line</strong> that implements it. It is the verbose companion to the
+shorter <a href="../running/">Running a simulation</a> page and to the theory in
+<a href="../../background/numerics/">Numerical solution</a>.</p>
+<div class="admonition abstract">
+<p class="admonition-title">The one idea that organises everything</p>
+<p>Of the fifteen FK control inputs, <strong>you only choose two</strong> — <code>dt</code> (the
+frequency band) and <code>tmax</code> (the output window). Three are <strong>derived</strong> from
+those plus the model geometry (<code>nfft</code>, <code>dk</code>, <code>tb</code>). The remaining ten are
+<strong>numerical regularisers whose defaults are correct in essentially every
+case</strong> — including <code>pmax</code>, which we justify with a controlled experiment
+below.</p>
+<div class="arithmatex">\[
+\underbrace{\texttt{dt},\ \texttt{tmax}}_{\text{you choose}}
+\;\rightarrow\;
+\underbrace{\texttt{nfft},\ \texttt{dk},\ \texttt{tb}}_{\text{derived}}
+\;\rightarrow\;
+\underbrace{\texttt{sigma},\,\texttt{taper},\,\texttt{wc1},\,\texttt{wc2},\,\texttt{pmin},\,\texttt{pmax},\,\texttt{kc},\,\texttt{nx},\,\texttt{smth}}_{\text{defaults hold}}
+\]</div>
+</div>
+<h2 id="where-the-code-lives">Where the code lives<a class="headerlink" href="#where-the-code-lives" title="Permanent link">&para;</a></h2>
+<p><code>ShakerMaker.run</code> → <code>_call_core</code> → <code>subgreen</code> (<code>shakermaker/core/subgreen.f</code>)
+→ <code>subfk</code> (<code>shakermaker/core/subfk.f</code>). <code>subgreen</code> builds the per-pair geometry
+and <code>subfk</code> performs the double integral over frequency <span class="arithmatex">\(\omega\)</span> and wavenumber
+<span class="arithmatex">\(k\)</span>. The stand-alone driver <code>shakermaker/core/fk.f</code> carries the <strong>identical</strong>
+logic in one readable file, so the citations below use <code>fk.f</code> line numbers as
+the canonical reference and name <code>subfk.f</code> / <code>subgreen.f</code> where the operative
+copy differs.</p>
+<div class="admonition info">
+<p class="admonition-title">What the core reads from the geometry (and two common mistakes)</p>
+<ul>
+<li><strong><span class="arithmatex">\(h_s\)</span> is the source–receiver <em>vertical separation</em></strong> <span class="arithmatex">\(|z_s - z_r|\)</span>,
+  accumulated over the layers between them (<code>subgreen.f:32-37</code>) — <strong>not</strong> the
+  total crust thickness. It sets the evanescent cutoff <span class="arithmatex">\(k_c = \texttt{kc}/h_s\)</span>.</li>
+<li><strong><span class="arithmatex">\(V_{s,\text{src}}\)</span> is the shear velocity of the <em>source layer</em></strong>
+  (<code>subgreen.f:49</code>, <code>subfk.f:64</code>) — it normalises the slowness window
+  <code>pmin</code>/<code>pmax</code>, <strong>not</strong> the global minimum velocity.</li>
+<li><span class="arithmatex">\(x_\text{max} = \max(h_s, r)\)</span> (<code>subgreen.f:66-70</code>) is the horizontal scale
+  of the wavenumber step.</li>
+</ul>
+</div>
+<hr />
+<h2 id="the-two-you-choose">The two you choose<a class="headerlink" href="#the-two-you-choose" title="Permanent link">&para;</a></h2>
+<h3 id="dt-output-time-step-the-frequency-band"><code>dt</code> — output time step → the frequency band<a class="headerlink" href="#dt-output-time-step-the-frequency-band" title="Permanent link">&para;</a></h3>
+<p><code>dt</code> is the only parameter that fixes the <strong>highest believable frequency</strong>. The
+Nyquist frequency is</p>
+<div class="arithmatex">\[
+f_\text{Nyq} = \frac{1}{2\,\texttt{dt}},
+\]</div>
+<p>but the <em>usable</em> band is narrower because the driver applies a raised-cosine
+low-pass (the <code>taper</code>). The flat passband edge is</p>
+<div class="arithmatex">\[
+f_\text{max} = (1 - \texttt{taper})\,f_\text{Nyq}
+\qquad\text{(fk.f:74: } w_c = \tfrac{N_\text{FFT}}{2}(1-\texttt{taper})\text{)},
+\]</div>
+<p>above which the spectrum rolls smoothly to zero at <span class="arithmatex">\(f_\text{Nyq}\)</span> (<code>fk.f:169</code>).</p>
+<table>
+<thead>
+<tr>
+<th>quantity</th>
+<th>formula</th>
+<th>example (<code>dt</code>=0.0025, <code>taper</code>=0.9)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nyquist</td>
+<td><span class="arithmatex">\(1/(2\,\texttt{dt})\)</span></td>
+<td>200 Hz</td>
+</tr>
+<tr>
+<td>usable <span class="arithmatex">\(f_\text{max}\)</span></td>
+<td><span class="arithmatex">\((1-\texttt{taper})\,f_\text{Nyq}\)</span></td>
+<td><strong>20 Hz</strong></td>
+</tr>
+<tr>
+<td>shortest wavelength</td>
+<td><span class="arithmatex">\(\lambda_\text{min} = V_{s,\text{min}}/f_\text{max}\)</span></td>
+<td>37.5 m</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Halving the band runs ~2× faster</p>
+<p>Since <span class="arithmatex">\(f_\text{max}\propto 1/\texttt{dt}\)</span>, to resolve half the frequency
+double the step: <span class="arithmatex">\(f_\text{max}=20\to10\)</span> Hz means <code>dt</code> <span class="arithmatex">\(=0.0025\to0.005\)</span>.</p>
+</div>
+<h4 id="the-mesh-dt-implies-drm-sw4-downstream">The mesh <code>dt</code> implies (DRM / SW4 downstream)<a class="headerlink" href="#the-mesh-dt-implies-drm-sw4-downstream" title="Permanent link">&para;</a></h4>
+<p><span class="arithmatex">\(\lambda_\text{min}\)</span> is the bridge to any finite-element/-difference model the
+motion will drive. Resolve it with <span class="arithmatex">\(N\)</span> points per wavelength:</p>
+<div class="arithmatex">\[
+\Delta x \le \frac{\lambda_\text{min}}{N} = \frac{V_{s,\text{min}}}{f_\text{max}\,N},
+\qquad
+\Delta t_\text{FEM} \le C\,\frac{\Delta x}{V_{p,\text{surf}}}.
+\]</div>
+<div class="admonition warning">
+<p class="admonition-title">Use <span class="arithmatex">\(V_{p,\text{surf}}\)</span>, not <span class="arithmatex">\(V_{p,\text{max}}\)</span>, in the CFL step</p>
+<p>The small elements (<span class="arithmatex">\(\Delta x\)</span>) live in the <strong>slow surface layer</strong>, so the
+stable step uses that layer's P velocity <span class="arithmatex">\(V_{p,\text{surf}}\)</span>, <em>not</em> the deep
+basement <span class="arithmatex">\(V_{p,\text{max}}\)</span>. Pairing the smallest element with the fastest
+deep velocity is a combination that exists nowhere in the model and yields
+an absurdly tiny <span class="arithmatex">\(\Delta t_\text{FEM}\)</span>. Example: <span class="arithmatex">\(V_{s,\text{min}}=750\)</span> m/s,
+<span class="arithmatex">\(f_\text{max}=20\)</span> Hz, <span class="arithmatex">\(N=10\)</span> → <span class="arithmatex">\(\Delta x=3.75\)</span> m; with
+<span class="arithmatex">\(V_{p,\text{surf}}\approx1.5\)</span> km/s, <span class="arithmatex">\(\Delta t_\text{FEM}\approx0.0025\)</span> s
+(usable), versus <span class="arithmatex">\(\approx0.0005\)</span> s if <span class="arithmatex">\(V_{p,\text{max}}=7\)</span> km/s is misused.</p>
+</div>
+<h3 id="tmax-and-tmin-the-output-window"><code>tmax</code> (and <code>tmin</code>) — the output window<a class="headerlink" href="#tmax-and-tmin-the-output-window" title="Permanent link">&para;</a></h3>
+<p><code>tmax</code> is how much of the wave train you keep. Three times bound it:</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\text{MAX (record end)} &amp;: \quad t_\text{end} = t_\text{first} - \texttt{pad} + N_\text{FFT}\,\texttt{dt} &amp;&amp; \text{above it = garbage},\\
+\text{full signal}      &amp;: \quad t_\text{full} = \max_\text{pairs}(t_0 + r/V_\text{Ray}) + t_\text{coda} &amp;&amp; \text{end of surface-wave coda},\\
+\text{gate}             &amp;: \quad 0 \le \texttt{tmin} &lt; \texttt{tmax} \le t_\text{end}. &amp;&amp;
+\end{aligned}
+\]</div>
+<table>
+<thead>
+<tr>
+<th>verdict</th>
+<th>condition</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hard error</td>
+<td><span class="arithmatex">\(\texttt{tmax} &gt; t_\text{end}\)</span> or gate violated</td>
+<td>result is wrong</td>
+</tr>
+<tr>
+<td>soft (cuts coda)</td>
+<td><span class="arithmatex">\(\texttt{tmax} &lt; t_\text{full}\)</span></td>
+<td>window is correct but incomplete</td>
+</tr>
+</tbody>
+</table>
+<p>Recommended value: <span class="arithmatex">\(\texttt{tmax} = \min(t_\text{full},\ t_\text{end})\)</span>.</p>
+<hr />
+<h2 id="the-three-derived">The three derived<a class="headerlink" href="#the-three-derived" title="Permanent link">&para;</a></h2>
+<h3 id="nfft-fft-length-record-length"><code>nfft</code> — FFT length → record length<a class="headerlink" href="#nfft-fft-length-record-length" title="Permanent link">&para;</a></h3>
+<p><code>nfft</code> is the number of FFT samples (in <em>both</em> time and frequency); the record
+length is <span class="arithmatex">\(T = N_\text{FFT}\,\texttt{dt}\)</span> (<code>fk.f:66,72</code>). It must be a <strong>power of
+two</strong> (radix-2 FFT) and long enough that the wave train does not wrap around.
+The required length is the larger of the physics and the requested window:</p>
+<div class="arithmatex">\[
+T_\text{need} = \max\!\big(\underbrace{(t_\text{last}-t_\text{first})+\texttt{pad}}_{\text{physics}},\ \underbrace{(\texttt{tmax}-t_\text{first})+\texttt{pad}}_{\text{window}}\big),
+\qquad
+N_\text{FFT} = 2^{\lceil \log_2(T_\text{need}/\texttt{dt})\rceil}.
+\]</div>
+<div class="admonition info">
+<p class="admonition-title">Why a small <code>tmax</code> does not buy a short record</p>
+<p>Even if you only keep 20 s, the FFT record must still contain the <strong>full</strong>
+signal (e.g. 60 s of surface-wave coda) or the late energy aliases into the
+retained window. <code>nfft</code> is driven by whichever is longer.</p>
+</div>
+<h3 id="dk-wavenumber-spacing-resolution-the-ghost-source"><code>dk</code> — wavenumber spacing → resolution + the ghost source<a class="headerlink" href="#dk-wavenumber-spacing-resolution-the-ghost-source" title="Permanent link">&para;</a></h3>
+<p>The physical step is <span class="arithmatex">\(\Delta k = \texttt{dk}\cdot\pi/x_\text{max}\)</span> (<code>fk.f:107</code>).
+Two constraints:</p>
+<div class="arithmatex">\[
+N_k \approx \frac{\texttt{kc}\,x_\text{max}}{\pi\,h_s\,\texttt{dk}} \gtrsim 10
+\quad\text{(quadrature resolved)},
+\qquad
+\texttt{dk} &lt; 0.5 \quad\text{(≥4 samples/Bessel period, fk.f:82-84)}.
+\]</div>
+<p>By <strong>Bouchon's theorem</strong>, sampling <span class="arithmatex">\(k\)</span> at <span class="arithmatex">\(\Delta k\)</span> surrounds the source with
+image sources spaced <span class="arithmatex">\(L = 2\pi/\Delta k = 2\,x_\text{max}/\texttt{dk}\)</span> apart; the
+nearest spurious image arrives at</p>
+<div class="arithmatex">\[
+t_\text{img} \approx \frac{L - r}{V_\text{Ray}},\qquad V_\text{Ray}\approx 0.92\,V_{s,\text{min}}.
+\]</div>
+<p>The method is exact only while <span class="arithmatex">\(t_\text{img} &gt; \texttt{tmax}\)</span>. Choose the
+<strong>coarsest</strong> <code>dk</code> that keeps <span class="arithmatex">\(N_k\ge10\)</span> on every pair and the image beyond the
+window — coarser is faster.</p>
+<h3 id="tb-pre-arrival-padding-samples"><code>tb</code> — pre-arrival padding (samples)<a class="headerlink" href="#tb-pre-arrival-padding-samples" title="Permanent link">&para;</a></h3>
+<p><code>tb</code> zero-pads before the first arrival and shifts the reduction time
+<span class="arithmatex">\(t_0 \leftarrow t_0 - \texttt{tb}\cdot\texttt{dt}\)</span> (<code>subgreen.f:73</code>, <code>fk.f:105</code>),
+preventing the bandlimited onset and filter ringing from wrapping to the trace
+start. A pad of 1–2 s (<span class="arithmatex">\(\texttt{tb}\approx 1.5/\texttt{dt}\)</span>) is right almost
+always; too small clips the pulse, too large pushes the train out of the record.</p>
+<hr />
+<h2 id="the-ten-defaults-and-why-they-hold">The ten defaults (and why they hold)<a class="headerlink" href="#the-ten-defaults-and-why-they-hold" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>param</th>
+<th>default</th>
+<th>controls</th>
+<th>formula / source</th>
+<th>revisit only if…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sigma</code></td>
+<td>2</td>
+<td>wrap-around damping <span class="arithmatex">\(e^{-\sigma t}\)</span></td>
+<td>rescaled by <span class="arithmatex">\(\Delta\omega\)</span> (<code>fk.f:73</code>)</td>
+<td>coda contaminated (↑) / late signal dies (↓)</td>
+</tr>
+<tr>
+<td><code>taper</code></td>
+<td>0.9</td>
+<td>low-pass, sets <span class="arithmatex">\(f_\text{max}\)</span></td>
+<td><span class="arithmatex">\(f_\text{max}=(1-\texttt{taper})f_\text{Nyq}\)</span> (<code>fk.f:74</code>)</td>
+<td>want a specific <span class="arithmatex">\(f_\text{max}\)</span>: <span class="arithmatex">\(\texttt{taper}=1-f_\text{max}/f_\text{Nyq}\)</span></td>
+</tr>
+<tr>
+<td><code>wc1</code>,<code>wc2</code></td>
+<td>1, 2</td>
+<td>low-freq high-pass (DC)</td>
+<td>raised cosine over low bins (<code>fk.f:171-172</code>)</td>
+<td>removing a static offset</td>
+</tr>
+<tr>
+<td><code>pmin</code></td>
+<td>0</td>
+<td>max phase velocity captured</td>
+<td><span class="arithmatex">\(c_\text{max}=V_{s,\text{src}}/\texttt{pmin}\)</span> (<code>fk.f:140</code>)</td>
+<td>excluding vertical body waves</td>
+</tr>
+<tr>
+<td><code>pmax</code></td>
+<td>1</td>
+<td>min phase velocity captured</td>
+<td><span class="arithmatex">\(c_\text{min}=V_{s,\text{src}}/\texttt{pmax}\)</span> (<code>fk.f:141</code>)</td>
+<td>see experiment below — <strong>leave at 1</strong></td>
+</tr>
+<tr>
+<td><code>kc</code></td>
+<td>15</td>
+<td>evanescent cutoff <span class="arithmatex">\(k_c=\texttt{kc}/h_s\)</span></td>
+<td>decay <span class="arithmatex">\(e^{-\texttt{kc}}\approx3\times10^{-7}\)</span> (<code>fk.f:89</code>)</td>
+<td>needs <span class="arithmatex">\(&gt;10\)</span>; default is safe</td>
+</tr>
+<tr>
+<td><code>nx</code></td>
+<td>1</td>
+<td>distance ranges per call</td>
+<td>structural (<code>fk.f:95</code>)</td>
+<td>never — always 1 per pair</td>
+</tr>
+<tr>
+<td><code>smth</code></td>
+<td>1</td>
+<td>output densification</td>
+<td><span class="arithmatex">\(\Delta t_\text{out}=\texttt{dt}/\texttt{smth}\)</span> (<code>fk.f:186</code>)</td>
+<td>want finer output sampling</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title"><code>sigma</code> is effectively dimensionless</p>
+<p>Because <code>sigma</code> is rescaled by <span class="arithmatex">\(\Delta\omega = 2\pi/(N_\text{FFT}\texttt{dt})\)</span>
+at <code>fk.f:73</code>, the attenuation at the <strong>end of the record</strong> is exactly
+<span class="arithmatex">\(e^{-\sigma}\)</span>, independent of <code>dt</code> and <code>nfft</code>: <code>sigma</code>=2 leaves
+<span class="arithmatex">\(e^{-2}\approx13.5\%\)</span>, <code>sigma</code>=3 leaves <span class="arithmatex">\(\approx5\%\)</span>. That is why the default
+is universal.</p>
+</div>
+<hr />
+<h2 id="case-study-is-pmax-1-safe">Case study: is <code>pmax</code> = 1 safe?<a class="headerlink" href="#case-study-is-pmax-1-safe" title="Permanent link">&para;</a></h2>
+<p>A paper argument suggests it might not be. The integration upper bound is</p>
+<div class="arithmatex">\[
+k_\text{max}(\omega) = \sqrt{\Big(\tfrac{k_c}{h_s}\Big)^2 + \Big(\tfrac{\texttt{pmax}}{V_{s,\text{src}}}\omega\Big)^2}
+\qquad\text{(fk.f:141)},
+\]</div>
+<p>so a wave of phase velocity <span class="arithmatex">\(c=\omega/k\)</span> is captured only if <span class="arithmatex">\(c \ge
+V_{s,\text{src}}/\texttt{pmax}\)</span>. With <code>pmax</code>=1 the minimum captured phase
+velocity equals <span class="arithmatex">\(V_{s,\text{src}}\)</span>, while the Rayleigh wave travels at
+<span class="arithmatex">\(\approx0.92\,V_s\)</span> (slowness <span class="arithmatex">\(1.11/V_s\)</span>) — <em>outside</em> the window. The original FK
+author even left a commented default <code>pmax = 1.11</code> (<code>subfk.f:51-52</code>), exactly
+<span class="arithmatex">\(1/0.9\)</span>. So with a <strong>deep, fast</strong> source, should <code>pmax</code> be raised?</p>
+<p><strong>We tested it.</strong> Worst case: slow surface layer (<span class="arithmatex">\(V_s=0.75\)</span> km/s) over fast
+half-space (<span class="arithmatex">\(V_s=3.5\)</span> km/s), source 4 km deep in the fast rock, receiver at
+10 km, band to 5–10 Hz. The paper formula predicts <code>pmax</code><span class="arithmatex">\(\approx5\)</span> is needed.
+Running the actual core and comparing three-component velocity traces:</p>
+<table>
+<thead>
+<tr>
+<th><code>pmax</code></th>
+<th>RMS difference vs <code>pmax</code>=8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0</td>
+<td>0.1 %</td>
+</tr>
+<tr>
+<td>2.0</td>
+<td>0.0 %</td>
+</tr>
+<tr>
+<td>4.0</td>
+<td>0.0 %</td>
+</tr>
+</tbody>
+</table>
+<p>A harder stress test (<span class="arithmatex">\(f_\text{max}=10\)</span> Hz, <span class="arithmatex">\(V_s=0.5\)</span> km/s surface, source 8 km
+deep, 15 km range) gives <strong>0.00 %</strong> across <code>pmax</code> ∈ [1, 8], and a <code>kc</code> sweep
+(5→60) at fixed <code>pmax</code>=1 also gives 0.00 %. <strong>The waveforms are identical.</strong></p>
+<div class="admonition success">
+<p class="admonition-title">Verdict: leave <code>pmax</code> = 1</p>
+<p>The paper argument neglected (1) the static floor <span class="arithmatex">\(k_c/h_s\)</span>, which already
+extends <span class="arithmatex">\(k_\text{max}\)</span> past where the integrand has energy, and (2) the
+evanescent decay <span class="arithmatex">\(e^{-k h_s}\)</span> — there is nothing left to integrate out
+there. Physically, the only regime where <code>pmax</code>=1 could truncate energy
+(deep fast source, high-frequency surface waves) is the regime where those
+surface waves are weakly excited. <code>pmax = 1.11</code> is the textbook-safe value;
+<code>pmax = 1</code> is empirically identical.</p>
+</div>
+<hr />
+<h2 id="the-check_parameters-pre-flight">The <code>check_parameters</code> pre-flight<a class="headerlink" href="#the-check_parameters-pre-flight" title="Permanent link">&para;</a></h2>
+<p><code>ShakerMaker.check_parameters</code> reproduces every formula above with <strong>no FK
+run</strong> (pure arithmetic) and prints a report organised by the dependency
+hierarchy. Call it right after building the model:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">ShakerMaker</span><span class="p">(</span><span class="n">crust</span><span class="p">,</span> <span class="n">fault</span><span class="p">,</span> <span class="n">stations</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">report</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_parameters</span><span class="p">(</span><span class="n">dt</span><span class="o">=</span><span class="mf">0.0025</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">32768</span><span class="p">,</span> <span class="n">dk</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">tb</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># report == {"passed": bool,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1">#            "recommended": {"dk":..., "tb":..., "nfft":..., "tmax":...}}</span>
+</span></code></pre></div>
+<p>It prints, top to bottom: a <strong>header</strong> (your <code>dt</code>/<code>tmax</code> + geometry +
+physical signal window); one <strong>block per first-class parameter</strong> (<code>dt</code>,
+<code>nfft</code>, <code>dk</code>, <code>tb</code>, <code>tmax</code>) with its equation, <code>fk.f</code> line, value, verdict and
+<code>&gt;&gt; recommend</code>; a <strong>RESULT</strong> block that separates <em>hard errors</em> from
+<em>recommended changes</em>; and a <strong>READY-TO-RUN</strong> block — a full <code>run()</code> call with
+every input labelled <code>YOU SET</code> / <code>RECOMMEND</code> / <code>DERIVED</code> / <code>default</code> /
+<code>structural</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a> tmax = 20 s     output window                          [OK, cuts coda]
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>   MAX  = t_first - pad + nfft*dt = 4.2 - 2.0 + 81.9 = 84.1 s [fk.f:72]
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>   full = max(t0 + r/V_Ray) + coda = 54.7 s
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>   gate = tmin &lt; tmax &lt;= 84.1   (tmin = 0.0)                  [fk.f:105]
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>   &gt;&gt; recommend tmax = 54.7 s
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a> ...
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a> RESULT: all hard checks passed
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>   &gt;&gt; recommended change:  tmax  20 -&gt; 54.7 s   (capture full signal)
+</span></code></pre></div>
+<p>The verdict logic is two-tier: <code>nfft</code>, <code>dk</code>, <code>tb</code> and the <code>tmax</code> record-gate
+are <strong>hard checks</strong> (failure corrupts the result); clipping the coda is a
+<strong>soft recommendation</strong> flagged <code>[OK, cuts coda]</code>.</p>
+<h4 id="what-a-failing-report-looks-like">What a <em>failing</em> report looks like<a class="headerlink" href="#what-a-failing-report-looks-like" title="Permanent link">&para;</a></h4>
+<p>When a hard check fails, the block is tagged <code>[ERROR]</code> instead of <code>[OK]</code>, and
+the RESULT block lists the error and refuses to bless the run. The most common
+hard error is asking for a window longer than the record can hold,
+<span class="arithmatex">\(\texttt{tmax} &gt; t_\text{end}\)</span> — e.g. requesting <code>tmax</code>=120 s with an <code>nfft</code>
+that only reaches <span class="arithmatex">\(t_\text{end}=84.1\)</span> s:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a> tmax = 120 s    output window                           [ERROR, exceeds record]
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>   MAX  = t_first - pad + nfft*dt = 4.2 - 2.0 + 81.9 = 84.1 s [fk.f:72]
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>   full = max(t0 + r/V_Ray) + coda = 54.7 s
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>   gate = tmin &lt; tmax &lt;= 84.1   (tmin = 0.0)              VIOLATED  [fk.f:105]
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>   &gt;&gt; tmax 120 &gt; t_end 84.1  -&gt; everything past 84.1 s is wrap-around garbage
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>   &gt;&gt; recommend tmax = 54.7 s   (or raise nfft to extend the record)
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a> ...
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a> RESULT: 1 hard error — fix before running
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>   [ERROR] tmax 120 s exceeds record end 84.1 s   (gate violated)
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>   &gt;&gt; recommended change:  tmax  120 -&gt; 54.7 s    (capture full signal)
+</span></code></pre></div>
+<p>Here <code>report["passed"]</code> is <code>False</code>; a calling script should read
+<code>report["recommended"]</code> and re-run with the corrected values rather than
+proceeding. The fix is either to lower <code>tmax</code> to <span class="arithmatex">\(\le t_\text{end}\)</span> or to raise
+<code>nfft</code> so the record is long enough to hold the requested window.</p>
+<div class="admonition tip">
+<p class="admonition-title">Extra knobs of <code>check_parameters</code></p>
+<p><code>n_per_wavelength</code> (mesh points/wavelength, default 10), <code>courant</code>
+(CFL number <span class="arithmatex">\(C\)</span>, default 1.0), <code>fem_fmax</code> (mesh target frequency; default
+<code>None</code> → use the FK band <span class="arithmatex">\(f_\text{max}\)</span> so the mesh matches the motion),
+and <code>coda</code> (fixed coda margin in seconds, internal — not an FK parameter).</p>
+</div>
+<hr />
+<h2 id="full-parameter-map">Full parameter map<a class="headerlink" href="#full-parameter-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th><code>run</code> arg</th>
+<th>default</th>
+<th>core symbol</th>
+<th>line</th>
+<th>role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dt</code></td>
+<td>0.05</td>
+<td><span class="arithmatex">\(\Delta t\)</span></td>
+<td><code>fk.f:72</code></td>
+<td>output step / Nyquist / band</td>
+</tr>
+<tr>
+<td><code>nfft</code></td>
+<td>4096</td>
+<td><span class="arithmatex">\(N_\text{FFT}\)</span></td>
+<td><code>fk.f:66,72</code></td>
+<td>record length <span class="arithmatex">\(T=N\,\texttt{dt}\)</span></td>
+</tr>
+<tr>
+<td><code>tb</code></td>
+<td>1000</td>
+<td>pre-arrival samples</td>
+<td><code>fk.f:105</code>, <code>subgreen.f:73</code></td>
+<td>causal pad / reduction shift</td>
+</tr>
+<tr>
+<td><code>dk</code></td>
+<td>0.3</td>
+<td><span class="arithmatex">\(\Delta k=\texttt{dk}\,\pi/x_\text{max}\)</span></td>
+<td><code>fk.f:107</code></td>
+<td>wavenumber spacing / aliasing</td>
+</tr>
+<tr>
+<td><code>kc</code></td>
+<td>15.0</td>
+<td><span class="arithmatex">\(k_c=\texttt{kc}/h_s\)</span></td>
+<td><code>fk.f:89</code>, <code>subfk.f:67</code></td>
+<td>evanescent cutoff</td>
+</tr>
+<tr>
+<td><code>sigma</code></td>
+<td>2</td>
+<td><span class="arithmatex">\(\sigma\)</span> in <span class="arithmatex">\(\omega-\mathrm{i}\sigma\)</span></td>
+<td><code>fk.f:73</code></td>
+<td>pole regularisation + wrap-around</td>
+</tr>
+<tr>
+<td><code>taper</code></td>
+<td>0.9</td>
+<td>spectral taper</td>
+<td><code>fk.f:74,169</code></td>
+<td>high-frequency Gibbs control</td>
+</tr>
+<tr>
+<td><code>wc1</code>,<code>wc2</code></td>
+<td>1, 2</td>
+<td>low-freq window</td>
+<td><code>fk.f:171-172</code></td>
+<td>high-pass / DC handling</td>
+</tr>
+<tr>
+<td><code>pmin</code>,<code>pmax</code></td>
+<td>0, 1</td>
+<td>slowness <span class="arithmatex">\(/V_{s,\text{src}}\)</span></td>
+<td><code>fk.f:90-91,140-141</code></td>
+<td>which phases are integrated</td>
+</tr>
+<tr>
+<td><code>nx</code></td>
+<td>1</td>
+<td>distance ranges</td>
+<td><code>fk.f:95</code></td>
+<td>always 1 per pair</td>
+</tr>
+<tr>
+<td><code>smth</code></td>
+<td>1</td>
+<td>upsampling</td>
+<td><code>fk.f:186</code></td>
+<td>output densification</td>
+</tr>
+<tr>
+<td><code>tmin</code>,<code>tmax</code></td>
+<td>0, 100</td>
+<td>output window</td>
+<td><code>fk.f:105</code></td>
+<td>retained time window</td>
+</tr>
+</tbody>
+</table>
+<h2 id="calibration-recipe">Calibration recipe<a class="headerlink" href="#calibration-recipe" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Band → <code>dt</code></strong>: from your <span class="arithmatex">\(f_\text{max}\)</span>, <span class="arithmatex">\(\texttt{dt}=(1-\texttt{taper})/(2 f_\text{max})\)</span>.</li>
+<li><strong>Window → <code>tmax</code></strong>: keep the full train, <span class="arithmatex">\(\texttt{tmax}\approx t_\text{full}\)</span>.</li>
+<li><strong>Record → <code>nfft</code></strong>: smallest power of two with <span class="arithmatex">\(N_\text{FFT}\texttt{dt}\ge T_\text{need}\)</span>.</li>
+<li><strong>Spacing → <code>dk</code></strong>: coarsest with <span class="arithmatex">\(N_k\ge10\)</span> and <span class="arithmatex">\(t_\text{img}&gt;\texttt{tmax}\)</span>.</li>
+<li><strong>Pad → <code>tb</code></strong>: <span class="arithmatex">\(\approx 1.5/\texttt{dt}\)</span>.</li>
+<li><strong>Mesh check</strong>: <span class="arithmatex">\(\lambda_\text{min}/N=\Delta x\)</span>, <span class="arithmatex">\(\Delta t_\text{FEM}=C\,\Delta x/V_{p,\text{surf}}\)</span>.</li>
+<li><strong>Everything else</strong>: defaults (including <code>pmax</code>=1).</li>
+</ol>
+<p>Let <code>check_parameters</code> do steps 3–6 for you and print the ready-to-run call.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../running/">Running a simulation</a> — the short version + the OP pipeline.</li>
+<li><a href="../../background/numerics/">Numerical solution</a> — the theory each parameter regularises.</li>
+<li><a href="../../background/fk_method/">The FK method</a> — the kernels <span class="arithmatex">\(U(\omega,k)\)</span>.</li>
+<li><a href="../../api/shakermaker/">ShakerMaker engine API</a> — full signatures.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

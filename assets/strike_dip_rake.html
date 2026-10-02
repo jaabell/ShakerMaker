@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Strike, Dip & Rake — Interactive Block Model</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #18181b; -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  #app { position: fixed; inset: 0; }
+  #scene { position: absolute; inset: 0; }
+
+  #panel {
+    position: fixed; top: 20px; left: 20px;
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    padding: 18px 20px 16px;
+    width: 308px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+  #panel h1 {
+    font-size: 11px; font-weight: 700; margin: 0 0 2px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #71717a;
+  }
+  #panel .sub { font-size: 13.5px; color: #18181b; margin-bottom: 16px; line-height: 1.4; font-weight: 500; }
+
+  .ctrl { margin-bottom: 13px; }
+  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .ctrl-head .name { font-size: 13px; font-weight: 600; color: #18181b; }
+  .ctrl-head .val { font-size: 12px; font-variant-numeric: tabular-nums; color: #18181b; background: #f4f4f5; padding: 2px 8px; border-radius: 4px; min-width: 48px; text-align: center; }
+  .ctrl input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 4px; background: #e4e4e7; border-radius: 4px; outline: none; cursor: pointer;
+    margin: 4px 0 4px;
+  }
+  .ctrl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #18181b; cursor: pointer; border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  }
+  .ctrl input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #18181b; cursor: pointer; border: 2px solid #fff;
+  }
+  .ctrl .desc { font-size: 11px; color: #71717a; line-height: 1.4; margin-top: 4px; }
+
+  #faulttype {
+    margin-top: 14px; padding: 10px 12px;
+    background: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px;
+  }
+  #faulttype .label { font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  #faulttype .value { font-size: 14px; font-weight: 600; color: #18181b; margin-top: 3px; }
+
+  button.reset {
+    margin-top: 10px; width: 100%;
+    padding: 8px 10px; font-size: 12px; font-weight: 500;
+    background: #fff; border: 1px solid #e4e4e7; border-radius: 6px;
+    color: #18181b; cursor: pointer; transition: background 0.12s;
+  }
+  button.reset:hover { background: #fafafa; }
+
+  #legend {
+    position: fixed; bottom: 20px; right: 20px;
+    background: rgba(255,255,255,0.96); border: 1px solid #e4e4e7;
+    border-radius: 10px; padding: 11px 14px; font-size: 12px; color: #3f3f46;
+    z-index: 10;
+  }
+  #legend .row { display: flex; align-items: center; gap: 9px; margin: 4px 0; }
+  #legend .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.06); flex: 0 0 auto; }
+  #legend .sw.line { height: 3px; border-radius: 0; }
+
+  #hint {
+    position: fixed; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.96); border: 1px solid #e4e4e7;
+    border-radius: 10px; padding: 9px 13px; font-size: 11px; color: #71717a;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <div id="scene"></div>
+
+    <div id="panel">
+      <h1>Fault Geometry</h1>
+      <div class="sub">Strike, dip & rake — relative block motion</div>
+
+      <div class="ctrl">
+        <div class="ctrl-head"><span class="name">Strike</span><span class="val" id="strikeVal">028°</span></div>
+        <input type="range" id="strike" min="0" max="360" value="28" step="1" />
+        <div class="desc">Compass bearing of the fault's horizontal trace, measured clockwise from North.</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head"><span class="name">Dip</span><span class="val" id="dipVal">25°</span></div>
+        <input type="range" id="dip" min="0" max="89" value="25" step="1" />
+        <div class="desc">Tilt of the fault plane below horizontal, measured perpendicular to strike.</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head"><span class="name">Rake</span><span class="val" id="rakeVal">+35°</span></div>
+        <input type="range" id="rake" min="-180" max="180" value="35" step="1" />
+        <div class="desc">Direction of slip on the fault plane, measured from the strike line. +90° = reverse, −90° = normal, 0°/±180° = strike-slip.</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head"><span class="name">Slip</span><span class="val" id="slipVal">0.50</span></div>
+        <input type="range" id="slip" min="0" max="1" value="0.50" step="0.01" />
+        <div class="desc">Magnitude of hanging-wall displacement along the slip vector.</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head"><span class="name">Opacity</span><span class="val" id="opacityVal">0.50</span></div>
+        <input type="range" id="opacity" min="0.15" max="1" value="0.5" step="0.01" />
+        <div class="desc">Block transparency — see the fault plane through the rock.</div>
+      </div>
+
+      <div id="faulttype">
+        <div class="label">Fault sense</div>
+        <div class="value" id="ftype">Normal</div>
+      </div>
+
+      <button class="reset" id="reset">Reset to defaults</button>
+    </div>
+
+    <div id="legend">
+      <div class="row"><span class="sw" style="background:#a1a1aa"></span> Footwall (below the fault)</div>
+      <div class="row"><span class="sw" style="background:#fbbf24"></span> Hanging wall (above the fault)</div>
+      <div class="row"><span class="sw" style="background:#0ea5e9"></span> Fault plane</div>
+      <div class="row"><span class="sw line" style="background:#10b981"></span> Strike line (on fault)</div>
+      <div class="row"><span class="sw" style="background:#dc2626"></span> Slip vector</div>
+      <div class="row"><span class="sw" style="background:#18181b"></span> North reference</div>
+    </div>
+
+    <div id="hint">Drag to orbit · scroll to zoom</div>
+  </div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* =====================================================================
+   Conventions
+   ---------------------------------------------------------------------
+   World axes (Three.js, y-up):
+       +x = East, +y = Up, -z = North (so +z = South)
+
+   Strike azimuth α (0–360°, clockwise from North) gives the
+   direction of the fault's horizontal trace:
+       strikeDir = (sin α, 0, -cos α)
+
+   Dip β (0–90°) is measured perpendicular to strike, tipping the
+   plane downward 90° clockwise from strike (when viewed from above):
+       downDip   = (cos α · cos β, -sin β, sin α · cos β)
+       upDip     = -downDip
+       normal    = (cos α · sin β,  cos β, sin α · sin β)
+   The hanging wall lies in the +normal half-space.
+
+   Rake θ (-180–180°) measured in the fault plane from strike line
+   toward UP-dip:
+       slip = cos θ · strikeDir + sin θ · upDip
+       θ =   0  → strike-slip (along +strikeDir)
+       θ = +90  → reverse  (hanging wall moves up the dip)
+       θ = -90  → normal   (hanging wall moves down the dip)
+       θ = ±180 → strike-slip (along -strikeDir)
+   ===================================================================== */
+
+// ---------- Renderer / scene ----------
+const sceneEl = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+renderer.setClearColor(0xffffff, 1);
+sceneEl.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, sceneEl.clientWidth/sceneEl.clientHeight, 0.1, 100);
+camera.position.set(5.2, 3.6, 5.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0, 0);
+controls.minDistance = 3;
+controls.maxDistance = 18;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const key = new THREE.DirectionalLight(0xffffff, 0.7);
+key.position.set(5, 8, 4);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+fill.position.set(-4, 3, -3);
+scene.add(fill);
+
+// ---------- Cube clipping helper ----------
+const CUBE = 1.0;          // half-extent — cube spans -1..+1
+const GROUND_Y = -1.55;    // ground disc level
+
+function clipCube(N, C, sign) {
+  // Clips a cube ±CUBE by the plane (N·p = C). Keeps points where sign·(N·p−C) ≥ 0.
+  // Returns { body, cap, capPolygon } as separate BufferGeometries plus the ordered cap vertices.
+  const s = CUBE;
+  const v = [
+    new THREE.Vector3(-s,-s,-s), new THREE.Vector3( s,-s,-s),
+    new THREE.Vector3( s, s,-s), new THREE.Vector3(-s, s,-s),
+    new THREE.Vector3(-s,-s, s), new THREE.Vector3( s,-s, s),
+    new THREE.Vector3( s, s, s), new THREE.Vector3(-s, s, s),
+  ];
+  const faces = [
+    [0,3,2,1], [4,5,6,7],
+    [0,1,5,4], [3,7,6,2],
+    [0,4,7,3], [1,2,6,5],
+  ];
+
+  const body = [];
+  const cuts = [];
+
+  for (const face of faces) {
+    const poly = face.map(i => v[i].clone());
+    const out = [];
+    const localCuts = [];
+    for (let i = 0; i < poly.length; i++) {
+      const A = poly[i];
+      const B = poly[(i + 1) % poly.length];
+      const dA = sign * (N.dot(A) - C);
+      const dB = sign * (N.dot(B) - C);
+      if (dA >= -1e-9) out.push(A);
+      if ((dA > 0) !== (dB > 0) && Math.abs(dA - dB) > 1e-12) {
+        const t = dA / (dA - dB);
+        const I = A.clone().lerp(B, t);
+        out.push(I);
+        localCuts.push(I);
+      }
+    }
+    if (out.length >= 3) {
+      for (let i = 1; i < out.length - 1; i++) {
+        body.push(...out[0].toArray(), ...out[i].toArray(), ...out[i+1].toArray());
+      }
+    }
+    if (localCuts.length === 2) cuts.push(localCuts[0], localCuts[1]);
+  }
+
+  // Order the cut points around their centroid for a clean cap polygon
+  const ordered = orderOnPlane(cuts, N);
+
+  // Cap geometry
+  const capArr = [];
+  if (ordered.length >= 3) {
+    const capNormal = N.clone().multiplyScalar(-sign); // outward normal of cut face
+    const a = new THREE.Vector3().subVectors(ordered[1], ordered[0]);
+    const b = new THREE.Vector3().subVectors(ordered[2], ordered[0]);
+    const cross = new THREE.Vector3().crossVectors(a, b);
+    const reverse = cross.dot(capNormal) < 0;
+    for (let i = 1; i < ordered.length - 1; i++) {
+      if (!reverse) capArr.push(...ordered[0].toArray(), ...ordered[i].toArray(), ...ordered[i+1].toArray());
+      else          capArr.push(...ordered[0].toArray(), ...ordered[i+1].toArray(), ...ordered[i].toArray());
+    }
+  }
+
+  const bodyGeom = new THREE.BufferGeometry();
+  bodyGeom.setAttribute('position', new THREE.Float32BufferAttribute(body, 3));
+  bodyGeom.computeVertexNormals();
+  const capGeom = new THREE.BufferGeometry();
+  if (capArr.length) {
+    capGeom.setAttribute('position', new THREE.Float32BufferAttribute(capArr, 3));
+    capGeom.computeVertexNormals();
+  }
+
+  return { body: bodyGeom, cap: capGeom, capPolygon: ordered };
+}
+
+function orderOnPlane(pts, N) {
+  if (pts.length < 3) return [];
+  const unique = [];
+  for (const p of pts) if (!unique.some(q => q.distanceToSquared(p) < 1e-8)) unique.push(p);
+  if (unique.length < 3) return unique;
+  const c0 = new THREE.Vector3();
+  unique.forEach(p => c0.add(p));
+  c0.divideScalar(unique.length);
+  let u = new THREE.Vector3();
+  if (Math.abs(N.x) < 0.9) u.set(1,0,0); else u.set(0,1,0);
+  u.sub(N.clone().multiplyScalar(N.dot(u))).normalize();
+  const v = new THREE.Vector3().crossVectors(N, u).normalize();
+  unique.sort((p, q) => {
+    const dp = p.clone().sub(c0);
+    const dq = q.clone().sub(c0);
+    return Math.atan2(dp.dot(v), dp.dot(u)) - Math.atan2(dq.dot(v), dq.dot(u));
+  });
+  return unique;
+}
+
+// Clean cube-edge wireframe clipped by plane (avoids ugly EdgesGeometry on tris)
+function clipCubeEdges(N, C, sign, capPolygon) {
+  const s = CUBE;
+  const v = [
+    new THREE.Vector3(-s,-s,-s), new THREE.Vector3( s,-s,-s),
+    new THREE.Vector3( s, s,-s), new THREE.Vector3(-s, s,-s),
+    new THREE.Vector3(-s,-s, s), new THREE.Vector3( s,-s, s),
+    new THREE.Vector3( s, s, s), new THREE.Vector3(-s, s, s),
+  ];
+  const edges = [
+    [0,1],[1,2],[2,3],[3,0],
+    [4,5],[5,6],[6,7],[7,4],
+    [0,4],[1,5],[2,6],[3,7]
+  ];
+  const segs = [];
+  for (const [a,b] of edges) {
+    const A = v[a], B = v[b];
+    const dA = sign*(N.dot(A) - C);
+    const dB = sign*(N.dot(B) - C);
+    if (dA >= 0 && dB >= 0) segs.push(A.clone(), B.clone());
+    else if (dA >= 0) {
+      const t = dA/(dA-dB);
+      segs.push(A.clone(), A.clone().lerp(B, t));
+    } else if (dB >= 0) {
+      const t = dA/(dA-dB);
+      segs.push(A.clone().lerp(B, t), B.clone());
+    }
+  }
+  // Cap polygon edges
+  for (let i = 0; i < capPolygon.length; i++) {
+    segs.push(capPolygon[i].clone(), capPolygon[(i+1) % capPolygon.length].clone());
+  }
+  return new THREE.BufferGeometry().setFromPoints(segs);
+}
+
+// ---------- Ground / compass ----------
+const ref = new THREE.Group();
+scene.add(ref);
+
+(function buildGround() {
+  const r = 2.8;
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(r, 96),
+    new THREE.MeshBasicMaterial({ color: 0xfafafa, side: THREE.DoubleSide })
+  );
+  disc.rotation.x = -Math.PI/2;
+  disc.position.y = GROUND_Y;
+  ref.add(disc);
+
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(r - 0.008, r, 160),
+    new THREE.MeshBasicMaterial({ color: 0xd4d4d8, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = GROUND_Y + 0.001;
+  ref.add(ring);
+
+  // Tick marks every 30°, longer at cardinal directions
+  for (let deg = 0; deg < 360; deg += 30) {
+    const a = deg * Math.PI/180;
+    const inner = (deg % 90 === 0) ? r - 0.20 : r - 0.10;
+    const outer = r;
+    const x1 = inner * Math.sin(a), z1 = -inner * Math.cos(a);
+    const x2 = outer * Math.sin(a), z2 = -outer * Math.cos(a);
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1, GROUND_Y + 0.002, z1),
+      new THREE.Vector3(x2, GROUND_Y + 0.002, z2),
+    ]);
+    const tick = new THREE.Line(g, new THREE.LineBasicMaterial({
+      color: deg % 90 === 0 ? 0x71717a : 0xd4d4d8
+    }));
+    ref.add(tick);
+  }
+})();
+
+function makeTextSprite(text, color = '#18181b', size = 80, weight = '700') {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = `${weight} ${size}px -apple-system, "Helvetica Neue", Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 8;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  sp.renderOrder = 999;
+  return sp;
+}
+
+const cardinalConfig = [
+  { t: 'N', x: 0, z: -3.18, color: '#18181b', size: 96, w: '800', sc: 0.46 },
+  { t: 'E', x: 3.18, z: 0,  color: '#71717a', size: 76, w: '700', sc: 0.40 },
+  { t: 'S', x: 0, z: 3.18,  color: '#a1a1aa', size: 70, w: '600', sc: 0.38 },
+  { t: 'W', x: -3.18, z: 0, color: '#71717a', size: 76, w: '700', sc: 0.40 },
+];
+cardinalConfig.forEach(c => {
+  const s = makeTextSprite(c.t, c.color, c.size, c.w);
+  s.position.set(c.x, GROUND_Y + 0.05, c.z);
+  s.scale.set(c.sc, c.sc, 1);
+  ref.add(s);
+});
+
+// North arrow on the ground (pointing toward N = -z)
+(function northArrow() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.34);
+  shape.lineTo(-0.13, -0.16);
+  shape.lineTo(0, -0.05);
+  shape.lineTo(0.13, -0.16);
+  shape.closePath();
+  const m = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshBasicMaterial({ color: 0x18181b, side: THREE.DoubleSide })
+  );
+  m.rotation.x = -Math.PI/2;
+  // Shape's +y becomes -z after rotating about +x by -π/2 → points North.
+  m.position.set(0, GROUND_Y + 0.003, -2.45);
+  ref.add(m);
+})();
+
+// ---------- Block groups ----------
+const footwall = new THREE.Group();
+const hangingwall = new THREE.Group();
+const annotations = new THREE.Group(); // strike line + slip arrow (live in world frame on the fault plane)
+scene.add(footwall, hangingwall, annotations);
+
+const FOOT_COLOR  = 0xa1a1aa;
+const HANG_COLOR  = 0xfbbf24;
+const FAULT_COLOR = 0x0ea5e9;
+const STRIKE_COLOR = 0x10b981;
+const SLIP_COLOR  = 0xdc2626;
+const EDGE_COLOR  = 0x27272a;
+
+function disposeGroup(g) {
+  while (g.children.length) {
+    const c = g.children.pop();
+    g.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+      else c.material.dispose();
+    }
+  }
+}
+
+// 3D arrow from origin in direction `dir` of total length `length`
+function makeArrow(dir, origin, length, color, shaftR = 0.028, headR = 0.075, headLenMax = 0.22) {
+  const g = new THREE.Group();
+  const headLen = Math.min(headLenMax, length * 0.32);
+  const shaftLen = Math.max(0.001, length - headLen);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.0 });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(shaftR, shaftR, shaftLen, 20), mat);
+  shaft.position.y = shaftLen / 2;
+  g.add(shaft);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(headR, headLen, 28), mat);
+  head.position.y = shaftLen + headLen / 2;
+  g.add(head);
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  g.quaternion.copy(q);
+  g.position.copy(origin);
+  return g;
+}
+
+// ---------- Build / update ----------
+let currentOpacity = 1;
+function rebuild(stkD, dipD, rakeD, slipAmt) {
+  disposeGroup(footwall);
+  disposeGroup(hangingwall);
+  disposeGroup(annotations);
+
+  const a = stkD * Math.PI/180;
+  const b = dipD * Math.PI/180;
+  const r = rakeD * Math.PI/180;
+
+  const strikeDir = new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)).normalize();
+  const downDip   = new THREE.Vector3(Math.cos(a)*Math.cos(b), -Math.sin(b), Math.sin(a)*Math.cos(b));
+  const upDip     = downDip.clone().multiplyScalar(-1);
+  const normal    = new THREE.Vector3(Math.cos(a)*Math.sin(b),  Math.cos(b), Math.sin(a)*Math.sin(b)).normalize();
+  // Slip vector: rake measured from strike toward up-dip
+  const slipDir = strikeDir.clone().multiplyScalar(Math.cos(r))
+                  .add(upDip.clone().multiplyScalar(Math.sin(r))).normalize();
+
+  // Plane through origin → C = 0
+  const foot = clipCube(normal, 0, -1); // footwall: N·p < 0
+  const hang = clipCube(normal, 0, +1); // hanging wall: N·p > 0
+
+  // ---- Bodies ----
+  const transparent = currentOpacity < 0.999;
+  const matFoot = new THREE.MeshStandardMaterial({ color: FOOT_COLOR, roughness: 0.85, metalness: 0.0, flatShading: true, transparent, opacity: currentOpacity, depthWrite: !transparent });
+  const matHang = new THREE.MeshStandardMaterial({ color: HANG_COLOR, roughness: 0.78, metalness: 0.0, flatShading: true, transparent, opacity: currentOpacity, depthWrite: !transparent });
+  const matCap  = new THREE.MeshStandardMaterial({ color: FAULT_COLOR, roughness: 0.55, metalness: 0.0, side: THREE.DoubleSide });
+
+  footwall.add(new THREE.Mesh(foot.body, matFoot));
+  footwall.add(new THREE.Mesh(foot.cap, matCap));
+  footwall.add(new THREE.LineSegments(
+    clipCubeEdges(normal, 0, -1, foot.capPolygon),
+    new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.55 })
+  ));
+
+  hangingwall.add(new THREE.Mesh(hang.body, matHang));
+  hangingwall.add(new THREE.Mesh(hang.cap, matCap));
+  hangingwall.add(new THREE.LineSegments(
+    clipCubeEdges(normal, 0, +1, hang.capPolygon),
+    new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.55 })
+  ));
+
+  // ---- Displacement ----
+  const SLIP_MAX = 1.4;
+  const SEP = 0.012; // tiny gap to keep the fault plane visible at zero slip
+  const totalDisp = slipDir.clone().multiplyScalar(slipAmt * SLIP_MAX)
+                    .add(normal.clone().multiplyScalar(SEP));
+  hangingwall.position.copy(totalDisp);
+  // (Footwall stays at origin)
+
+  // ---- Strike line on the footwall cap (horizontal line in fault plane) ----
+  // Find intersection of strike-line (y=0 in plane through origin) with the cap polygon extents.
+  // Simpler: clamp a long segment in strikeDir to the cap polygon's projection on strike.
+  if (foot.capPolygon.length >= 2) {
+    let tMin = +Infinity, tMax = -Infinity;
+    for (const p of foot.capPolygon) {
+      // Project p onto strikeDir at y=0. The strike line passes through origin (since plane passes through origin and includes strikeDir at y=0).
+      // We want the projection extents of cap onto strikeDir, but only keep points near y≈0... actually just project all and pick min/max.
+      const t = p.dot(strikeDir);
+      if (t < tMin) tMin = t;
+      if (t > tMax) tMax = t;
+    }
+    if (isFinite(tMin) && isFinite(tMax) && tMax > tMin) {
+      // Pull in slightly so the line clearly sits inside the cap face
+      const pad = 0.04;
+      const t1 = tMin + pad;
+      const t2 = tMax - pad;
+      if (t2 > t1) {
+        const p1 = strikeDir.clone().multiplyScalar(t1).add(normal.clone().multiplyScalar(0.012));
+        const p2 = strikeDir.clone().multiplyScalar(t2).add(normal.clone().multiplyScalar(0.012));
+        // Use a thin tube-ish line via two parallel segments? LineBasicMaterial linewidth is unreliable.
+        // Use a thin cylinder for visual weight.
+        const dirSeg = new THREE.Vector3().subVectors(p2, p1);
+        const lenSeg = dirSeg.length();
+        const cyl = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.018, 0.018, lenSeg, 14),
+          new THREE.MeshStandardMaterial({ color: STRIKE_COLOR, roughness: 0.5 })
+        );
+        const mid = p1.clone().lerp(p2, 0.5);
+        cyl.position.copy(mid);
+        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dirSeg.clone().normalize());
+        cyl.quaternion.copy(q);
+        annotations.add(cyl);
+
+        // Endpoint dots
+        const dotMat = new THREE.MeshStandardMaterial({ color: STRIKE_COLOR, roughness: 0.5 });
+        const dotGeom = new THREE.SphereGeometry(0.035, 16, 12);
+        const d1 = new THREE.Mesh(dotGeom, dotMat); d1.position.copy(p1); annotations.add(d1);
+        const d2 = new THREE.Mesh(dotGeom, dotMat); d2.position.copy(p2); annotations.add(d2);
+      }
+    }
+  }
+
+  // ---- Slip arrow at fault-plane center, on footwall cap face ----
+  if (foot.capPolygon.length >= 3) {
+    const c = new THREE.Vector3();
+    foot.capPolygon.forEach(p => c.add(p));
+    c.divideScalar(foot.capPolygon.length);
+    const origin = c.clone().add(normal.clone().multiplyScalar(0.045));
+    const arrow = makeArrow(slipDir, origin, 0.95, SLIP_COLOR);
+    annotations.add(arrow);
+  }
+
+  // ---- Fault sense classification ----
+  document.getElementById('ftype').textContent = classifyFault(rakeD, dipD);
+}
+
+function classifyFault(rake, dip) {
+  if (dip <= 0.5) return 'Horizontal plane (no fault)';
+  // Tolerance bands (degrees)
+  const T = 22;
+  const r = rake;
+  const isStrikeSlip = (Math.abs(r) <= T) || (Math.abs(Math.abs(r) - 180) <= T);
+  const isReverse    = Math.abs(r - 90) <= T;
+  const isNormal     = Math.abs(r + 90) <= T;
+  if (isStrikeSlip) {
+    // Sense: along +strike (cos r > 0) or -strike (cos r < 0)
+    return Math.cos(r * Math.PI/180) > 0 ? 'Strike-slip (right-lateral)' : 'Strike-slip (left-lateral)';
+    // Note: handedness depends on viewing convention; this is a simple sign-based label.
+  }
+  if (isReverse) return 'Reverse / thrust';
+  if (isNormal)  return 'Normal';
+  // Oblique
+  if (r > 0)  return r < 90 ? 'Oblique-reverse (right-lateral)' : 'Oblique-reverse (left-lateral)';
+  if (r < 0)  return r > -90 ? 'Oblique-normal (right-lateral)' : 'Oblique-normal (left-lateral)';
+  return 'Oblique';
+}
+
+// ---------- UI ----------
+const inputs = {
+  strike:  document.getElementById('strike'),
+  dip:     document.getElementById('dip'),
+  rake:    document.getElementById('rake'),
+  slip:    document.getElementById('slip'),
+  opacity: document.getElementById('opacity'),
+};
+const labels = {
+  strike:  document.getElementById('strikeVal'),
+  dip:     document.getElementById('dipVal'),
+  rake:    document.getElementById('rakeVal'),
+  slip:    document.getElementById('slipVal'),
+  opacity: document.getElementById('opacityVal'),
+};
+
+function fmtSigned(n) {
+  if (n > 0) return '+' + n + '°';
+  if (n < 0) return '\u2212' + Math.abs(n) + '°'; // minus sign
+  return '0°';
+}
+
+function refresh() {
+  const s  = +inputs.strike.value;
+  const d  = +inputs.dip.value;
+  const r  = +inputs.rake.value;
+  const sl = +inputs.slip.value;
+  const op = +inputs.opacity.value;
+  labels.strike.textContent  = String(s).padStart(3, '0') + '°';
+  labels.dip.textContent     = d + '°';
+  labels.rake.textContent    = fmtSigned(r);
+  labels.slip.textContent    = sl.toFixed(2);
+  labels.opacity.textContent = op.toFixed(2);
+  currentOpacity = op;
+  rebuild(s, d, r, sl);
+}
+
+['strike','dip','rake','slip','opacity'].forEach(k => inputs[k].addEventListener('input', refresh));
+document.getElementById('reset').addEventListener('click', () => {
+  inputs.strike.value  = 28;
+  inputs.dip.value     = 25;
+  inputs.rake.value    = 35;
+  inputs.slip.value    = 0.5;
+  inputs.opacity.value = 0.5;
+  refresh();
+});
+
+refresh();
+
+// ---------- Resize / animate ----------
+function onResize() {
+  const w = sceneEl.clientWidth, h = sceneEl.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+
+function animate() {
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

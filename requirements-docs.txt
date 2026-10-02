@@ -1,0 +1,3 @@
+# Docs build dependencies (MkDocs Material site under docs/web/).
+mkdocs-material>=9.5
+mkdocstrings[python]>=0.24
