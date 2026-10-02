@@ -347,7 +347,7 @@ class CrustModel:
 
         plt.subplot(1, 3, 1)
         for i in range(self.nlayers):
-            label = f'Layer {i+1}: inf' if self._d[i] == 0 else f'Layer {i+1}: {self._d[i]:.1f} km'
+            label = f'Layer {i+1}: inf' if self._d[i] == 0 else f'Layer {i+1}: {self._d[i]:.3f} km'
             plt.axhspan(z_top[i], z_top[i+1], facecolor=colors[i], alpha=0.4, label=label)
         plt.plot(vp_step, z_step, color='C0', linewidth=2)
         plt.xlabel('Vp (km/s)', fontsize=12)
