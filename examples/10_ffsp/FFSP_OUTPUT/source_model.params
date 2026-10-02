@@ -1,0 +1,29 @@
+id_sf_type 8
+freq_min 0.01
+freq_max 24.0
+fault_length 30.0
+fault_width 16.0
+x_hypc 15.0
+y_hypc 8.0
+depth_hypc 8.0
+xref_hypc 0.0
+yref_hypc 0.0
+magnitude 6.0
+fc_main_1 0.09
+fc_main_2 3.0
+rv_avg 3.0
+ratio_rise 0.3
+strike 358.0
+dip 40.0
+rake 113.0
+pdip_max 15.0
+prake_max 30.0
+nsubx 16
+nsuby 8
+nb_taper_trbl 5 5 5 5
+seeds 52 448 4446
+id_ran1 1
+id_ran2 1
+angle_north_to_x 0.0
+is_moment 3
+output_name FFSP_OUTPUT
