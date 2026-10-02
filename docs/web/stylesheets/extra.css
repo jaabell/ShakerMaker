@@ -1,0 +1,249 @@
+/* ShakerMaker — "Seismograph" design suite.
+   Two-layer model (palette tokens + Material mapping), mirroring the
+   structure of apeGmsh's extra.css. Tune the --sm-* values; the
+   --md-* mappings below wire them into the Material theme. */
+
+/* ---------- Light palette — "Drum paper" ---------- */
+[data-md-color-scheme="default"] {
+  --sm-bg:      #f5f2ea;
+  --sm-bg-alt:  #ece7d9;
+  --sm-ink:     #14181c;
+  --sm-ink-sub: rgba(20, 24, 28, 0.70);
+  --sm-muted:   rgba(20, 24, 28, 0.55);
+  --sm-hair:    rgba(20, 24, 28, 0.16);
+  --sm-accent:  #c0392b;   /* seismograph trace red */
+  --sm-accent2: #1f3a4d;   /* crust slate */
+  --sm-title:   #00305f;   /* navy — largest titles (h1) */
+  --sm-code-bg: #1b2229;
+  --sm-code-fg: #e8ecf2;
+  --sm-header:  #efe9da;
+
+  --md-primary-fg-color:          var(--sm-header);
+  --md-primary-fg-color--light:   var(--sm-header);
+  --md-primary-fg-color--dark:    var(--sm-bg-alt);
+  --md-primary-bg-color:          var(--sm-ink);
+  --md-primary-bg-color--light:   var(--sm-ink-sub);
+  --md-accent-fg-color:           var(--sm-accent);
+  --md-default-bg-color:          var(--sm-bg);
+  --md-default-fg-color:          var(--sm-ink);
+  --md-default-fg-color--light:   var(--sm-ink-sub);
+  --md-default-fg-color--lighter: var(--sm-muted);
+  --md-typeset-a-color:           var(--sm-accent);
+  --md-footer-bg-color:           var(--sm-ink);
+  --md-footer-bg-color--dark:     var(--sm-ink);
+  --md-code-bg-color:             var(--sm-bg-alt);
+  --md-code-fg-color:             var(--sm-ink);
+}
+
+/* ---------- Dark palette — "Subsurface recording" ---------- */
+[data-md-color-scheme="slate"] {
+  --sm-bg:      #12171c;
+  --sm-bg-alt:  #19212a;
+  --sm-ink:     #ece6d8;
+  --sm-ink-sub: rgba(236, 230, 216, 0.72);
+  --sm-muted:   rgba(236, 230, 216, 0.55);
+  --sm-hair:    rgba(236, 230, 216, 0.16);
+  --sm-accent:  #e8623f;   /* warmed ember trace */
+  --sm-accent2: #6fb0d6;   /* oscilloscope cyan */
+  --sm-title:   #8fc4e6;   /* light blue — largest titles (h1) on dark */
+  --sm-code-bg: #0c1116;
+  --sm-code-fg: #e8ecf2;
+  --sm-header:  #161d24;
+
+  --md-primary-fg-color:          var(--sm-header);
+  --md-primary-fg-color--light:   var(--sm-header);
+  --md-primary-fg-color--dark:    var(--sm-bg);
+  --md-primary-bg-color:          var(--sm-ink);
+  --md-accent-fg-color:           var(--sm-accent);
+  --md-default-bg-color:          var(--sm-bg);
+  --md-default-fg-color:          var(--sm-ink);
+  --md-default-fg-color--light:   var(--sm-ink-sub);
+  --md-default-fg-color--lighter: var(--sm-muted);
+  --md-typeset-a-color:           var(--sm-accent);
+  --md-code-bg-color:             var(--sm-bg-alt);
+  --md-code-fg-color:             var(--sm-ink);
+}
+
+/* ---------- Typography ---------- */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6,
+.md-header__title,
+.md-nav__title {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* One consistent type scale across every page (Home, Guides, Examples,
+   API). Sizes are explicit so no page renders larger than another. */
+.md-typeset            { font-size: 0.8rem; line-height: 1.65; }
+.md-typeset h1         { font-size: 2rem;    font-weight: 700; letter-spacing: -0.03em; color: var(--sm-title); margin: 0 0 1rem; }
+.md-typeset h2         { font-size: 1.45rem; font-weight: 600; margin: 2.2rem 0 0.8rem; }
+.md-typeset h3         { font-size: 1.15rem; font-weight: 600; margin: 1.6rem 0 0.6rem; }
+.md-typeset h4         { font-size: 1rem;    font-weight: 600; }
+.md-typeset p,
+.md-typeset li,
+.md-typeset td,
+.md-typeset th         { font-size: 0.8rem; }
+
+/* Fenced code blocks: trace-red left-border accent */
+.md-typeset pre > code,
+.md-typeset .highlight pre {
+  border-left: 3px solid var(--sm-accent);
+}
+
+/* Logo swap: dark variant in slate scheme */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img,
+[data-md-color-scheme="slate"] .sm-hero__mark {
+  content: url("../assets/logo-dark.svg");
+}
+
+/* Header / tabs read like instrument paper (light) / subsurface (dark) */
+.md-header {
+  color: var(--md-primary-bg-color);
+  border-bottom: 1px solid var(--sm-hair);
+}
+.md-tabs {
+  background-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+  border-bottom: 1px solid var(--sm-hair);
+}
+
+/* ---------- Landing hero (index.md) ---------- */
+.sm-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 0 1rem;
+  border-bottom: 1px solid var(--sm-hair);
+  margin-bottom: 1.5rem;
+}
+.sm-hero__mark {
+  width: 120px;
+  height: 120px;
+  flex: 0 0 auto;
+  display: block;
+}
+.md-typeset .sm-hero__word {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 3rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--sm-title);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.md-typeset .sm-hero__word .headerlink {
+  display: none;
+}
+.sm-hero__sub {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-top: 0.4rem;
+  color: var(--sm-ink);
+}
+
+/* ---------- "Where do you want to start?" cards ---------- */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border: 1px solid var(--sm-hair);
+  border-radius: 10px;
+  background: var(--sm-bg-alt);
+  padding: 1rem 1.1rem;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid > .card:hover {
+  border-color: var(--sm-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+}
+/* card icon + title in the accent / heading font */
+.md-typeset .grid.cards .twemoji,
+.md-typeset .grid.cards .lg.middle {
+  color: var(--sm-accent);
+}
+.md-typeset .grid.cards > ul > li > hr {
+  margin: 0.6rem 0;
+  border-color: var(--sm-hair);
+}
+.md-typeset .grid.cards a {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+}
+/* the italic prompt line ("I'm new — orient me.") reads as a subtitle */
+.md-typeset .grid.cards em {
+  color: var(--sm-muted);
+  font-size: 0.78rem;
+}
+
+/* ---------- Tables: consistent sizing + accent headers ---------- */
+.md-typeset table:not([class]) {
+  font-size: 0.78rem;
+  border: 1px solid var(--sm-hair);
+}
+.md-typeset table:not([class]) th {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--sm-accent2);
+  background: var(--sm-bg-alt);
+}
+.md-typeset table:not([class]) td,
+.md-typeset table:not([class]) th {
+  padding: 0.5rem 0.75rem;
+}
+
+/* ---------- Admonitions: heading font + accent border ---------- */
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: 0.78rem;
+  border-radius: 8px;
+  border-left-width: 4px;
+}
+.md-typeset .admonition-title,
+.md-typeset summary {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Content tabs (pymdownx.tabbed) ---------- */
+.md-typeset .tabbed-set > label {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.md-typeset .tabbed-set > input:checked + label {
+  color: var(--sm-accent);
+  border-color: var(--sm-accent);
+}
+.md-typeset .tabbed-set { margin: 1.2rem 0; }
+
+/* ---------- Inline code in tables: keep it readable ---------- */
+.md-typeset table:not([class]) code {
+  font-size: 0.74rem;
+  background: var(--sm-bg);
+  border: 1px solid var(--sm-hair);
+}
+
+/* ---------- Display math: don't let it overflow on mobile ---------- */
+.md-typeset mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+/* ---------- Buttons (md-button) in the accent ---------- */
+.md-typeset .md-button--primary {
+  background-color: var(--sm-accent);
+  border-color: var(--sm-accent);
+  color: #fff;
+}
