@@ -1,0 +1,11 @@
+16 August 2013
+CNtype1-1.txt: crustal type file in 360 by 180 cells. The file 
+is defined like the other crust1.0 files, starting from 89.5 N/179.5 W
+and ending 89.5 S/179.5 E
+
+CNtype1_key.txt: describes the crustal types and how we assign
+vp, vs and rho to the crustal types.
+
+getCN1point-type.f: same as getCN1point.f except that the crustal type 
+is included in the output.
+
