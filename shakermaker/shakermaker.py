@@ -1726,11 +1726,14 @@ class ShakerMaker:
         source_list_cache = [self._source.get_source_by_id(j) for j in range(nsources)]
         # Split CrustModels cached per (z_src, z_rec). The Fortran core receives
         # float32 copies (f2py intent(in) casts the float64 arrays), so the
-        # cached models are never modified.
+        # cached models are never modified. The key is the exact pair of depths:
+        # split_at_depth and get_layer use a tolerance, so two depths that only
+        # differ by round-off (0.01 vs 0.009999999999999998) can need different
+        # split models and must not share one.
         _crust_cache_s2 = {}
 
         def _crust_for(z_src, z_rec):
-            key = (round(float(z_src), 8), round(float(z_rec), 8))
+            key = (float(z_src), float(z_rec))
             aux = _crust_cache_s2.get(key)
             if aux is None:
                 aux = copy.deepcopy(self._crust)
