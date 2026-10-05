@@ -38,7 +38,14 @@ from .input_writer import sw4_input_text
 from .h5drm_from_sw4 import write_h5drm_builder_script
 from .materials import deepest_interface, material_lines
 from .package_h5 import write_sw4_package_h5, write_unpack_script
-from .refinement import compute_layer_refinement, print_refinement_diagnostics
+from .refinement import (
+    compute_layer_refinement,
+    print_refinement_diagnostics,
+    flat_layer_table,
+    stratigraphy_volume_points,
+    stratigraphy_flat_cap_points,
+    topo_interpolator_from_grid,
+)
 from .receivers import (
     domain_receiver_lines,
     model_receiver_lines,
@@ -364,10 +371,56 @@ class SW4Exporter:
         print(f"H5DRM builder : {paths['h5drm_builder_script']}")
         print(SEPARATOR)
 
+        stratigraphy = None
+        if self.config.plot_stratigraphy and (self.config.plot_geometry or self.config.plot_geometry_sw4):
+            strat_table = refinement["table"] if refinement is not None else flat_layer_table(
+                self.model._crust, self.config.h)
+            strat_topo_fn = None
+            if topo_points_sw4 is not None:
+                strat_topo_fn = topo_interpolator_from_grid(topo_points_sw4, topo_nx_sw4, topo_ny_sw4)
+            strat_max_depth_m = (
+                self.config.stratigraphy_max_display_depth_m
+                if self.config.stratigraphy_max_display_depth_m is not None
+                else z_domain
+            )
+            if self.config.stratigraphy_flat and topo_points_sw4 is not None:
+                z_min_real = float(topo_points_sw4[:, 2].min())
+                z_max_real = float(topo_points_sw4[:, 2].max())
+                xyz_flat, rgba_flat = stratigraphy_volume_points(
+                    self.model._crust,
+                    strat_table,
+                    x_domain,
+                    y_domain,
+                    max_display_depth_m=strat_max_depth_m,
+                    topo_fn=lambda x, y, _z=z_min_real: np.full_like(x, _z),
+                    max_points_per_layer=self.config.stratigraphy_max_points_per_layer,
+                )
+                xyz_cap, rgba_cap = stratigraphy_flat_cap_points(
+                    self.model._crust,
+                    strat_table,
+                    x_domain,
+                    y_domain,
+                    z_min_real,
+                    z_max_real,
+                    strat_topo_fn,
+                    max_points_per_layer=self.config.stratigraphy_max_points_per_layer,
+                )
+                stratigraphy = (np.vstack([xyz_flat, xyz_cap]), np.vstack([rgba_flat, rgba_cap]))
+            else:
+                stratigraphy = stratigraphy_volume_points(
+                    self.model._crust,
+                    strat_table,
+                    x_domain,
+                    y_domain,
+                    max_display_depth_m=strat_max_depth_m,
+                    topo_fn=strat_topo_fn,
+                    max_points_per_layer=self.config.stratigraphy_max_points_per_layer,
+                )
+
         if self.config.plot_geometry:
-            plot_sw4_geometry(paths["package_h5"], origin_m=transform.domain_origin_m)
+            plot_sw4_geometry(paths["package_h5"], origin_m=transform.domain_origin_m, stratigraphy=stratigraphy)
         if self.config.plot_geometry_sw4:
-            plot_sw4_geometry(paths["package_h5"])
+            plot_sw4_geometry(paths["package_h5"], stratigraphy=stratigraphy)
 
     # -------------------------------------------------------------------
     # Domain decision and coordinate book-keeping

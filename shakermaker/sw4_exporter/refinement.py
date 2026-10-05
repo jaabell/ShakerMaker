@@ -188,3 +188,269 @@ def print_refinement_diagnostics(refinement):
             print(f"  {line}")
     else:
         print("No refinement needed: h_base already resolves every layer.")
+
+
+def flat_layer_table(crust, h_base):
+    """Per-layer table matching :func:`compute_layer_refinement`'s ``table``
+    schema, but with a single uniform ``h_base`` everywhere (no refinement
+    levels). Used to build a stratigraphy overlay when ``refine_fmax`` is
+    not set, so the same downstream code works whether refinement is on
+    or off.
+
+    Inputs
+    ------
+    crust : CrustModel
+    h_base : float
+        Grid spacing (m) assigned to every layer.
+
+    Returns
+    -------
+    list of dict
+        Same per-row keys as ``compute_layer_refinement(...)["table"]``.
+    """
+    n = crust.nlayers
+    depth_top_m = np.concatenate(([0.0], np.cumsum(crust.d[:-1]))) * 1000.0
+    depth_bot_m = np.append(depth_top_m[1:], np.inf) if n > 1 else np.array([np.inf])
+    table = []
+    for i in range(n):
+        table.append({
+            "layer": i + 1,
+            "vs_km_s": float(crust.b[i]),
+            "top_m": float(depth_top_m[i]),
+            "bot_m": float(depth_bot_m[i]) if np.isfinite(depth_bot_m[i]) else None,
+            "h_required_m": float(h_base),
+            "level_required": 0,
+            "level_assigned": 0,
+            "h_assigned_m": float(h_base),
+        })
+    return table
+
+
+def topo_interpolator_from_grid(topo_points, nx, ny):
+    """Build ``topo_fn(x, y) -> elevation`` from a rebuilt cartesian
+    topography grid.
+
+    Inputs
+    ------
+    topo_points : ndarray, shape (nx*ny, 3)
+        Row-major grid (``for y in ys: for x in xs``), matching
+        :func:`shakermaker.sw4_exporter.topography.rebuild_cartesian_topography`
+        / ``extend_topography_to_domain``. The z column is real elevation
+        (metres, +up) -- the same convention the exporter carries
+        internally (see ``exporter.py``'s topography step; SW4-plot sign
+        flips happen only in :mod:`geometry_plot`, not here).
+    nx, ny : int
+        Grid size along x and y.
+
+    Returns
+    -------
+    callable
+        ``topo_fn(x, y)``, vectorized over arrays of any matching shape.
+    """
+    from scipy.interpolate import RegularGridInterpolator
+
+    pts = np.asarray(topo_points, dtype=float)
+    x_unique = pts[:nx, 0]
+    y_unique = pts[::nx, 1]
+    z_grid = pts[:, 2].reshape(ny, nx)
+    interp = RegularGridInterpolator((y_unique, x_unique), z_grid, bounds_error=False, fill_value=None)
+
+    def topo_fn(x, y):
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        query = np.column_stack([y.ravel(), x.ravel()])
+        return interp(query).reshape(x.shape)
+
+    return topo_fn
+
+
+def stratigraphy_volume_points(crust, table, x_domain, y_domain, max_display_depth_m=None,
+                                topo_fn=None, max_points_per_layer=300000):
+    """Point cloud of real SW4 mesh nodes filling the full domain footprint,
+    one crust layer at a time.
+
+    Spans the whole ``[0, x_domain] x [0, y_domain]`` box -- the full cube
+    for a flat (no-topography) export, or the full box beneath the real
+    terrain when ``topo_fn`` follows it -- down to ``max_display_depth_m``
+    (the real ``z_domain`` by default, i.e. the actual domain floor, not an
+    arbitrary shallow cutoff). Uses the real per-layer node spacing
+    (``h_assigned_m`` from ``table``, straight out of
+    :func:`compute_layer_refinement` or :func:`flat_layer_table``) as long
+    as that stays under ``max_points_per_layer``; a dense block at real
+    spacing over a full SW4 domain -- down to its full depth -- is billions
+    of points for the shallow, finely-refined layers, and can be just as
+    large for a deep half-space slab once depth is no longer capped
+    shallow. Once a layer's full-resolution point count would exceed the
+    budget, x, y **and** z are decimated isotropically (`h` itself is
+    unchanged -- only how many of those real nodes get drawn) just enough
+    to fit it, so the budget holds regardless of which axis is large.
+
+    Inputs
+    ------
+    crust : CrustModel
+    table : list of dict
+        ``compute_layer_refinement(...)["table"]`` or
+        ``flat_layer_table(...)``.
+    x_domain, y_domain : float
+        Full SW4 box extents (m) -- same frame as ``topo_fn`` (SW4 local
+        metres when called from the exporter).
+    max_display_depth_m : float, optional
+        Crop depth -- layers starting below this are skipped entirely
+        (their ``h`` is still in ``table``, just not drawn). ``None``
+        (default): no cap, uses each layer's own extent (the half-space
+        is still unbounded below and needs a real value from the caller,
+        e.g. ``z_domain``, to have any depth at all -- the exporter always
+        supplies one).
+    topo_fn : callable, optional
+        ``topo_fn(x, y) -> elevation`` (m, +up). ``None`` -> flat surface
+        at ``z=0``.
+    max_points_per_layer : int
+        Point budget per layer; triggers isotropic x/y/z decimation once
+        the full-resolution grid for that layer would exceed it. Default
+        ``300000``.
+
+    Returns
+    -------
+    xyz : ndarray, shape (N, 3)
+        Same sign convention as topography elsewhere in the exporter: z is
+        real elevation minus depth (+up), not yet flipped for the SW4
+        "+down" plot convention -- callers plotting this alongside
+        ``geometry_plot`` topography should negate z the same way.
+    colors_rgba : ndarray, shape (N, 4)
+        Pastel1 palette, same as ``CrustModel.plot_profile()``.
+    """
+    import matplotlib.pyplot as plt
+
+    if topo_fn is None:
+        topo_fn = lambda x, y: np.zeros_like(x)
+
+    colors = plt.cm.Pastel1(np.linspace(0, 1, crust.nlayers))
+
+    xs, ys, zs, cs = [], [], [], []
+    for row in table:
+        top = row["top_m"]
+        if max_display_depth_m is not None and top >= max_display_depth_m:
+            continue  # below the display crop -- still in `table`, just not drawn
+
+        h = row["h_assigned_m"]
+        if row["bot_m"] is not None:
+            bot = row["bot_m"] if max_display_depth_m is None else min(row["bot_m"], max_display_depth_m)
+        else:
+            if max_display_depth_m is None:
+                raise ValueError(
+                    "max_display_depth_m is required to bound the half-space layer "
+                    "(it has no bot_m); the exporter always passes z_domain here."
+                )
+            bot = max_display_depth_m
+
+        n_x_full = max(2, int(round(x_domain / h)) + 1)
+        n_y_full = max(2, int(round(y_domain / h)) + 1)
+        n_z_full = max(2, int(round((bot - top) / h)) + 1)
+
+        stride = 1
+        total_full = n_x_full * n_y_full * n_z_full
+        if total_full > max_points_per_layer:
+            stride = max(1, math.ceil((total_full / max_points_per_layer) ** (1.0 / 3.0)))
+        n_x = max(2, n_x_full // stride)
+        n_y = max(2, n_y_full // stride)
+        n_z = max(2, n_z_full // stride)
+
+        x = np.linspace(0.0, x_domain, n_x)
+        y = np.linspace(0.0, y_domain, n_y)
+        depth = np.linspace(top, bot, n_z)
+
+        X, Y, D = np.meshgrid(x, y, depth, indexing="ij")
+        Z = topo_fn(X, Y) - D  # elevation = local surface - depth below it
+
+        xs.append(X.ravel()); ys.append(Y.ravel()); zs.append(Z.ravel())
+        cs.append(np.tile(colors[row["layer"] - 1], (X.size, 1)))
+
+    if not xs:
+        return np.empty((0, 3)), np.empty((0, 4))
+    xyz = np.column_stack([np.concatenate(xs), np.concatenate(ys), np.concatenate(zs)])
+    return xyz, np.vstack(cs)
+
+
+def stratigraphy_flat_cap_points(crust, table, x_domain, y_domain, z_min_real, z_max_real,
+                                  topo_fn, max_points_per_layer=300000):
+    """Fill the gap between a flat reference elevation and the real terrain
+    with the shallowest crust layer's material -- the "cap" for
+    ``stratigraphy_flat`` mode.
+
+    Used together with :func:`stratigraphy_volume_points` called with a
+    *constant* ``topo_fn`` (``lambda x, y: z_min_real``): that call gives a
+    perfectly flat, horizontal layer stack anchored at ``z_min_real`` (the
+    real terrain's lowest point, used as the flat model's own datum).
+    Nothing in that flat stack exists above ``z_min_real``, so this
+    function fills that region -- from ``z_min_real`` up to the real
+    terrain surface at each ``(x, y)`` -- with the shallowest layer
+    (``table[0]``) only, so the deep layers stay flat while the very top
+    still shows the real relief.
+
+    Builds a regular grid at the shallowest layer's node spacing
+    (``table[0]["h_assigned_m"]``) over
+    ``[0, x_domain] x [0, y_domain] x [z_min_real, z_max_real]`` -- the
+    same isotropic point-budget decimation as
+    :func:`stratigraphy_volume_points` -- then keeps only the nodes at or
+    below the real surface (``z <= topo_fn(x, y)``); the resulting wedge is
+    thin near the terrain's lowest point and thickest at its highest.
+
+    Inputs
+    ------
+    crust : CrustModel
+    table : list of dict
+        ``compute_layer_refinement(...)["table"]`` or
+        ``flat_layer_table(...)``. Only ``table[0]`` (the shallowest layer)
+        is used.
+    x_domain, y_domain : float
+        Full SW4 box extents (m), same frame as ``topo_fn``.
+    z_min_real, z_max_real : float
+        Real terrain elevation range (m, +up) -- typically
+        ``topo_points_sw4[:, 2].min()``/``.max()`` from the exporter, the
+        same array ``topo_fn`` was built from.
+    topo_fn : callable
+        ``topo_fn(x, y) -> elevation`` (m, +up), the real (non-flat)
+        terrain -- same interpolator used for the non-flat stratigraphy
+        overlay.
+    max_points_per_layer : int
+        Point budget, same semantics as :func:`stratigraphy_volume_points`.
+        Default ``300000``.
+
+    Returns
+    -------
+    xyz : ndarray, shape (N, 3)
+        Same sign convention as :func:`stratigraphy_volume_points`: z is
+        real elevation (+up), not yet flipped for the SW4 "+down" plot
+        convention.
+    colors_rgba : ndarray, shape (N, 4)
+        ``table[0]``'s Pastel1 colour, repeated for every point.
+    """
+    import matplotlib.pyplot as plt
+
+    top_row = table[0]
+    h = top_row["h_assigned_m"]
+    color = plt.cm.Pastel1(np.linspace(0, 1, crust.nlayers))[top_row["layer"] - 1]
+
+    n_x_full = max(2, int(round(x_domain / h)) + 1)
+    n_y_full = max(2, int(round(y_domain / h)) + 1)
+    n_z_full = max(2, int(round((z_max_real - z_min_real) / h)) + 1)
+
+    stride = 1
+    total_full = n_x_full * n_y_full * n_z_full
+    if total_full > max_points_per_layer:
+        stride = max(1, math.ceil((total_full / max_points_per_layer) ** (1.0 / 3.0)))
+    n_x = max(2, n_x_full // stride)
+    n_y = max(2, n_y_full // stride)
+    n_z = max(2, n_z_full // stride)
+
+    x = np.linspace(0.0, x_domain, n_x)
+    y = np.linspace(0.0, y_domain, n_y)
+    z = np.linspace(z_min_real, z_max_real, n_z)
+    X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+
+    surface = topo_fn(X, Y)
+    mask = Z <= surface
+
+    xyz = np.column_stack([X[mask], Y[mask], Z[mask]])
+    colors_rgba = np.tile(color, (xyz.shape[0], 1))
+    return xyz, colors_rgba
