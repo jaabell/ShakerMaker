@@ -81,7 +81,16 @@ python module core ! in
             real intent(out), depend(nfft), dimension(2*nfft) :: nn
             real intent(out), depend(nx), dimension(nx) :: t0
         end subroutine subgreen2
-    end interface 
+        subroutine subtrav(ne,vab,hh,srclay,rcvlay,x,tt0) ! in :core:subtrav.f
+            integer :: ne
+            real depend(ne), dimension(ne) :: vab
+            real depend(ne), dimension(ne) :: hh
+            integer :: srclay
+            integer :: rcvlay
+            real :: x
+            real intent(out) :: tt0
+        end subroutine subtrav
+    end interface
 end python module core
 
 ! This file was auto-generated with f2py (version:2).
