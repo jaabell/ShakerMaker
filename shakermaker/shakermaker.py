@@ -1342,41 +1342,54 @@ class ShakerMaker:
         title = (f"ShakerMaker Run (Stage 2 - OP) begin. "
                  f"{dt=} {nfft=} {dk=} {tb=} {tmin=} {tmax=}")
 
-        if rank == 0:
-            print(f"\n\n{title}")
-            print("-" * len(title))
-            print(f"  MPI processes  : {nprocs}")
-            print(f"  OpenMP threads : {os.environ.get('OMP_NUM_THREADS','not set')}")
-            print(f"  Loading database: {h5_database_name}")
-            print(f"  writer_mode     : {writer_mode}")
-            map_file = h5_database_name.replace('.h5', '') + '_map.h5'
-            gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
-            hfile    = h5py.File(map_file, 'r+', locking=False)
-            hfile_gf = h5py.File(gf_file,  'r',  locking=False)
-            print(f"  Map file : {map_file}")
-            print(f"  GF  file : {gf_file}")
-        else:
-            map_file = h5_database_name.replace('.h5', '') + '_map.h5'
-            gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
-            hfile    = h5py.File(map_file, 'r', locking=False)
-            hfile_gf = h5py.File(gf_file,  'r', locking=False)
+        # MPI robustness: this whole block (file opens, metadata reads, the
+        # sanity asserts) runs identically on every rank against the same 2
+        # HDF5 files. If any single rank raises here (e.g. a transient I/O
+        # error opening a shared file under concurrent access from ~100+
+        # ranks) it used to die silently -- with no comm.Abort() -- while
+        # every other rank eventually blocked forever on the comm.Reduce()
+        # calls inside _print_perf_stats(). See BUG_stage2_mpi_hang.
+        try:
+            if rank == 0:
+                print(f"\n\n{title}")
+                print("-" * len(title))
+                print(f"  MPI processes  : {nprocs}")
+                print(f"  OpenMP threads : {os.environ.get('OMP_NUM_THREADS','not set')}")
+                print(f"  Loading database: {h5_database_name}")
+                print(f"  writer_mode     : {writer_mode}")
+                map_file = h5_database_name.replace('.h5', '') + '_map.h5'
+                gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
+                # 'r', not 'r+': run_fast never writes to the map file.
+                hfile    = h5py.File(map_file, 'r', locking=False)
+                hfile_gf = h5py.File(gf_file,  'r', locking=False)
+                print(f"  Map file : {map_file}")
+                print(f"  GF  file : {gf_file}")
+            else:
+                map_file = h5_database_name.replace('.h5', '') + '_map.h5'
+                gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
+                hfile    = h5py.File(map_file, 'r', locking=False)
+                hfile_gf = h5py.File(gf_file,  'r', locking=False)
 
-        # O(1) lookup array — loaded once, shared across all stations
-        pair_to_slot = hfile["/pair_to_slot"][:]
-        nsources_db  = int(hfile["/nsources"][()])
-        nstations_db = int(hfile["/nstations"][()])
+            # O(1) lookup array — loaded once, shared across all stations
+            pair_to_slot = hfile["/pair_to_slot"][:]
+            nsources_db  = int(hfile["/nsources"][()])
+            nstations_db = int(hfile["/nstations"][()])
 
-        if rank == 0:
-            print(f"  pair_to_slot: O(1) lookup "
-                  f"({nstations_db} stations x {nsources_db} sources)")
+            if rank == 0:
+                print(f"  pair_to_slot: O(1) lookup "
+                      f"({nstations_db} stations x {nsources_db} sources)")
 
-        # Validate that current model matches the database
-        assert nsources_db == self._source.nsources, (
-            f"[Stage 2] nsources mismatch: "
-            f"HDF5={nsources_db}, model={self._source.nsources}")
-        assert nstations_db == self._receivers.nstations, (
-            f"[Stage 2] nstations mismatch: "
-            f"HDF5={nstations_db}, model={self._receivers.nstations}")
+            # Validate that current model matches the database
+            assert nsources_db == self._source.nsources, (
+                f"[Stage 2] nsources mismatch: "
+                f"HDF5={nsources_db}, model={self._source.nsources}")
+            assert nstations_db == self._receivers.nstations, (
+                f"[Stage 2] nstations mismatch: "
+                f"HDF5={nstations_db}, model={self._receivers.nstations}")
+        except Exception:
+            traceback.print_exc()
+            if use_mpi and nprocs > 1:
+                comm.Abort()
 
         # Only rank 0 owns the writer
         if rank > 0:
@@ -1480,45 +1493,56 @@ class ShakerMaker:
                     # # any cast. Keeping float32 avoids a full-array copy.
                     # tdata = hfile_gf['/tdata'][k]   # float32, shape (nt, 9)
 
-                    # tdata is stored as float64 
-                    tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)   # float64, shape (nt, 9)
+                    # tdata is stored as float64
+                    try:
+                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)   # float64, shape (nt, 9)
+                    except Exception:
+                        traceback.print_exc()
+                        if use_mpi and nprocs > 1:
+                            comm.Abort()
 
                     for i_psource, psource in source_list:
-                        # Cache crustal models by (z_src, z_rec).
-                        # All sources sharing the same depth pair reuse the
-                        # same pre-split CrustModel -- zero extra deepcopies.
-                        z_src = psource.x[2]
-                        # crust_key = (round(z_src, 8), round(z_rec, 8))
-                        # if crust_key not in _crust_cache:
-                        #     aux = copy.deepcopy(self._crust)
-                        #     aux.split_at_depth(z_src)
-                        #     aux.split_at_depth(z_rec)
-                        #     _crust_cache[crust_key] = aux
-                        # aux_crust = _crust_cache[crust_key]
-
-                        aux_crust = copy.deepcopy(self._crust)
-                        aux_crust.split_at_depth(z_src)
-                        aux_crust.split_at_depth(z_rec)
-
-                        if verbose:
-                            print(f"  rank={rank} sta={i_station} "
-                                  f"src={i_psource} slot={k}")
-
-                        t1 = perf_counter()
-                        z, e, n, t0 = self._call_core_fast(
-                            tdata, dt, nfft, tb, nx, sigma, smth,
-                            wc1, wc2, pmin, pmax, dk, kc,
-                            taper, aux_crust, psource, station, verbose)
-                        c['core'] += perf_counter() - t1
-
-                        t1    = perf_counter()
-                        t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
-                        z_stf = psource.stf.convolve(z, t_arr)
-                        e_stf = psource.stf.convolve(e, t_arr)
-                        n_stf = psource.stf.convolve(n, t_arr)
-                        c['conv'] += perf_counter() - t1
-
+                        # MPI robustness: a single try/except around the whole
+                        # per-source unit of work (crust split, FK core call,
+                        # STF convolution, response accumulation) -- not just
+                        # add_to_response() -- so an exception anywhere in here
+                        # aborts the whole run instead of silently killing this
+                        # rank and hanging every other rank in _print_perf_stats.
                         try:
+                            # Cache crustal models by (z_src, z_rec).
+                            # All sources sharing the same depth pair reuse the
+                            # same pre-split CrustModel -- zero extra deepcopies.
+                            z_src = psource.x[2]
+                            # crust_key = (round(z_src, 8), round(z_rec, 8))
+                            # if crust_key not in _crust_cache:
+                            #     aux = copy.deepcopy(self._crust)
+                            #     aux.split_at_depth(z_src)
+                            #     aux.split_at_depth(z_rec)
+                            #     _crust_cache[crust_key] = aux
+                            # aux_crust = _crust_cache[crust_key]
+
+                            aux_crust = copy.deepcopy(self._crust)
+                            aux_crust.split_at_depth(z_src)
+                            aux_crust.split_at_depth(z_rec)
+
+                            if verbose:
+                                print(f"  rank={rank} sta={i_station} "
+                                      f"src={i_psource} slot={k}")
+
+                            t1 = perf_counter()
+                            z, e, n, t0 = self._call_core_fast(
+                                tdata, dt, nfft, tb, nx, sigma, smth,
+                                wc1, wc2, pmin, pmax, dk, kc,
+                                taper, aux_crust, psource, station, verbose)
+                            c['core'] += perf_counter() - t1
+
+                            t1    = perf_counter()
+                            t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
+                            z_stf = psource.stf.convolve(z, t_arr)
+                            e_stf = psource.stf.convolve(e, t_arr)
+                            n_stf = psource.stf.convolve(n, t_arr)
+                            c['conv'] += perf_counter() - t1
+
                             t1 = perf_counter()
                             station.add_to_response(z_stf, e_stf, n_stf,
                                                     t_arr, tmin, tmax)
@@ -1543,62 +1567,72 @@ class ShakerMaker:
                       f"sta_time={elapsed_sta:.1f}s  "
                       f"ETA_total={_eta_str(elapsed_sta*nsta_left,1,2)}")
 
-                if use_mpi and nprocs > 1 and rank > 0:
-                    # Worker: send accumulated response to rank 0
-                    z_r, e_r, n_r, t_r = station.get_response()
-                    t1 = perf_counter()
-                    comm.Send(np.array([len(z_r)], dtype=np.int32),
-                              dest=0, tag=2 * i_station)
-                    comm.Send(np.column_stack([z_r, e_r, n_r, t_r]),
-                              dest=0, tag=2 * i_station + 1)
-                    c['send'] += perf_counter() - t1
-                    printMPI(f"rank={rank} sent sta={i_station}")
-                    # Workers always clear — they never own the writer
-                    station.clear_response()
-
-                elif rank == 0:
-                    # Rank 0 owns this station: write directly
-                    if writer:
+                try:
+                    if use_mpi and nprocs > 1 and rank > 0:
+                        # Worker: send accumulated response to rank 0
+                        z_r, e_r, n_r, t_r = station.get_response()
                         t1 = perf_counter()
-                        writer.write_station(station, i_station)
-                        c['recv'] += perf_counter() - t1
-                    # progressive: release RAM only after the station has been
-                    # written to disk. If no writer is set, keep data in memory.
-                    if writer_mode == 'progressive' and writer:
+                        comm.Send(np.array([len(z_r)], dtype=np.int32),
+                                  dest=0, tag=2 * i_station)
+                        comm.Send(np.column_stack([z_r, e_r, n_r, t_r]),
+                                  dest=0, tag=2 * i_station + 1)
+                        c['send'] += perf_counter() - t1
+                        printMPI(f"rank={rank} sent sta={i_station}")
+                        # Workers always clear — they never own the writer
                         station.clear_response()
+
+                    elif rank == 0:
+                        # Rank 0 owns this station: write directly
+                        if writer:
+                            t1 = perf_counter()
+                            writer.write_station(station, i_station)
+                            c['recv'] += perf_counter() - t1
+                        # progressive: release RAM only after the station has been
+                        # written to disk. If no writer is set, keep data in memory.
+                        if writer_mode == 'progressive' and writer:
+                            station.clear_response()
+                except Exception:
+                    traceback.print_exc()
+                    if use_mpi and nprocs > 1:
+                        comm.Abort()
 
             # ----------------------------------------------------------------
             # Rank 0 only: receive from worker owner and write
             # (this branch is only reached when owner != 0)
             # ----------------------------------------------------------------
             elif rank == 0:
-                sta = self._receivers.get_station_by_id(i_station)
-                t1  = perf_counter()
-                ant = np.empty(1, dtype=np.int32)
-                comm.Recv(ant, source=owner, tag=2 * i_station)
-                nt   = ant[0]
-                data = np.empty((nt, 4), dtype=np.float64)
-                comm.Recv(data, source=owner, tag=2 * i_station + 1)
-                c['recv'] += perf_counter() - t1
-                printMPI(f"rank=0 recv sta={i_station} from owner={owner}")
+                try:
+                    sta = self._receivers.get_station_by_id(i_station)
+                    t1  = perf_counter()
+                    ant = np.empty(1, dtype=np.int32)
+                    comm.Recv(ant, source=owner, tag=2 * i_station)
+                    nt   = ant[0]
+                    data = np.empty((nt, 4), dtype=np.float64)
+                    comm.Recv(data, source=owner, tag=2 * i_station + 1)
+                    c['recv'] += perf_counter() - t1
+                    printMPI(f"rank=0 recv sta={i_station} from owner={owner}")
 
-                sta.add_to_response(
-                    data[:, 0], data[:, 1], data[:, 2], data[:, 3],
-                    tmin, tmax)
+                    sta.add_to_response(
+                        data[:, 0], data[:, 1], data[:, 2], data[:, 3],
+                        tmin, tmax)
 
-                if writer:
-                    writer.write_station(sta, i_station)
+                    if writer:
+                        writer.write_station(sta, i_station)
 
-                # progressive: release RAM only after the station has been
-                # written to disk. If no writer is set, keep data in memory.
-                if writer_mode == 'progressive' and writer:
-                    sta.clear_response()
+                    # progressive: release RAM only after the station has been
+                    # written to disk. If no writer is set, keep data in memory.
+                    if writer_mode == 'progressive' and writer:
+                        sta.clear_response()
 
-                if showProgress:
-                    elapsed = perf_counter() - tstart
-                    print(f"  [rank=0] written sta {i_station+1}/{nstations} "
-                          f"({(i_station+1)/nstations*100:.1f}%)  "
-                          f"ETA={_eta_str(elapsed, i_station+1, nstations)}")
+                    if showProgress:
+                        elapsed = perf_counter() - tstart
+                        print(f"  [rank=0] written sta {i_station+1}/{nstations} "
+                              f"({(i_station+1)/nstations*100:.1f}%)  "
+                              f"ETA={_eta_str(elapsed, i_station+1, nstations)}")
+                except Exception:
+                    traceback.print_exc()
+                    if use_mpi and nprocs > 1:
+                        comm.Abort()
 
             # other ranks (rank > 0, rank != owner): idle this iteration
 
@@ -1620,7 +1654,9 @@ class ShakerMaker:
             print("-" * 50)
 
         _print_perf_stats(c, perf_time_total)
-            
+
+        if use_mpi and nprocs > 1:
+            comm.Barrier()
 
 
     # =========================================================================
