@@ -1749,8 +1749,16 @@ class ShakerMaker:
         # grid exactly as Station.add_to_response does (integer sample shift),
         # the partial responses are summed with MPI Reduce on rank 0, and rank 0
         # hands the total to the station and the writer as before.
-        # SM_S2_SPLIT=0 restores the per-station loop.
-        _s2split = os.environ.get("SM_S2_SPLIT", "1") != "0"
+        # This only pays off when there are fewer stations than ranks: with
+        # many stations (e.g. a DRM box) the per-station loop already keeps
+        # every rank busy, and splitting would add one Reduce per station.
+        # By default the split is used only when nstations < nprocs;
+        # SM_S2_SPLIT=1 forces it and SM_S2_SPLIT=0 disables it.
+        _s2env = os.environ.get("SM_S2_SPLIT", "")
+        if _s2env in ("0", "1"):
+            _s2split = _s2env == "1"
+        else:
+            _s2split = use_mpi and nprocs > 1 and nstations < nprocs
         if _s2split:
             for i_station in range(nstations):
                 station = self._receivers.get_station_by_id(i_station)
