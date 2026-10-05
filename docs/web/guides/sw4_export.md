@@ -63,6 +63,8 @@ model.export_sw4_topo(
 | `size_domain` | m | `[x, y, z]` box size; if `None`, derived from the geometry |
 | `tmax` | s | simulation duration |
 | `m0` | – | moment scaling applied to the SW4 sources |
+| `refine_fmax` | Hz | max frequency of interest; when set, adds `refinement zmax=...` lines so shallow soft layers get a finer grid than `h` instead of forcing `h` everywhere (see below) |
+| `refine_n_per_wavelength` | – | grid points per shortest resolved wavelength, used with `refine_fmax`; default `10` |
 | `supergrid_gp` | grid pts | width of the absorbing super-grid layer |
 | `station_prefix` | – | prefix for SW4 receiver records |
 | `topo_file`, `topo_zmax` | –, m | topography input and its cap (`export_sw4_topo`) |
@@ -95,6 +97,36 @@ sw4/
 The two-step design (bundle → unpack) keeps the transport portable: you move
 one `.h5` to the cluster, unpack it there, and run SW4, the unpacker has no
 ShakerMaker dependency.
+
+## Vertical mesh refinement
+
+A single `h` fine enough for the softest (usually shallowest) crust layer
+over-resolves the deeper, faster ones. Setting `refine_fmax` derives SW4
+[`refinement zmax=...`](https://github.com/geodynamics/sw4/blob/master/doc/SW4-UsersGuide.pdf)
+lines from the crust layering instead: each layer needs a grid fine enough
+to put `refine_n_per_wavelength` points across its shortest resolved
+wavelength (`Vs / refine_fmax`), and the exporter works out how many times
+`h` must be halved above each layer boundary to meet that, snapping each
+`zmax` to a node of the coarser grid below it (SW4 requires the boundaries
+to align).
+
+```python
+model.export_sw4(
+    path="/run/dir",
+    h=20,                       # base grid, resolves the deepest/fastest layer
+    refine_fmax=15.0,           # Hz, max frequency of engineering interest
+    refine_n_per_wavelength=10,
+)
+```
+
+This prints a per-layer table (required vs. assigned `h`) and the resulting
+`refinement` lines before writing the package, and inserts them right after
+the `grid ...` line in `shakermaker2sw4.in`. Leaving `refine_fmax=None`
+(the default) keeps the previous behaviour: a single `h` everywhere, no
+`refinement` lines. The table and lines are also stored on
+`model.sw4_export_refinement` after the export for later inspection. See
+`shakermaker.sw4_exporter.refinement.compute_layer_refinement` to compute
+the table standalone, before deciding on a base `h`.
 
 ## Receiver families
 

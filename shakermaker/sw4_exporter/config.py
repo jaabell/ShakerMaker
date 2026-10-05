@@ -56,6 +56,23 @@ class SW4ExportConfig:
     interface_block_delta : float
         Half-thickness in metres of each interface block (``z1=z_k-delta``,
         ``z2=z_k+delta``). Must be ``< h/2``. Default ``1.0``.
+    refine_fmax : float, optional
+        Maximum frequency of engineering interest (Hz) for automatic
+        vertical mesh refinement. When set, the exporter derives SW4
+        ``refinement zmax=...`` lines from the crust layering so shallow,
+        soft layers get a finer grid than the deep, fast ones instead of
+        forcing ``h`` fine enough for the softest layer everywhere. See
+        :func:`shakermaker.sw4_exporter.refinement.compute_layer_refinement`.
+        Default ``None`` (no automatic refinement, current behaviour).
+    refine_n_per_wavelength : float
+        Minimum grid points per shortest resolved wavelength, used together
+        with ``refine_fmax``. Default ``10.0``. Ignored when ``refine_fmax``
+        is ``None``.
+    refine_round_zmax : {"outward", "nearest"}
+        How each computed refinement boundary snaps to a coarse-grid node.
+        ``"outward"`` (default) keeps the soft layer fully inside the finer
+        grid; ``"nearest"`` may leave a thin sliver under-resolved. Ignored
+        when ``refine_fmax`` is ``None``.
     station_prefix : str
         Filename prefix used in every ``file=`` field. Default ``"sf"``.
     topo_file : str or Path, optional
@@ -104,6 +121,9 @@ class SW4ExportConfig:
     supergrid_pad_gp: int = 10
     interface_blocks: bool = True
     interface_block_delta: float = 1.0
+    refine_fmax: Optional[float] = None
+    refine_n_per_wavelength: float = 10.0
+    refine_round_zmax: str = "outward"
     station_prefix: str = "sf"
     topo_file: Optional[str | Path] = None
     topo_zmax: Optional[float] = None
