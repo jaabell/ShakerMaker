@@ -1724,6 +1724,20 @@ class ShakerMaker:
         slot_matrix = pair_to_slot.reshape(nstations, nsources)
         # Cache all source objects once to avoid repeated get_source_by_id() calls
         source_list_cache = [self._source.get_source_by_id(j) for j in range(nsources)]
+        # Split CrustModels cached per (z_src, z_rec). The Fortran core receives
+        # float32 copies (f2py intent(in) casts the float64 arrays), so the
+        # cached models are never modified.
+        _crust_cache_s2 = {}
+
+        def _crust_for(z_src, z_rec):
+            key = (round(float(z_src), 8), round(float(z_rec), 8))
+            aux = _crust_cache_s2.get(key)
+            if aux is None:
+                aux = copy.deepcopy(self._crust)
+                aux.split_at_depth(z_src)
+                aux.split_at_depth(z_rec)
+                _crust_cache_s2[key] = aux
+            return aux
         _dbg(f"entering main station loop (nstations={nstations})")
 
         for i_station in range(nstations):
@@ -1782,21 +1796,10 @@ class ShakerMaker:
                         # aborts the whole run instead of silently killing this
                         # rank and hanging every other rank in _print_perf_stats.
                         try:
-                            # Cache crustal models by (z_src, z_rec).
                             # All sources sharing the same depth pair reuse the
-                            # same pre-split CrustModel -- zero extra deepcopies.
+                            # same pre-split CrustModel.
                             z_src = psource.x[2]
-                            # crust_key = (round(z_src, 8), round(z_rec, 8))
-                            # if crust_key not in _crust_cache:
-                            #     aux = copy.deepcopy(self._crust)
-                            #     aux.split_at_depth(z_src)
-                            #     aux.split_at_depth(z_rec)
-                            #     _crust_cache[crust_key] = aux
-                            # aux_crust = _crust_cache[crust_key]
-
-                            aux_crust = copy.deepcopy(self._crust)
-                            aux_crust.split_at_depth(z_src)
-                            aux_crust.split_at_depth(z_rec)
+                            aux_crust = _crust_for(z_src, z_rec)
 
                             if verbose:
                                 print(f"  rank={rank} sta={i_station} "
