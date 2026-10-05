@@ -164,9 +164,15 @@ def main():
 
     # ---------------------------------------------------------------- 3
     with_env()
-    src = FaultSource([PointSource([0, 0, 2.0], [0.0, 90.0, 0.0], stf=stf())], {})
-    drm = DRMBox([6.0, 8.0, 0.0], [4, 4, 2], [0.005, 0.005, 0.005], metadata={"name": "contract"})
-    model = ShakerMaker(SCEC_LOH_1(), src, drm)
+
+    def drm_model():
+        # A fresh model per Stage 2 run: in 'legacy' mode the stations keep
+        # their response after the run, so reusing them would add to it.
+        src = FaultSource([PointSource([0, 0, 2.0], [0.0, 90.0, 0.0], stf=stf())], {})
+        drm = DRMBox([6.0, 8.0, 0.0], [4, 4, 2], [0.005, 0.005, 0.005], metadata={"name": "contract"})
+        return ShakerMaker(SCEC_LOH_1(), src, drm)
+
+    model = drm_model()
     db = p("gf_drm.h5")
     run_stage(model, 0, db, **STAGE0)
     run_stage(model, 1, db)
@@ -174,7 +180,7 @@ def main():
     for tag, cls in (("fast", DRMHDF5StationListWriter), ("slow", SlowCloseDRMWriter)):
         out = p(f"drm_{tag}.h5drm")
         t1 = time.perf_counter()
-        run_stage(model, 2, db, writer=cls(out), writer_mode="legacy", tmin=TMIN, tmax=TMAX)
+        run_stage(drm_model(), 2, db, writer=cls(out), writer_mode="legacy", tmin=TMIN, tmax=TMAX)
         if rank == 0:
             log(f"stage 2 with {tag} writer close: {time.perf_counter() - t1:.1f} s")
             drm_out[tag] = read(out, ["DRM_Data", "DRM_QA_Data"],
