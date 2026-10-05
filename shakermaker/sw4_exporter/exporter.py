@@ -35,6 +35,7 @@ from .coordinates import CoordinateTransform
 from .geometry_plot import plot_sw4_geometry
 from .grid import grid_line
 from .input_writer import sw4_input_text
+from .h5drm_from_sw4 import write_h5drm_builder_script
 from .materials import deepest_interface, material_lines
 from .package_h5 import write_sw4_package_h5, write_unpack_script
 from .refinement import compute_layer_refinement, print_refinement_diagnostics
@@ -106,6 +107,11 @@ class SW4Exporter:
         Final transport HDF5 file.
     unpack_script : Path
         Standalone unpacker placed next to ``package_h5``.
+    h5drm_builder_script : Path
+        Standalone ``.h5drm`` builder placed next to ``package_h5``. Run it
+        after SW4 has produced its result ``.txt`` files (i.e. after
+        unpacking and actually running SW4) to build a Domain Reduction
+        Method boundary condition for OpenSees.
     """
 
     def __init__(self, model, config: SW4ExportConfig):
@@ -119,6 +125,7 @@ class SW4Exporter:
         self.input_file = self.sw4_path / "shakermaker2sw4.in"
         self.package_h5 = self.exports_path / self.config.h5_export_name
         self.unpack_script = self.exports_path / "unpack_sw4_package.py"
+        self.h5drm_builder_script = self.exports_path / "build_h5drm_from_sw4.py"
 
     def write(self):
         """Run the full export and write the HDF5 transport package.
@@ -343,6 +350,7 @@ class SW4Exporter:
             topography_original_bounds=topo_original_bounds,
         )
         write_unpack_script(paths["unpack_script"])
+        write_h5drm_builder_script(paths["h5drm_builder_script"])
 
         self.model.sw4_export_paths = paths
         self.model.sw4_export_config = self.config
@@ -353,6 +361,7 @@ class SW4Exporter:
         print(SEPARATOR)
         print(f"SW4 package   : {paths['package_h5']}")
         print(f"Unpack script : {paths['unpack_script']}")
+        print(f"H5DRM builder : {paths['h5drm_builder_script']}")
         print(SEPARATOR)
 
         if self.config.plot_geometry:
@@ -820,7 +829,7 @@ class SW4Exporter:
         """Dictionary of every path the exporter writes to.
 
         Keys: ``base``, ``exports``, ``sw4``, ``sources``, ``topo``,
-        ``package_h5``, ``unpack_script``, ``input``.
+        ``package_h5``, ``unpack_script``, ``h5drm_builder_script``, ``input``.
         """
         return {
             "base": self.base_path,
@@ -830,6 +839,7 @@ class SW4Exporter:
             "topo": self.topo_path,
             "package_h5": self.package_h5,
             "unpack_script": self.unpack_script,
+            "h5drm_builder_script": self.h5drm_builder_script,
             "input": self.input_file,
         }
 

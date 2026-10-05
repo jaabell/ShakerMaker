@@ -147,9 +147,15 @@ DRM-aware receiver lists also carry a QA station (`is_qa=True`) for validation.
 
 The reverse direction closes the loop with [DRM](drm.md): after an SW4 run, the
 motions on a box can be turned back into an `.h5drm` for a local OpenSees
-model. The helper is `examples/09_sw4_export/build_h5drm_from_sw4_case.py`
-(`build_h5drm_from_sw4_case(...)`), which handles the SW4-local-m ↔
-ShakerMaker/UTM-km conversion.
+model. `SW4Exporter.write()` generates `build_h5drm_from_sw4.py` automatically
+inside `shakermakerexports/`, right next to `unpack_sw4_package.py` — no
+ShakerMaker installation needed to run it (only `h5py`/`numpy`, plus `obspy`
+if you pass `--use-filter`). Once SW4 has produced its result `.txt` files,
+run it in place (no arguments needed) or point it at a case with
+`case_path`. The same logic is importable as
+`shakermaker.sw4_exporter.build_h5drm_from_sw4_case(...)`; it handles the
+SW4-local-m ↔ ShakerMaker/UTM-km conversion. A reference copy also lives at
+`examples/09_sw4_export/build_h5drm_from_sw4_case.py`.
 
 ## Public API (`shakermaker.sw4_exporter`)
 
@@ -158,6 +164,7 @@ ShakerMaker/UTM-km conversion.
 | `SW4Exporter` | orchestrator (`.write()`) |
 | `SW4ExportConfig` | dataclass of every knob |
 | `unpack_sw4_package_h5(package, output_dir)` | explode the bundle into the SW4 tree |
+| `build_h5drm_from_sw4_case(case_path, ...)` | rebuild `.h5drm` motions from an SW4 case's result files |
 
 See `shakermaker/sw4_exporter/README.md` for the full HDF5 layout.
 

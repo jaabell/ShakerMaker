@@ -3,7 +3,8 @@
 This subpackage bridges a ShakerMaker model to an SW4 run. It writes the
 SW4 input file and the per-source slip-rate files, optionally drops a
 local cartesian topography, and packs everything into a single HDF5
-transport bundle next to a standalone unpacking script.
+transport bundle next to a standalone unpacking script and a standalone
+`.h5drm` builder for after the SW4 run.
 
 The two entry points are `ShakerMaker.export_sw4(...)` and
 `ShakerMaker.export_sw4_topo(...)`. Both build a `SW4ExportConfig`,
@@ -52,8 +53,9 @@ Under `config.path`:
 
 ```
 shakermakerexports/
-    sw4_package.h5            <- single HDF5 transport bundle
-    unpack_sw4_package.py     <- standalone unpacker, no ShakerMaker dependency
+    sw4_package.h5              <- single HDF5 transport bundle
+    unpack_sw4_package.py       <- standalone unpacker, no ShakerMaker dependency
+    build_h5drm_from_sw4.py     <- standalone .h5drm builder, no ShakerMaker dependency (run after SW4)
 sw4/
     shakermaker2sw4.in        <- only written via unpack_sw4_package_h5
     sources/source_NNNNNN.txt
@@ -65,6 +67,12 @@ sw4/
 text payload inside `sw4_package.h5` and writes the standalone unpacker.
 Calling `unpack_sw4_package_h5(package, output_dir)` (or running the
 standalone script) recreates the `sw4/` tree on disk.
+
+Once SW4 has actually run and written its result `.txt` files under
+`sw4/<fileio_path>/`, run `build_h5drm_from_sw4.py` (no arguments needed if
+run from inside `shakermakerexports/`) to turn them into `motions.h5drm`
+for a DRM boundary condition in OpenSees. The same logic is importable as
+`shakermaker.sw4_exporter.build_h5drm_from_sw4_case(...)`.
 
 ## HDF5 package layout
 
