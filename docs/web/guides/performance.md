@@ -149,9 +149,13 @@ the default because `-march` is machine specific; use `-march=native` with
 `run_fast` gave each station to one rank, so with 3 stations only 3 ranks
 worked. Two changes:
 
-- **sources split over all ranks**: each rank sums its share on the output
-  grid with the same integer shift as `Station.add_to_response`, and an MPI
-  Reduce adds the parts on rank 0 (`SM_S2_SPLIT=0` restores the old loop);
+- **sources split over all ranks** when there are fewer stations than ranks:
+  each rank sums its share on the output grid with the same integer shift as
+  `Station.add_to_response`, and an MPI Reduce adds the parts on rank 0. With
+  more stations than ranks (a DRM box) the one-rank-per-station loop is kept,
+  since it already uses every rank and the split would add one Reduce per
+  station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
+  `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
 - **split crust models cached** per (source depth, receiver depth).
 
 | Case | Before | Sources split | Difference |
