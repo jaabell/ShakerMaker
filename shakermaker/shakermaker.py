@@ -138,8 +138,8 @@ def _dbg(msg):
     """Per-rank, timestamped, flushed diagnostic print -- only when
     SHAKERMAKER_PERF_STATS_DEBUG=1 is set in the environment. Used to
     pinpoint exactly which rank/call hangs inside a blocking MPI collective,
-    since a hang (unlike an exception) leaves no trace otherwise. See
-    BUG_stage2_mpi_hang -- this is for the *second*, still-unexplained hang
+    since a hang (unlike an exception) leaves no trace otherwise. This is
+    for the Stage 2 MPI hang -- the *second*, still-unexplained one
     that reproduces even with the comm.Abort() and close()-timeout fixes in
     place, so the culprit must be somewhere neither of those covers.
     """
@@ -1619,7 +1619,7 @@ class ShakerMaker:
         # error opening a shared file under concurrent access from ~100+
         # ranks) it used to die silently -- with no comm.Abort() -- while
         # every other rank eventually blocked forever on the comm.Reduce()
-        # calls inside _print_perf_stats(). See BUG_stage2_mpi_hang.
+        # calls inside _print_perf_stats() (the Stage 2 MPI hang).
         try:
             if rank == 0:
                 print(f"\n\n{title}")
@@ -2014,12 +2014,18 @@ class ShakerMaker:
         # ------------------------------------------------------------------
         # All stations processed — close resources
         #
-        # Timeout-guarded: see _close_with_timeout(). A stuck NFS close()
-        # here on any single rank would otherwise hang every rank forever
-        # in the comm.Reduce() calls inside _print_perf_stats() below --
-        # exactly the same externally-visible symptom as BUG_stage2_mpi_hang,
-        # but caused by a blocking call instead of an uncaught exception, so
-        # the try/except-based fix for that bug does not help here.
+        # The read-only handles are closed with a timeout (see
+        # _close_with_timeout()): a stuck NFS close() on any single rank would
+        # otherwise hang every rank forever in the comm.Reduce() calls inside
+        # _print_perf_stats() below, and a blocked call raises nothing for a
+        # try/except to catch.
+        #
+        # The writer is NOT closed with a timeout. Its close() does real work:
+        # in 'legacy' mode it interpolates and writes every station (39-53 s
+        # for ~20 000 stations), and abandoning it would leave a truncated
+        # output file with only a warning, since the daemon thread dies with
+        # the process. Waiting for it cannot create a hang either: the other
+        # ranks are already waiting for rank 0 in the next collective.
         # ------------------------------------------------------------------
         _dbg("loop over stations finished, entering close-resources block")
         _close_with_timeout(hfile, label="map_file")
@@ -2030,7 +2036,7 @@ class ShakerMaker:
         _dbg("closed fid")
 
         if rank == 0 and writer:
-            _close_with_timeout(writer, label="writer")
+            writer.close()
             _dbg("closed writer")
 
         perf_time_total = perf_counter() - perf_time_begin
