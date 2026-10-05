@@ -128,7 +128,7 @@ except (ImportError, RuntimeError):
 def _perf_counters():
     """Return a dict of zeroed timing accumulators."""
     return {k: np.zeros(1, dtype=np.double)
-            for k in ('core', 'send', 'recv', 'conv', 'add')}
+            for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip')}
 
 
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
@@ -1237,7 +1237,191 @@ class ShakerMaker:
         # Cache split CrustModels by (z_src, z_rec) to avoid deepcopy per slot.
         # _crust_cache_gf = {}
 
-        for i_station, i_psource in pairs_to_compute:
+        # Dynamic master-worker scheduling; rank 0 also computes; slots are
+        # handed out longest first.
+        #   * rank 0 hands the next slot to whichever worker finishes first
+        #     (MPI_ANY_SOURCE), two slots in flight per worker;
+        #   * workers deflate each slot (zlib level 4 == HDF5 gzip filter) and
+        #     send it with blocking sends (a large Isend does not progress
+        #     while the worker is inside the Fortran core);
+        #   * rank 0 runs a receiver/writer thread (all MPI traffic and the
+        #     serial HDF5 writes, write_direct_chunk) while its main thread
+        #     computes Green's functions from the same queue. This needs a
+        #     core.so whose subgreen releases the GIL (f2py `threadsafe` in
+        #     core.pyf) and MPI initialised with MPI_THREAD_MULTIPLE (the
+        #     mpi4py default); SM_GF_RANK0_COMPUTE=0 disables it.
+        #   * every rank measures the core time of each slot; rank 0 stores
+        #     them in <gf_file>.slotcost.npy (seconds, one per slot). The HDF5
+        #     file itself is unchanged.
+        # File layout, dataset names, chunking and content are unchanged, so
+        # Stage 2 reads it exactly as before. SM_GF_STATIC=1 falls back to the
+        # original round-robin loop.
+        _dyn = use_mpi and nprocs > 1 and os.environ.get("SM_GF_STATIC", "0") != "1"
+        if _dyn:
+            import zlib, threading, queue, time as _time
+            TAG_TASK, TAG_HDR, TAG_T0, TAG_DATA = 7101, 7102, 7103, 7104
+            STOP = np.array([-1], dtype=np.int64)
+
+            def _compute_slot(k):
+                i_st, i_ps = pairs_to_compute[k]
+                station = self._receivers.get_station_by_id(int(i_st))
+                psource = self._source.get_source_by_id(int(i_ps))
+                aux_crust = copy.deepcopy(self._crust)
+                aux_crust.split_at_depth(psource.x[2])
+                aux_crust.split_at_depth(station.x[2])
+                t1 = perf_counter()
+                tdata, z, e, n, t0 = self._call_core(
+                    dt, nfft, tb, nx, sigma, smth,
+                    wc1, wc2, pmin, pmax, dk, kc,
+                    taper, aux_crust, psource, station, verbose)
+                dtc = perf_counter() - t1
+                c['core'] += dtc
+                tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
+                t1 = perf_counter()
+                comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
+                c['zip'] += perf_counter() - t1
+                return tdata_c.shape[0], float(t0), comp, dtc
+
+            # Longest-processing-time-first order (results unchanged:
+            # each slot is still written at its own index). With
+            # SM_GF_COSTFILE = a .slotcost.npy of the same length, slots are
+            # handed out by measured cost, descending. Otherwise a geometric
+            # proxy: smallest source-receiver vertical separation first (the
+            # wavenumber integral needs more terms as hs -> 0, kmax ~ kc/hs),
+            # then largest horizontal distance.
+            order = np.arange(npairs, dtype=np.int64)
+            if rank == 0:
+                _cf = os.environ.get("SM_GF_COSTFILE", "")
+                _cost = np.load(_cf) if _cf and os.path.exists(_cf) else None
+                if _cost is not None and _cost.shape == (npairs,):
+                    order = np.argsort(-_cost, kind="stable").astype(np.int64)
+                    _src = "measured costs " + _cf
+                else:
+                    _dv = np.asarray(hfile["/dv_of_pairs"][:], dtype=float)
+                    _dh = np.asarray(hfile["/dh_of_pairs"][:], dtype=float)
+                    order = np.lexsort((-_dh, _dv)).astype(np.int64)
+                    _src = "geometric proxy (dv asc, dh desc)"
+                print(f"  GF slot order: {_src}")
+
+            if rank == 0:
+                costs = np.zeros(npairs, dtype=np.float64)
+                lock = threading.Lock()
+                state = {'pos': 0}
+
+                def _take():
+                    with lock:
+                        if state['pos'] < npairs:
+                            k = int(order[state['pos']])
+                            state['pos'] += 1
+                            return k
+                    return -1
+
+                outstanding = np.zeros(nprocs, dtype=np.int64)
+                for _ in range(2):
+                    for w in range(1, nprocs):
+                        k = _take()
+                        if k >= 0:
+                            comm.Send(np.array([k], dtype=np.int64), dest=w, tag=TAG_TASK)
+                            outstanding[w] += 1
+                for w in range(1, nprocs):
+                    if outstanding[w] == 0:
+                        comm.Send(STOP, dest=w, tag=TAG_TASK)
+
+                t0_ds = hfile_gf['/t0']
+                t0_ds.resize(npairs, axis=0)
+                gf_holder = [None]
+
+                def _store(k, nt_real, t0v, comp):
+                    t_w0 = perf_counter()
+                    if gf_holder[0] is None:
+                        gf_holder[0] = hfile_gf.create_dataset(
+                            '/tdata', shape=(npairs, nt_real, 9),
+                            maxshape=(None, nt_real, 9), chunks=(1, nt_real, 9),
+                            dtype=np.float64, compression='gzip', compression_opts=4)
+                    gf_holder[0].id.write_direct_chunk((k, 0, 0), comp.tobytes())
+                    t0_ds[k] = t0v
+                    c['write'] += perf_counter() - t_w0
+
+                local_q = queue.Queue()
+                err = []
+
+                def _receiver():
+                    try:
+                        received = 0
+                        status = MPI.Status()
+                        hdr = np.empty(4, dtype=np.int64)      # slot, nt, nbytes, core_us
+                        while received < npairs:
+                            try:
+                                k, nt_real, t0v, comp = local_q.get_nowait()
+                                _store(k, nt_real, t0v, comp)
+                                received += 1
+                                continue
+                            except queue.Empty:
+                                pass
+                            if not comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAG_HDR, status=status):
+                                _time.sleep(0.0002)
+                                continue
+                            src = status.Get_source()
+                            t1 = perf_counter()
+                            comm.Recv(hdr, source=src, tag=TAG_HDR)
+                            t0_arr = np.empty(1, dtype=np.double)
+                            comm.Recv(t0_arr, source=src, tag=TAG_T0)
+                            buf = np.empty(int(hdr[2]), dtype=np.uint8)
+                            comm.Recv(buf, source=src, tag=TAG_DATA)
+                            c['recv'] += perf_counter() - t1
+                            outstanding[src] -= 1
+                            k_next = _take()
+                            if k_next >= 0:
+                                comm.Send(np.array([k_next], dtype=np.int64), dest=src, tag=TAG_TASK)
+                                outstanding[src] += 1
+                            elif outstanding[src] == 0:
+                                comm.Send(STOP, dest=src, tag=TAG_TASK)
+                            k = int(hdr[0])
+                            costs[k] = hdr[3] * 1e-6
+                            _store(k, int(hdr[1]), t0_arr[0], buf)
+                            received += 1
+                            if showProgress and (received % 100 == 0 or received == npairs):
+                                elapsed = perf_counter() - tstart
+                                print(f"{received} of {npairs} done  "
+                                      f"ETA={_eta_str(elapsed, received, npairs)}")
+                    except Exception as exc:          # surfaced in the main thread
+                        err.append(exc)
+
+                th = threading.Thread(target=_receiver, daemon=True)
+                th.start()
+                try:
+                    if os.environ.get("SM_GF_RANK0_COMPUTE", "1") == "1":
+                        while th.is_alive():
+                            k = _take()
+                            if k < 0:
+                                break
+                            nt_real, t0v, comp, dtc = _compute_slot(k)
+                            costs[k] = dtc
+                            local_q.put((k, nt_real, t0v, comp))
+                    th.join()
+                    if err:
+                        raise err[0]
+                except Exception:
+                    # A failure on rank 0 would otherwise leave
+                    # every worker blocked in Recv(task) until the job timeout.
+                    traceback.print_exc()
+                    comm.Abort(1)
+                np.save(gf_file + '.slotcost.npy', costs)
+            else:
+                task = np.empty(1, dtype=np.int64)
+                comm.Recv(task, source=0, tag=TAG_TASK)
+                while task[0] >= 0:
+                    k = int(task[0])
+                    nt_real, t0v, comp, dtc = _compute_slot(k)
+                    t1 = perf_counter()
+                    hdr = np.array([k, nt_real, comp.size, int(round(dtc * 1e6))], dtype=np.int64)
+                    comm.Send(hdr, dest=0, tag=TAG_HDR)
+                    comm.Send(np.array([t0v], dtype=np.double), dest=0, tag=TAG_T0)
+                    comm.Send(comp, dest=0, tag=TAG_DATA)
+                    c['send'] += perf_counter() - t1
+                    comm.Recv(task, source=0, tag=TAG_TASK)
+
+        for i_station, i_psource in (pairs_to_compute if not _dyn else []):
             station  = self._receivers.get_station_by_id(int(i_station))
             psource  = self._source.get_source_by_id(int(i_psource))
             z_src = psource.x[2]; z_rec = station.x[2]
@@ -1307,6 +1491,7 @@ class ShakerMaker:
                     # /tdata is created lazily on the first slot so that the
                     # chunk dimension matches the REAL nt (not nfft), which
                     # can differ when smth > 1.
+                    t_w0 = perf_counter()   # time the serial HDF5 write
                     nt_real = tdata_c.shape[0]   # actual samples from subgreen
                     if '/tdata' not in hfile_gf:
                         # First slot: create the dataset with real nt.
@@ -1332,6 +1517,7 @@ class ShakerMaker:
                     gf_ds[ipair] = tdata_c
 
                     t0_ds[ipair] = t0_arr[0]
+                    c['write'] += perf_counter() - t_w0
                     next_pair += 1
 
                     if showProgress:

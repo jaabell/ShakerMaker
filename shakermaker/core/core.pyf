@@ -4,6 +4,7 @@
 python module core ! in 
     interface  ! in :core
         subroutine subgreen(mb,src,rcv,stype,updn,d,a,b,rho,qa,qb,dt,nfft,tb,nx,sigma,smth,wc1,wc2,pmin,pmax,dk,kc,taper,x,pf,df,lf,tdata,sx,sy,rx,ry,zz,ee,nn,t0) ! in :core:subgreen.f
+            threadsafe
             integer :: mb
             integer :: src
             integer :: rcv
@@ -43,6 +44,7 @@ python module core ! in
             real intent(out), depend(nx), dimension(nx) :: t0
         end subroutine subgreen
         subroutine subgreen2(mb,src,rcv,stype,updn,d,a,b,rho,qa,qb,dt,nfft,tb,nx,sigma,smth,wc1,wc2,pmin,pmax,dk,kc,taper,x,pf,df,lf,tdata,sx,sy,rx,ry,zz,ee,nn,t0) ! in :core:subgreen2.f
+            threadsafe
             integer :: mb
             integer :: src
             integer :: rcv
