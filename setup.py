@@ -77,6 +77,22 @@ else:
 # FFSP compilation support
 # =============================================================================
 
+def _f2py_backend_args():
+    """f2py's ``-c`` compile mode only grew a ``--backend`` flag in NumPy
+    1.26, when the legacy distutils backend started being phased out
+    (NumPy 2.0 removes it outright, requiring ``--backend meson``). Earlier
+    f2py versions don't recognise the flag at all -- it gets swallowed as a
+    positional source argument instead, so passing it unconditionally
+    breaks the build on NumPy < 1.26, which is what this project's own
+    build currently requires (numpy.distutils for shakermaker.core; see
+    docs/web/guides/installation.md). Only ask for meson when it's both
+    available and necessary.
+    """
+    import numpy
+    major, minor = (int(x) for x in numpy.__version__.split(".")[:2])
+    return ["--backend", "meson"] if (major, minor) >= (1, 26) else []
+
+
 def compile_ffsp():
     """Compile the FFSP Fortran wrapper using f2py."""
     ffsp_dir = os.path.join(os.path.dirname(__file__), 'shakermaker', 'ffsp')
@@ -100,6 +116,7 @@ def _compile_ffsp_linux(ffsp_dir):
         sys.executable, "-m", "numpy.f2py",
         "-c", "ffsp.pyf",
         *fortran_sources,
+        *_f2py_backend_args(),
         "--f90flags=-O3 -fPIC",
         "--f77flags=-O3 -std=legacy -fPIC",
         "-m", "ffsp_core",
