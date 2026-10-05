@@ -80,7 +80,7 @@ subroutine mainfault(dip,freq_min,freq_max,rv_avg,ratio_rise,nb_taper_TRBL)
      rtx(k)=(i-0.5)*dx
      rtz(k)=(j-0.5)*dy
    enddo
- enddo
+enddo
 ! smoothing
  do j=3,nsuby-2
    ll=j+nsuby
@@ -263,7 +263,10 @@ pk_max= 0.2*rs_max
  ntime=1
  do while(ntime<i)
     ntime=ntime*2
-enddo
+ enddo
+! The 0.01 Hz lower fitting bound requires at least 131072 samples.  Preserve
+! larger natural windows instead of forcing one FFT grid on every source.
+ ntime=max0(ntime,131072)
 ! ntime: length of rise time function
  df=1./(ntime*dt)
  nphf=ntime/2

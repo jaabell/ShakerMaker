@@ -35,6 +35,8 @@ FFSP_CITATION = (
 )
 
 FFSP_HDF5_SCHEMA_VERSION = "2.0"
+FFSP_MIN_NTIME = 131072
+FFSP_MAX_NTIME = 262144
 
 #: Magnitude-to-moment constant used internally by the FFSP kernel
 #: (``ffsp_wrapper.f90``): ``M0 = 10 ** (1.5 * Mw + 9.05)`` in N*m.  Hanks &
@@ -122,13 +124,18 @@ def _validate_ffsp_kernel_contract(params):
     maximum_distance = np.hypot(ix * dx, iy * dy)
     minimum_average_velocity = params['rv_avg'] * 1.2 / 1.45
     required_samples = int(maximum_distance / minimum_average_velocity / 0.001 + 1.0) * 10
-    ntime = 1
-    while ntime < required_samples:
-        ntime *= 2
+    required_ntime = 1
+    while required_ntime < required_samples:
+        required_ntime *= 2
 
-    if ntime > 131072:
+    if required_ntime > FFSP_MAX_NTIME:
         raise ValueError(
-            f"FFSP requires ntime={ntime}, exceeding the f2py buffer limit 131072")
+            f"FFSP requires ntime={required_ntime}, exceeding the "
+            f"f2py buffer capacity {FFSP_MAX_NTIME}")
+
+    # Preserve the natural rupture window, but enforce the spectral resolution
+    # required by the 0.01 Hz lower fitting bound used by the FFSP campaign.
+    ntime = max(required_ntime, FFSP_MIN_NTIME)
 
     df = 1.0 / (ntime * 0.001)
     lnpt = int(np.log(ntime) / np.log(2.0) + 0.1)
@@ -508,6 +515,9 @@ class FFSPSource:
         self.params.setdefault('fc_main_2_requested', self.params['fc_main_2'])
         self.params['fc_main_1'] = float(fc_main_1_effective)
         self.params['fc_main_2'] = float(fc_main_2_effective)
+        self.params['ntime'] = int(ntime_spec)
+        self.params['nphf'] = int(nphf_spec)
+        self.params['lnpt'] = int(lnpt_spec)
 
         realization_ids = np.arange(
             self.params['id_ran1'], self.params['id_ran2'] + 1,

@@ -102,13 +102,13 @@ subroutine ffsp_run_wrapper( &
     integer, intent(out) :: ntime_spec_out, nphf_spec_out, lnpt_spec_out
     
     ! STF time domain - will be allocated based on ntime from time_freq module
-    real, intent(out) :: stf_time_out(131072)  ! Max size (will use only ntime_spec_out)
-    real, intent(out) :: stf_out(131072, id_ran2_in-id_ran1_in+1)
+    real, intent(out) :: stf_time_out(262144)  ! Maximum capacity
+    real, intent(out) :: stf_out(262144, id_ran2_in-id_ran1_in+1)
     
     ! Spectrum frequency domain
-    real, intent(out) :: freq_spec_out(65536)  ! Max size (will use only nphf_spec_out)
-    real, intent(out) :: moment_rate_out(65536, id_ran2_in-id_ran1_in+1)
-    real, intent(out) :: dcf_out(65536)
+    real, intent(out) :: freq_spec_out(131072)  ! Maximum capacity
+    real, intent(out) :: moment_rate_out(131072, id_ran2_in-id_ran1_in+1)
+    real, intent(out) :: dcf_out(131072)
     
     ! Octave-averaged spectrum
     real, intent(out) :: freq_center_out(17)  ! Max size (will use only lnpt_spec_out)
