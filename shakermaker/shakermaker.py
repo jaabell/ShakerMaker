@@ -70,7 +70,7 @@ import traceback
 import logging
 import numpy as np
 import h5py
-from time import perf_counter
+from time import perf_counter, sleep
 
 from shakermaker.crustmodel import CrustModel
 from shakermaker.faultsource import FaultSource
@@ -163,6 +163,33 @@ def _eta_str(elapsed, done, total):
 # ---------------------------------------------------------------------------
 # ShakerMaker
 # ---------------------------------------------------------------------------
+
+
+def _wait_and_open_h5(path, mode, timeout=60.0, poll_interval=1.0):
+    """Open an HDF5 file another MPI rank just finished writing elsewhere.
+
+    Rank 0 creates ``_map.h5`` (Stage 0) or ``_gf.h5`` (Stage 1) and closes
+    it before a ``comm.Barrier()`` releases the other ranks, but the
+    Barrier only synchronizes MPI -- it says nothing about when a shared
+    filesystem (e.g. NFS across compute nodes) makes that new file visible
+    to processes running on *other* nodes. Without this, ranks on nodes
+    other than rank 0's can hit a transient FileNotFoundError right after
+    the barrier even though the file exists. Poll for existence and retry
+    the open instead of failing on the first attempt.
+    """
+    deadline = perf_counter() + timeout
+    last_error = None
+    while perf_counter() < deadline:
+        if os.path.exists(path):
+            try:
+                return h5py.File(path, mode, locking=False)
+            except OSError as exc:
+                last_error = exc
+        sleep(poll_interval)
+    raise FileNotFoundError(
+        f"Timed out after {timeout:.0f}s waiting for {path!r} to become "
+        f"visible on this node (last error: {last_error})."
+    )
 
 
 class ShakerMaker:
@@ -1096,11 +1123,11 @@ class ShakerMaker:
             #   - inspecting/migrating the mapping without loading GF
             map_file = h5_database_name.replace('.h5', '') + '_map.h5'
             gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
-            hfile = h5py.File(map_file, 'r', locking=False)
+            hfile = _wait_and_open_h5(map_file, 'r')
         else:
             map_file = h5_database_name.replace('.h5', '') + '_map.h5'
             gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
-            hfile = h5py.File(map_file, 'r', locking=False)
+            hfile = _wait_and_open_h5(map_file, 'r')
 
         pairs_to_compute = hfile["/pairs_to_compute"][:]
         npairs = len(pairs_to_compute)
@@ -1360,15 +1387,15 @@ class ShakerMaker:
                 map_file = h5_database_name.replace('.h5', '') + '_map.h5'
                 gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
                 # 'r', not 'r+': run_fast never writes to the map file.
-                hfile    = h5py.File(map_file, 'r', locking=False)
-                hfile_gf = h5py.File(gf_file,  'r', locking=False)
+                hfile    = _wait_and_open_h5(map_file, 'r')
+                hfile_gf = _wait_and_open_h5(gf_file,  'r')
                 print(f"  Map file : {map_file}")
                 print(f"  GF  file : {gf_file}")
             else:
                 map_file = h5_database_name.replace('.h5', '') + '_map.h5'
                 gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
-                hfile    = h5py.File(map_file, 'r', locking=False)
-                hfile_gf = h5py.File(gf_file,  'r', locking=False)
+                hfile    = _wait_and_open_h5(map_file, 'r')
+                hfile_gf = _wait_and_open_h5(gf_file,  'r')
 
             # O(1) lookup array — loaded once, shared across all stations
             pair_to_slot = hfile["/pair_to_slot"][:]
