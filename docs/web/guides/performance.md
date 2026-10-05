@@ -1,0 +1,221 @@
+# Performance on a cluster: MPI, OpenMP and the two stages
+
+This page records the scaling and optimisation work done on ShakerMaker in
+October 2026: what was changed, what was measured, and what was not adopted.
+Every number comes from runs on one cluster, so treat it as a reference for
+similar hardware, not as a guarantee.
+
+**Hardware.** Esmeralda, `computes` partition: AMD Ryzen 9 5950X nodes
+(16 cores / 32 hardware threads, ~64 GB), 2.5 GbE between nodes, shared NFS.
+Exclusive nodes in every run. One run per configuration unless stated, so
+differences below ~3 % are not conclusive.
+
+## 1. Where the time goes
+
+`run_nearest` / the OP pipeline runs in three stages:
+
+| Stage | Work | Parallelism |
+|---|---|---|
+| 0 | source-receiver pairs and unique GF slots | all ranks, seconds |
+| 1 `compute_gf` | one FK Green's function per unique slot (`subgreen` + `subfk`) | MPI over slots, OpenMP inside the FK kernel |
+| 2 `run_fast` | per source: `subgreen2`, STF convolution, shift and sum | MPI only |
+
+Stage 1 dominates (90-99 % of the wall time in every case below).
+
+## 2. OpenMP in the FK kernel (PR #19)
+
+`subfk.f` parallelises the wavenumber loop and the inverse-FFT loop with
+OpenMP. The question raised in the review was: one node, 32 MPI ranks without
+OpenMP against 16 ranks with OpenMP, comparing results and performance.
+
+**Results are unchanged.** Traces are bit-identical with 1 to 32 threads;
+the `_gf.h5` and `.h5drm` files are identical (sha256) across 8 layouts and
+1, 2 and 4 nodes; against SCEC LOH.1 the correlation stays >= 0.999 on the
+three components.
+
+**One Green's function** (LOH.1, `nfft` 4096):
+
+| Threads | 1 | 2 | 4 | 8 | 16 | 32 (SMT) |
+|---|---|---|---|---|---|---|
+| Time (s) | 4.81 | 2.46 | 1.27 | 0.64 | 0.38 | 0.34 |
+| Speedup | 1.0 | 1.96 | 3.79 | 7.51 | 12.5 | 14.2 |
+
+![Single GF speedup](../assets/performance/e1_speedup.png){ width=520 }
+
+**The requested comparison** (one node, DRM box of 7635 nodes, 1331 GFs):
+
+| Layout per node | Stage 1 (s) | Node CPU |
+|---|---|---|
+| 32 ranks x 1 thread | 630 | 99 % |
+| 16 ranks x 2 threads | 628 | 93 % |
+| 16 ranks, OpenMP threads not set | 604 | 98 % |
+| 16 ranks x 1 thread | 688 | 50 % |
+
+32 x 1 and 16 x 2 tie. Both beat 16 x 1 by ~10 % because they also use the
+SMT threads. Layouts with few ranks per node lose because, before the change
+in section 3, rank 0 only received and wrote.
+
+**Across nodes** (strike-slip fault model, 1810 GFs of ~12 s each, up to 13
+nodes):
+
+| Layout per node | 1 node | 2 | 4 | 8 | 13 |
+|---|---|---|---|---|---|
+| 16 x 1 | 2249 s | 1112 | 572 | 294 | 203 |
+| 16 x 2 | 2077 | **1030** | 529 | 271 | 172 |
+| 8 x 4 | 2152 | 1050 | **528** | 268 | **168** |
+
+![Strike-slip model, time per stage and scaling](../assets/performance/sf_stages.png)
+
+16 x 2 scales 12.1x on 13 nodes (93 %). The hybrid layouts win 7-10 % over
+pure MPI on 1-8 nodes and 15-17 % on 13 nodes, where each rank gets only a
+few GFs and longer single-thread GFs leave the last rank running alone.
+
+**Recommended launch:** 16 x 2 per node up to 2 nodes, 8 x 4 from 4 nodes.
+
+```bash
+export OMP_NUM_THREADS=2 OMP_PLACES=threads OMP_PROC_BIND=close
+mpirun -np $((16*NNODES)) --map-by ppr:16:node:PE=2 --bind-to hwthread \
+       --use-hwthread-cpus python script.py
+
+# from 4 nodes
+export OMP_NUM_THREADS=4 OMP_PLACES=threads OMP_PROC_BIND=close
+mpirun -np $((8*NNODES)) --map-by ppr:8:node:PE=4 --bind-to hwthread \
+       --use-hwthread-cpus python script.py
+```
+
+## 3. Stage 1: dynamic scheduling
+
+With the round-robin split, at 10 nodes workers spent up to 454 s blocked
+sending to rank 0 and the slowest rank did 1.5x the work of the fastest.
+`compute_gf` now uses a master-worker scheme when running under MPI:
+
+- rank 0 hands the next slot to whichever worker finishes first, two slots
+  in flight per worker;
+- workers compress each slot (zlib level 4, the HDF5 gzip deflate) and send
+  it with blocking sends; rank 0 stores it with `write_direct_chunk`;
+- rank 0 also computes: a receiver thread handles MPI and the HDF5 writes.
+  This needs the `threadsafe` wrappers in `core.pyf` (rebuild the core) and
+  MPI initialised with `MPI_THREAD_MULTIPLE` (the mpi4py default);
+- slots go out longest first, using the measured cost of a previous run
+  when available.
+
+The database layout is unchanged and the results are bit-identical to the
+round-robin loop with the same core.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SM_GF_STATIC=1` | off | use the original round-robin loop |
+| `SM_GF_RANK0_COMPUTE=0` | on | rank 0 only receives and writes |
+| `SM_GF_COSTFILE=<path>` | unset | order slots by a previous `<gf_file>.slotcost.npy` (written by every run) instead of the geometric proxy |
+
+| Model (GFs), 10 nodes, 8 x 4 | Round-robin | Dynamic | Dynamic + compiler flags |
+|---|---|---|---|
+| Strike-slip, medium (1810) | 286 s | 207 s (-27 %) | - |
+| Strike-slip, large (9100) | 1327 s | 922 s (-30 %) | 810 s (-39 %) |
+
+Blocking time fell from 83-454 s to 0.4 s and the load imbalance from 1.5 to
+1.01. On one node the gain comes from rank 0 computing (-6 to -10 %).
+
+**Real case** (Quito, Carcelen-El Inca Mw 5.9: 4096 subfaults, 3 stations,
+5015 GFs, `nfft` 16384, `dt` 0.0025, 10 nodes):
+
+| Crust | Production launch (32 ranks, OpenMP not set) | Dynamic + flags, 8 x 4 |
+|---|---|---|
+| full | 20 400 s | 17 256 s (-15 %) |
+| truncated at 32.79 km | 10 089 s | 8 147 s (-19 %) |
+| truncated, Q = 1000 | 10 099 s | 8 119 s (-20 %) |
+
+The gain is smaller than on the synthetic models: this FK kernel looks
+memory-bandwidth bound (throughput per node barely changes with the rank x
+thread split).
+
+## 4. Compiler flags
+
+Fortran core rebuilt with different flags, everything else equal:
+
+| Flags | Time per GF | Results |
+|---|---|---|
+| `-O3` (default) | reference | reference |
+| `-O3 -march=znver3 -ffp-contract=off` | -7 to -12 % | **bit-identical** |
+| `-O3 -march=znver3` (FMA contraction) | faster | rejected: `t0` moves 1 ulp, 10 % of `.h5drm` traces off by > 10 % |
+| `-Ofast` | faster | rejected, same reason |
+
+`-ffp-contract=off` is what keeps the results identical. The flags are not
+the default because `-march` is machine specific; use `-march=native` with
+`-ffp-contract=off` when building for one cluster.
+
+## 5. Stage 2
+
+`run_fast` gave each station to one rank, so with 3 stations only 3 ranks
+worked. Two changes:
+
+- **sources split over all ranks** when there are fewer stations than ranks:
+  each rank sums its share on the output grid with the same integer shift as
+  `Station.add_to_response`, and an MPI Reduce adds the parts on rank 0. With
+  more stations than ranks (a DRM box) the one-rank-per-station loop is kept,
+  since it already uses every rank and the split would add one Reduce per
+  station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
+  `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
+- **split crust models cached** per (source depth, receiver depth).
+
+| Case | Before | Sources split | Difference |
+|---|---|---|---|
+| Carcelen-El Inca (4096 sources, 3 stations), 1 node | 42.0 s | 5.5 s (16 ranks) | 4e-14 |
+| Full Quito rupture (32 768 sources, 3 stations), 1 node | 633 s | 251 s (32 ranks) | 2e-13 |
+
+The crust cache alone is bit-identical and saves ~10 %.
+
+## 6. What was tried and not adopted
+
+- **FK kernel on a GPU** (RTX 5090, PyTorch prototype): FP64 throughput on
+  that card is too low; the best case was 3.4x in FP64 and the full port was
+  not justified.
+- **Stage 2 summed in the frequency domain** (CPU): correct (1e-7) but not
+  faster than splitting the sources.
+- **Stage 2 on the GPU:** 10x faster than the old loop and ~4x faster than
+  splitting the sources on the full Quito rupture, but the PGA differs by
+  1e-3 from the CPU result, most likely from rounding `t0` in float64
+  instead of float32 before the integer shift. Not adopted until that is
+  fixed. Its natural use is many FFSP realisations on one GF database, which
+  can stay in GPU memory.
+
+## 7. Correctness: the `subtrav` fix checked against SW4
+
+`subtrav` returns the first-arrival time `t0`. It took 1-based layer indices
+where its ray loop needs 0-based ones, so the ray crossed the wrong layers
+whenever source and receiver were not in adjacent layers. With OP, Stage 2
+places the GF of a slot at the `t0` of each real pair, so a wrong `t0` puts
+each subfault at the wrong time. On the Quito case the fix changes `t0` in
+99 % of the slots (median 0.16 s, max 1.05 s).
+
+Check: the Carcelen-El Inca case with the crust truncated at 32.79 km, run
+with the old and the fixed core (Q = 1000 in every layer) and with SW4 on
+the same crust, source and stations (7 Hz, h = 33.3 m, no attenuation),
+compared up to 14 s, 0.05-7 Hz:
+
+| Station CAROLINA (E / N / Z) | Old `subtrav` | Fixed `subtrav` |
+|---|---|---|
+| correlation with SW4 | 0.919 / 0.898 / 0.955 | **0.973 / 0.944 / 0.962** |
+| normalised misfit | 0.40 / 0.45 / 0.30 | **0.23 / 0.33 / 0.27** |
+| PGV / PGV SW4 | 1.08 / 0.93 / 0.95 | **0.98 / 1.01 / 1.02** |
+
+![SW4 against both cores, station CAROLINA](../assets/performance/sw4_vs_shakermaker_QX11.png)
+
+CAROLINA, the station closest to the fault, is where the two cores differ;
+the old core adds acceleration pulses that SW4 does not have. At the two
+farther stations both cores tie (correlation 0.85-0.95). Runs made before
+the fix can differ by up to about +-25 % in PGA and short-period PSA at
+stations near the fault; long periods barely change.
+
+With the production Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
+decreasing with distance; with Q = 1000 it is at 0.85-1.05. Compare against
+an elastic SW4 run with Q = 1000 in ShakerMaker.
+
+## 8. Open items
+
+- With the fixed core, CAROLINA shows a small pulse at 1.0-1.7 s (5-10 % of
+  the PGV) that neither SW4 nor the old core has. It does not move the peaks
+  but is an artefact still to be traced.
+- The `dk` recommended by `check_parameters` (0.4) drops the vertical
+  correlation with LOH.1 to 0.89; `dk` 0.2 keeps it at >= 0.997.
+- Stage 2 on the GPU needs the `t0` rounding fix above.
