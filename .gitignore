@@ -25,3 +25,10 @@ __pycache__/
 *.h5drm
 *.h5drm.vmax.json
 examples/**/drm_*_output/
+
+# Outputs written by the examples when run (e.g. by examples/run_all_smoke.py)
+examples/06_nearest_method/out_*/
+examples/07_writers/*.h5
+examples/07_writers/*.npz
+examples/09_sw4_export/_sw4_out*/
+examples/10_ffsp/ffsp.h5
