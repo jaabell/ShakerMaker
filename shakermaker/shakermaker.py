@@ -128,7 +128,7 @@ except (ImportError, RuntimeError):
 def _perf_counters():
     """Return a dict of zeroed timing accumulators."""
     return {k: np.zeros(1, dtype=np.double)
-            for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip')}
+            for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read')}
 
 
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
@@ -1740,7 +1740,93 @@ class ShakerMaker:
             return aux
         _dbg(f"entering main station loop (nstations={nstations})")
 
-        for i_station in range(nstations):
+        # Split every station's sources over ALL ranks (the per-station loop
+        # below gives a whole station to one rank, so with 3 stations only 3
+        # ranks work). Each rank accumulates its share on the station's output
+        # grid exactly as Station.add_to_response does (integer sample shift),
+        # the partial responses are summed with MPI Reduce on rank 0, and rank 0
+        # hands the total to the station and the writer as before.
+        # SM_S2_SPLIT=0 restores the per-station loop.
+        _s2split = os.environ.get("SM_S2_SPLIT", "1") != "0"
+        if _s2split:
+            for i_station in range(nstations):
+                station = self._receivers.get_station_by_id(i_station)
+                z_rec = station.x[2]
+                slot_to_sources = {}
+                for i_psource, k in enumerate(slot_matrix[i_station]):
+                    slot_to_sources.setdefault(int(k), []).append(
+                        (i_psource, source_list_cache[i_psource]))
+                keys = list(slot_to_sources.keys())
+                try:
+                    # Output grid from source 0, the first source the per-station
+                    # loop adds (its t_arr fixes the station's dt and grid).
+                    ps0 = source_list_cache[0]
+                    tdata0 = np.ascontiguousarray(
+                        hfile_gf['/tdata'][int(slot_matrix[i_station][0])], dtype=np.float64)
+                    z0, e0, n0, t00 = self._call_core_fast(
+                        tdata0, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax,
+                        dk, kc, taper, _crust_for(ps0.x[2], z_rec), ps0, station, verbose)
+                    t_arr0 = np.arange(0, len(z0) * dt, dt) + ps0.tt + t00
+                    t_out = np.arange(tmin, tmax, t_arr0[1] - t_arr0[0])
+                    nout = len(t_out)
+                    buf = np.zeros((3, nout))
+                    for k in keys[rank::nprocs]:
+                        t1 = perf_counter()
+                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)
+                        c['read'] += perf_counter() - t1
+                        for i_psource, psource in slot_to_sources[k]:
+                            t1 = perf_counter()
+                            aux_crust = _crust_for(psource.x[2], z_rec)
+                            c['split'] += perf_counter() - t1
+                            t1 = perf_counter()
+                            z, e, n, t0 = self._call_core_fast(
+                                tdata, dt, nfft, tb, nx, sigma, smth,
+                                wc1, wc2, pmin, pmax, dk, kc,
+                                taper, aux_crust, psource, station, verbose)
+                            c['core'] += perf_counter() - t1
+                            t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
+                            dti = t_arr[1] - t_arr[0]
+                            if t_arr[0] >= 0:
+                                nb, ns_ = int(t_arr[0] / dti), 0
+                            else:
+                                nb, ns_ = 0, int(-t_arr[0] / dti)
+                            nw = min(len(z) - ns_, nout - nb)
+                            if nw <= 0:
+                                continue
+                            t1 = perf_counter()
+                            z_stf = psource.stf.convolve(z, t_arr)
+                            e_stf = psource.stf.convolve(e, t_arr)
+                            n_stf = psource.stf.convolve(n, t_arr)
+                            c['conv'] += perf_counter() - t1
+                            t1 = perf_counter()
+                            buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
+                            buf[1, nb:nb + nw] += e_stf[ns_:ns_ + nw]
+                            buf[2, nb:nb + nw] += n_stf[ns_:ns_ + nw]
+                            c['add'] += perf_counter() - t1
+                    tot = np.zeros_like(buf) if rank == 0 else None
+                    t1 = perf_counter()
+                    if use_mpi and nprocs > 1:
+                        comm.Reduce(buf, tot, op=MPI.SUM, root=0)
+                    else:
+                        tot = buf
+                    c['send'] += perf_counter() - t1
+                    if rank == 0:
+                        t1 = perf_counter()
+                        station.add_to_response(tot[0], tot[1], tot[2], t_out, tmin, tmax)
+                        if writer:
+                            writer.write_station(station, i_station)
+                        if writer_mode == 'progressive' and writer:
+                            station.clear_response()
+                        c['recv'] += perf_counter() - t1
+                        if showProgress:
+                            print(f"  [rank=0] written sta {i_station + 1}/{nstations} "
+                                  f"(sources split over {nprocs} ranks)", flush=True)
+                except Exception:
+                    traceback.print_exc()
+                    if use_mpi and nprocs > 1:
+                        comm.Abort()
+
+        for i_station in (range(nstations) if not _s2split else []):
             owner = i_station % nprocs
 
             # ----------------------------------------------------------------
