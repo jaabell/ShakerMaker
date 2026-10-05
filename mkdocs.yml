@@ -121,6 +121,7 @@ nav:
       - Outputs & writers: guides/outputs.md
       - SW4 export: guides/sw4_export.md
       - Plotting & visualisation: guides/plotting.md
+      - Performance on a cluster: guides/performance.md
   - Exercises:
       - Overview: exercises/index.md
       - "1 · First run & the four arrivals": exercises/01_first_run.md
