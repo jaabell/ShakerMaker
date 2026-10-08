@@ -586,6 +586,11 @@ class ShakerMaker:
         perf_time_begin = perf_counter()
         c = _perf_counters()
 
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
+
         if debugMPI:
             fid_debug_mpi = open(f"rank_{rank}.debuginfo", "w")
             def printMPI(*args):
@@ -1694,6 +1699,11 @@ class ShakerMaker:
         perf_time_begin = perf_counter()
         c         = _perf_counters()
         tstart    = perf_counter()
+
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
 
         for psource in self._source:
             psource.stf.dt = dt

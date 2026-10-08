@@ -19,6 +19,8 @@ It checks properties that only show up under MPI:
 4. No NaN anywhere.
 5. Stage 2 without a writer returns on every rank instead of hanging.
 6. 'legacy' and 'progressive' write the same time grid and the same values.
+7. Running Stage 2 twice on the same model gives the same motions (the
+   stations start from zero on every run).
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -172,7 +174,7 @@ def main():
         check(True, f"stage 2 without writer ({tag}) returns on every rank "
                     f"({time.perf_counter() - t1:.1f} s)")
 
-    # Legacy and progressive share the time grid.
+    # Legacy and progressive share the time grid, and a model can be run twice.
     with_env()
     new_model = lambda: ShakerMaker(SCEC_LOH_1(), fault_sources(), stations_with_roundoff_depths())
     fields = ["velocity", "displacement", "acceleration"]
@@ -192,13 +194,18 @@ def main():
         if rank == 0:
             check(same(leg, pro), f"legacy == progressive (shape and values), tmax={tmax}: "
                                   f"{[leg[k].shape for k in leg]} vs {[pro[k].shape for k in pro]}")
+    model = new_model()
+    runs = [stage2(model, mode, TMAX, f"reuse_{i}")
+            for i, mode in enumerate(("legacy", "legacy", "progressive"))]
+    if rank == 0:
+        check(same(runs[1], runs[0]), "second legacy run on the same model == first")
+        check(same(runs[2], runs[0]), "progressive run after legacy on the same model == first")
 
     # ---------------------------------------------------------------- 3
     with_env()
 
     def drm_model():
-        # A fresh model per Stage 2 run: in 'legacy' mode the stations keep
-        # their response after the run, so reusing them would add to it.
+        # A fresh model per Stage 2 run, so the two closes are independent.
         src = FaultSource([PointSource([0, 0, 2.0], [0.0, 90.0, 0.0], stf=stf())], {})
         drm = DRMBox([6.0, 8.0, 0.0], [4, 4, 2], [0.005, 0.005, 0.005], metadata={"name": "contract"})
         return ShakerMaker(SCEC_LOH_1(), src, drm)
