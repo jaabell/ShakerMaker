@@ -137,6 +137,50 @@ def _perf_counters():
             for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read')}
 
 
+# Stage 2 convolution mode. 'legacy' (default) calls stf.convolve
+# three times per pair. 'fast' resamples each source time function once per run,
+# convolves the three components in one FFT and only up to the last sample that
+# add_to_response will keep (the convolution is causal, so the kept samples are the
+# same up to FFT round-off). Set with SM_S2_CONV (read when Stage 2 starts).
+
+
+class _STFCache:
+    """Source time functions resampled onto the Stage 2 grid, one per (STF, dt).
+
+    dt is the pair's own t[1] - t[0], which differs from the nominal dt in the last
+    bits and can change the length of the resampled STF by one sample; keying on the
+    exact value reproduces stf.convolve exactly (a handful of distinct values per run).
+    """
+
+    def __init__(self):
+        self._c = {}
+
+    def get(self, stf, dt):
+        hit = self._c.get((id(stf), dt))
+        if hit is not None and hit[0] is stf:
+            return hit[1]
+        if len(stf.data) == 1:
+            r = (None, stf.data[0])
+        else:
+            from scipy.interpolate import interp1d
+            t_r = np.arange(stf.t[0], stf.t[-1] + dt, dt)
+            r = (interp1d(stf.t, stf.data, bounds_error=False, fill_value=0.0)(t_r), None)
+        self._c[(id(stf), dt)] = (stf, r)
+        return r
+
+
+def _conv3(cache, stf, z, e, n, dti, keep):
+    """z, e, n convolved with stf, first 'keep' samples, as stf.convolve does it."""
+    if keep <= 0:
+        return np.zeros((3, 0))
+    zen = np.vstack((z[:keep], e[:keep], n[:keep]))
+    stf_r, scale = cache.get(stf, dti)
+    if stf_r is None:
+        return zen * scale
+    from scipy.signal import fftconvolve
+    return fftconvolve(zen, stf_r[None, :], mode="full", axes=-1)[:, :keep] * dti
+
+
 # Green's function database layout. The core returns tdata in float32
 # and, with smth = 1, only the first smth*nfft of its 2*nfft samples are non-zero.
 # SM_GF_F32=1 makes Stage 1 store float32 and only those samples (attribute nt_full on
@@ -1827,6 +1871,8 @@ class ShakerMaker:
         # previous run's response, which add_to_response would add to.
         for sta in self._receivers:
             sta.clear_response()
+        _stf_cache = _STFCache()
+        _s2conv = os.environ.get("SM_S2_CONV", "legacy")
 
         for psource in self._source:
             psource.stf.dt = dt
@@ -1937,9 +1983,13 @@ class ShakerMaker:
                             if nw <= 0:
                                 continue
                             t1 = perf_counter()
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, ns_ + nw)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
                             t1 = perf_counter()
                             buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
@@ -2043,9 +2093,20 @@ class ShakerMaker:
 
                             t1    = perf_counter()
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                # keep what add_to_response can write (+2 samples of margin)
+                                dti = t_arr[1] - t_arr[0]
+                                nb_ = int(t_arr[0] / dti) if t_arr[0] >= 0 else 0
+                                ns_ = 0 if t_arr[0] >= 0 else int(-t_arr[0] / dti)
+                                nbuf = (len(station._t) if station._initialized
+                                        else len(np.arange(tmin, tmax, dti)))
+                                keep = min(len(z), max(ns_ + nbuf - nb_ + 2, 0))
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, keep)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
 
                             t1 = perf_counter()
