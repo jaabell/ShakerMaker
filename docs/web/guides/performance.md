@@ -5,8 +5,8 @@ October 2026: what was changed, what was measured, and what was not adopted.
 Every number comes from runs on one cluster, so treat it as a reference for
 similar hardware, not as a guarantee.
 
-**Hardware.** Esmeralda, `computes` partition: AMD Ryzen 9 5950X nodes
-(16 cores / 32 hardware threads, ~64 GB), 2.5 GbE between nodes, shared NFS.
+**Hardware.** A cluster of AMD Ryzen 9 5950X nodes (16 cores / 32 hardware
+threads, ~64 GB), 2.5 GbE between nodes, shared NFS.
 Exclusive nodes in every run. One run per configuration unless stated, so
 differences below ~3 % are not conclusive.
 
@@ -152,8 +152,14 @@ round-robin loop with the same core.
 Blocking time fell from 83-454 s to 0.4 s and the load imbalance from 1.5 to
 1.01. On one node the gain comes from rank 0 computing (-6 to -10 %).
 
-**Real case** (Quito, Carcelen-El Inca Mw 5.9: 4096 subfaults, 3 stations,
-5015 GFs, `nfft` 16384, `dt` 0.0025, 10 nodes):
+**Finite-fault case FF-A** (10 nodes). Reverse fault (strike 195, dip 40,
+rake 90), plane 7.0 x 11.7 km from 3.0 to 10.4 km depth, Mw 5.9, 4096 FFSP
+subfaults (mean slip 0.47 m, max 1.8 m), SRF2 slip-rate functions. Three
+surface stations at Rrup 6.7, 11.4 and 16.1 km (Rjb 0.03-14.6 km). Crust:
+five layers down to 57.7 km over a half-space (Vs 2.36-4.74 km/s, Qs
+118-237). FK: `dt` 0.0025, `nfft` 16384, `dk` 0.083, `tb` 800, `tmax` 28.8;
+5015 Green's functions. The truncated crust keeps the first three layers
+and makes the fourth (Vs 3.92 km/s) a half-space below 32.8 km.
 
 | Crust | Production launch (32 ranks, OpenMP not set) | Dynamic + flags, 8 x 4 |
 |---|---|---|
@@ -262,8 +268,13 @@ The convolution gain grows with the ratio between the trace length
 
 | Case | Before | Sources split | Difference |
 |---|---|---|---|
-| Carcelen-El Inca (4096 sources, 3 stations), 1 node | 42.0 s | 5.5 s (16 ranks) | 4e-14 |
-| Full Quito rupture (32 768 sources, 3 stations), 1 node | 633 s | 251 s (32 ranks) | 2e-13 |
+| FF-A (4096 sources, 3 stations), 1 node | 42.0 s | 5.5 s (16 ranks) | 4e-14 |
+| FF-B (32 768 sources, 3 stations), 1 node | 633 s | 251 s (32 ranks) | 2e-13 |
+
+FF-B: same mechanism and crust as FF-A, plane 60 x 23.3 km from 3.0 to 17.9
+km depth, Mw 7.1, 32 768 subfaults, three stations above the rupture (Rrup
+4.0-6.7 km, Rjb < 0.1 km), `nfft` 32768, `dk` 0.044, `tmax` 54.2, 28 932
+Green's functions.
 
 The crust cache alone is bit-identical and saves ~10 %.
 
@@ -305,37 +316,44 @@ The crust cache alone is bit-identical and saves ~10 %.
 where its ray loop needs 0-based ones, so the ray crossed the wrong layers
 whenever source and receiver were not in adjacent layers. With OP, Stage 2
 places the GF of a slot at the `t0` of each real pair, so a wrong `t0` puts
-each subfault at the wrong time. On the Quito case the fix changes `t0` in
+each subfault at the wrong time. On FF-A the fix changes `t0` in
 99 % of the slots (median 0.16 s, max 1.05 s).
 
-Check: the Carcelen-El Inca case with the crust truncated at 32.79 km, run
+Check: FF-A with the crust truncated at 32.8 km, run
 with the old and the fixed core (Q = 1000 in every layer) and with SW4 on
 the same crust, source and stations (7 Hz, h = 33.3 m, no attenuation),
 compared up to 14 s, 0.05-7 Hz:
 
-| Station CAROLINA (E / N / Z) | Old `subtrav` | Fixed `subtrav` |
+| Station at Rrup 6.7 km (E / N / Z) | Old `subtrav` | Fixed `subtrav` |
 |---|---|---|
 | correlation with SW4 | 0.919 / 0.898 / 0.955 | **0.973 / 0.944 / 0.962** |
 | normalised misfit | 0.40 / 0.45 / 0.30 | **0.23 / 0.33 / 0.27** |
 | PGV / PGV SW4 | 1.08 / 0.93 / 0.95 | **0.98 / 1.01 / 1.02** |
 
-![SW4 against both cores, station CAROLINA](../assets/performance/sw4_vs_shakermaker_QX11.png)
+![SW4 against both cores, station at Rrup 6.7 km](../assets/performance/sw4_vs_shakermaker_near_station.png)
 
-CAROLINA, the station closest to the fault, is where the two cores differ;
+The station closest to the fault is where the two cores differ;
 the old core adds acceleration pulses that SW4 does not have. At the two
 farther stations both cores tie (correlation 0.85-0.95). Runs made before
 the fix can differ by up to about +-25 % in PGA and short-period PSA at
 stations near the fault; long periods barely change.
 
-With the production Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
+With the case's own Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
 decreasing with distance; with Q = 1000 it is at 0.85-1.05. Compare against
 an elastic SW4 run with Q = 1000 in ShakerMaker.
 
 ## 8. Open items
 
-- With the fixed core, CAROLINA shows a small pulse at 1.0-1.7 s (5-10 % of
-  the PGV) that neither SW4 nor the old core has. It does not move the peaks
-  but is an artefact still to be traced.
-- The `dk` recommended by `check_parameters` (0.4) drops the vertical
-  correlation with LOH.1 to 0.89; `dk` 0.2 keeps it at >= 0.997.
-- Stage 2 on the GPU needs the `t0` rounding fix above.
+- With the fixed core, the station at Rrup 6.7 km shows a small pulse at
+  1.0-1.7 s (5-10 % of the PGV) that neither SW4 nor the old core has. It is
+  energy ahead of the first arrival inside the `tb` padding of the Green's
+  functions of many subfaults (an FK precursor), not a misplaced slot; with
+  the old core the window started about 1 s later and hid it. It does not
+  move the peaks; which FK parameter controls it is still to be measured.
+- `check_parameters` recommends `dk` 0.4 whatever the input, and that value
+  drops the vertical correlation with LOH.1 to 0.89 (0.2: 0.9975; 0.1:
+  0.9998; 0.05: 0.9999).
+- Stage 2 on the GPU: its integer sample shift is the same as on the CPU.
+  The difference against the CPU is broadband noise around 60 Hz that grows
+  when differentiating to acceleration (<= 1e-5 at the PGA itself); it has
+  to be judged after low-pass filtering to the model's band.
