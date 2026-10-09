@@ -129,6 +129,49 @@ The gain is smaller than on the synthetic models: this FK kernel looks
 memory-bandwidth bound (throughput per node barely changes with the rank x
 thread split).
 
+### Several slots per core call
+
+For each frequency and wavenumber the FK core evaluates a kernel (the
+response of the layer stack) that does not depend on the horizontal distance;
+the distance only enters through the Bessel terms. `subfk` already loops over
+several distances inside one kernel evaluation, so `compute_gf` groups the
+slots that share the source and receiver depths into one core call.
+
+The wavenumber step is `dk*pi/max(hs, x)`, where `hs` is the total finite
+thickness of the crust split at the source and receiver depths (as the core
+computes it, in float32). Distances up to `hs` share the step, so one call
+with all of them returns, for each slot, exactly what a call per slot
+returns; slots beyond `hs` keep a call of their own. Each extra distance
+costs 3-6 % of a call. The batching is on by default and bit-identical.
+
+| Case (Stage 1, same launch as the reference) | Slots | Core calls | One call per slot | Batched | Results |
+|---|---|---|---|---|---|
+| 4096 sources, 3 stations, crust with 57.7 km of finite layers, `nfft` 16384; 10 nodes x 8 x 4 | 5015 | 102 | 18 150 s | **1 900 s (9.6x)** | bit-identical database and motions |
+| 32 768 sources, 1 station, crust with 15.5 km of finite layers, station farther than `hs` from the fault; 2 nodes x 16 x 2 | 2703 | 2703 | 19 948 s | 19 669 s | bit-identical (nothing to group) |
+
+The gain depends on how many slots fall within `hs`: deep crust models and
+stations near the source benefit most.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SM_GF_BATCH=0` | on | one core call per slot (previous behaviour) |
+| `SM_GF_BATCH_MB` | 512 | memory per call; a distance needs about `9*2*nfft*12` bytes (`tdata` plus the wavenumber sums) |
+| `SM_GF_BATCH_MAX` | 64 | upper limit of distances per call |
+
+The wavenumber sums in `subfk` live on the heap (an automatic array of
+`nx*9*2*nfft` complex values would overflow the default stack); the core
+must be rebuilt.
+
+### Compact Green's function database
+
+The core returns `tdata` in float32 and, with `smth = 1`, only the first
+`smth*nfft` of its `2*nfft` samples are non-zero. `SM_GF_F32=1` stores
+`/tdata` as float32 with only those samples (the attribute `nt_full` keeps
+`2*nfft`); Stage 2 reads both layouts and zero-pads the compact one, so the
+core receives exactly the same values. Off by default, because tools that
+read `/tdata` directly expect the original layout. It applies to the MPI
+(dynamic) Stage 1 path.
+
 ## 4. Compiler flags
 
 Fortran core rebuilt with different flags, everything else equal:
@@ -157,6 +200,16 @@ worked. Two changes:
   station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
   `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
 - **split crust models cached** per (source depth, receiver depth).
+- **compact database** (`SM_GF_F32=1`, see section 3): less to read and
+  decompress, and no float64 to float32 conversion per pair.
+
+Stage 2 of the 4096-source, 3-station case on one node (16 x 2), same database:
+
+| Variant | Stage 2 | Read | `subgreen2` | Convolution | Motions |
+|---|---|---|---|---|---|
+| reference | 6.92 s | 2.41 s | 1.50 s | 2.61 s | - |
+| compact database, gzip | 3.95 s | 0.92 s | 0.41 s | 2.29 s | bit-identical |
+| compact database, uncompressed | **3.85 s** | 0.53 s | 0.46 s | 2.50 s | bit-identical |
 
 | Case | Before | Sources split | Difference |
 |---|---|---|---|
@@ -178,6 +231,20 @@ The crust cache alone is bit-identical and saves ~10 %.
   instead of float32 before the integer shift. Not adopted until that is
   fixed. Its natural use is many FFSP realisations on one GF database, which
   can stay in GPU memory.
+- **Coarser time step with the same unfiltered band** (Stage 1): the FK cost
+  scales with the square of the Nyquist frequency, and below the start of
+  the taper the spectrum does not depend on `dt`. On the 4096-source,
+  3-station case, `dt` 0.005 s with
+  taper 0.8 and `dt` 0.01 s with taper 0.6 (same 20 Hz unfiltered band) made
+  Stage 1 4.1x and 16.4x faster, but response spectra changed by 3-14 %
+  below 0.5 s: the source time functions are also discretised with the run
+  `dt`. It would need separate time steps for the Green's functions and the
+  sources.
+- **Grouping slots beyond `hs` by distance band** (Stage 1): each group uses
+  the wavenumber step of its largest distance. 7.7x on the 32 768-source,
+  1-station case, but results
+  change by a few per cent where `dk` is not converged; it can only be judged
+  against a reference with a finer `dk`.
 
 ## 7. Correctness: the `subtrav` fix checked against SW4
 

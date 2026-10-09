@@ -45,6 +45,7 @@ class HDF5StationListWriter(StationListWriter):
         # Progressive mode variables
         self._progressive_mode = False
         self._t_final = None
+        self._axis = None   # (tmin, tmax, dt) from initialize, if given
 
     # -------------------------------------------------------------------------
     # initialize
@@ -118,9 +119,10 @@ class HDF5StationListWriter(StationListWriter):
             grp_meta.create_dataset("tend",   data=self._tend)
 
         else:
-            # Legacy mode: signal datasets are created in close() once the
-            # exact time grid is known from the accumulated responses.
+            # Legacy mode: signal datasets are created in close().
             self._progressive_mode = False
+            if tmin is not None and tmax is not None and dt is not None:
+                self._axis = (tmin, tmax, dt)
 
     # -------------------------------------------------------------------------
     # write_metadata
@@ -225,11 +227,15 @@ class HDF5StationListWriter(StationListWriter):
             return
 
         # --- Legacy batch write ---
-        # t_final matches the actual station time axis: from tstart to tend.
-        # Note: progressive mode uses tmax (passed by caller), which may
-        # differ by one sample from tend (the last sample of the station).
-        # This is expected behaviour -- both modes are correct.
-        t_final     = np.arange(self._tstart, self._tend + self._dt * 0.5, self._dt)
+        if self._axis is not None:
+            # Same grid as progressive mode: tmin, tmax and the nominal dt.
+            self._tstart, self._tend, self._dt = self._axis
+            t_final = np.arange(self._tstart, self._tend, self._dt)
+        else:
+            # Writer used outside the engine: the stations' own grid, with the
+            # sample count rounded so round-off in dt cannot add a sample.
+            n = int(round((self._tend - self._tstart) / self._dt)) + 1
+            t_final = self._tstart + self._dt * np.arange(n)
         num_samples = len(t_final)
 
         grp_data = self._h5file['Data']
@@ -250,7 +256,7 @@ class HDF5StationListWriter(StationListWriter):
             vn = _interpolate(t, nn, t_final)
             vz = _interpolate(t, zz, t_final)
 
-            dt = t_final[1] - t_final[0]
+            dt = self._dt
             Nt = len(ve)
             ae = np.zeros(Nt); ae[1:] = (ve[1:] - ve[:-1]) / dt
             an = np.zeros(Nt); an[1:] = (vn[1:] - vn[:-1]) / dt
