@@ -5,8 +5,9 @@ from shakermaker.sw4_exporter.input_writer import sw4_input_text
 from shakermaker.sw4_exporter.refinement import compute_layer_refinement
 
 
-def make_stg_crust():
-    """4-layer crust matching STG_FFSP_Complete.ipynb's production model."""
+def make_layered_crust():
+    """Four layers: 0.2 km (Vs 0.75), 0.8 km (Vs 1.57), 14.5 km (Vs 3.14) over a
+    half-space (Vs 4.00), Q = 1000."""
     crust = CrustModel(4)
     crust.add_layer(0.200, 1.32, 0.75, 2.40, 1000.0, 1000.0)
     crust.add_layer(0.800, 2.75, 1.57, 2.50, 1000.0, 1000.0)
@@ -17,11 +18,10 @@ def make_stg_crust():
 
 class ComputeLayerRefinementTests(unittest.TestCase):
     def test_matches_hand_built_reference_case(self):
-        # Reproduces armonic_aleatory_space_refinement/STG_complete/sw4/
-        # shakermaker2sw4.in, which was hand-edited to demonstrate the
-        # desired pattern: "refinement zmax=1000" / "refinement zmax=200"
-        # with h_base=20.
-        crust = make_stg_crust()
+        # Reproduces a hand-edited SW4 input that demonstrates the desired
+        # pattern: "refinement zmax=1000" / "refinement zmax=200" with
+        # h_base=20.
+        crust = make_layered_crust()
         refinement = compute_layer_refinement(
             crust, h_base=20.0, fmax=15.0, n_per_wavelength=10.0)
 
@@ -33,7 +33,7 @@ class ComputeLayerRefinementTests(unittest.TestCase):
         self.assertEqual(refinement["levels"], [2, 1, 0, 0])
 
     def test_no_refinement_when_h_base_already_resolves_every_layer(self):
-        crust = make_stg_crust()
+        crust = make_layered_crust()
         refinement = compute_layer_refinement(
             crust, h_base=5.0, fmax=15.0, n_per_wavelength=10.0)
 
@@ -44,7 +44,7 @@ class ComputeLayerRefinementTests(unittest.TestCase):
         # Same fmax/n_per_wavelength as the reference case, but a coarser
         # base grid (h=25, matching export_sw4_topo's default in the
         # notebook) needs one extra halving to resolve the top layer.
-        crust = make_stg_crust()
+        crust = make_layered_crust()
         refinement = compute_layer_refinement(
             crust, h_base=25.0, fmax=15.0, n_per_wavelength=10.0)
 
@@ -54,7 +54,7 @@ class ComputeLayerRefinementTests(unittest.TestCase):
         )
 
     def test_half_space_below_h_base_warns_and_keeps_base_grid(self):
-        crust = make_stg_crust()
+        crust = make_layered_crust()
         with self.assertWarns(UserWarning):
             refinement = compute_layer_refinement(
                 crust, h_base=20.0, fmax=200.0, n_per_wavelength=10.0)
@@ -64,7 +64,7 @@ class ComputeLayerRefinementTests(unittest.TestCase):
         self.assertEqual(refinement["levels"][-1], 0)
 
     def test_rejects_non_positive_inputs(self):
-        crust = make_stg_crust()
+        crust = make_layered_crust()
         with self.assertRaises(ValueError):
             compute_layer_refinement(crust, h_base=20.0, fmax=0.0)
         with self.assertRaises(ValueError):
