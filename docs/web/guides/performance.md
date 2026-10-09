@@ -5,8 +5,8 @@ October 2026: what was changed, what was measured, and what was not adopted.
 Every number comes from runs on one cluster, so treat it as a reference for
 similar hardware, not as a guarantee.
 
-**Hardware.** Esmeralda, `computes` partition: AMD Ryzen 9 5950X nodes
-(16 cores / 32 hardware threads, ~64 GB), 2.5 GbE between nodes, shared NFS.
+**Hardware.** A cluster of AMD Ryzen 9 5950X nodes (16 cores / 32 hardware
+threads, ~64 GB), 2.5 GbE between nodes, shared NFS.
 Exclusive nodes in every run. One run per configuration unless stated, so
 differences below ~3 % are not conclusive.
 
@@ -16,11 +16,47 @@ differences below ~3 % are not conclusive.
 
 | Stage | Work | Parallelism |
 |---|---|---|
-| 0 | source-receiver pairs and unique GF slots | all ranks, seconds |
+| 0 `gen_pairs` | source-receiver pairs and unique GF slots | rank 0 alone, seconds to minutes |
 | 1 `compute_gf` | one FK Green's function per unique slot (`subgreen` + `subfk`) | MPI over slots, OpenMP inside the FK kernel |
 | 2 `run_fast` | per source: `subgreen2`, STF convolution, shift and sum | MPI only |
 
 Stage 1 dominates (90-99 % of the wall time in every case below).
+
+### Stage 0: grouping on one process
+
+Stage 0 visits the pairs in order and puts each one in the existing slot
+that covers it (every difference within its tolerance) with the smallest L1
+distance, or opens a new slot. Each decision depends on the slots opened
+before it, so the grouping is sequential. The previous implementation
+compared every pair with every slot (cost pairs x slots) after gathering the
+geometry of all pairs on rank 0 (32 bytes per pair, ~200 bytes per pair on
+the node), while the other ranks waited.
+
+Now rank 0 builds the map alone. A slot that covers a pair can only lie in
+one of the 27 cells around it when the cells are slightly larger than the
+tolerances, so a hash table over those cells gives the candidates, tested
+with the same coverage rule, distance and tie rule (lowest slot index). The
+geometry is computed one block of stations at a time with the same NumPy
+expressions, and the representative of a slot is the pair that opened it,
+so the final sorts are gone. The map is the same, dataset by dataset.
+`SM_S0_LEGACY=1` runs the previous path.
+
+DRM boxes of 8179 receivers with a 32768-subfault fault (2.7e8 pairs,
+tolerances 40 / 5 / 200 m):
+
+| | previous (10 nodes x 16 ranks) | now (one process) |
+|---|---|---|
+| 14 460 slots | 1 888 s | 173 s |
+| 20 688 slots | 2 666 s | 190 s |
+| 25 686 slots | 3 280 s (grouping 3 215 s, gather 31 s, sorts 31 s) | 195 s (grouping 183 s) |
+| memory | ~99 bytes per pair on rank 0 | 1.7 GB in total (~6 bytes per pair) |
+
+The previous grouping cost 0.125 s per slot at this size; the new one does
+not depend on the number of slots (57 380 slots: 259 s). Eleven such boxes
+ran at once on one node in 4.5 min (1.7 GB each). The three maps with a
+previous reference are identical to it. Stage 0 therefore needs one process:
+inside a many-node `stage='all'` job the other nodes now wait minutes instead
+of up to an hour, and a separate `stage=0` job on one node is enough.
 
 ## 2. OpenMP in the FK kernel (PR #19)
 
@@ -116,8 +152,14 @@ round-robin loop with the same core.
 Blocking time fell from 83-454 s to 0.4 s and the load imbalance from 1.5 to
 1.01. On one node the gain comes from rank 0 computing (-6 to -10 %).
 
-**Real case** (Quito, Carcelen-El Inca Mw 5.9: 4096 subfaults, 3 stations,
-5015 GFs, `nfft` 16384, `dt` 0.0025, 10 nodes):
+**Finite-fault case FF-A** (10 nodes). Reverse fault (strike 195, dip 40,
+rake 90), plane 7.0 x 11.7 km from 3.0 to 10.4 km depth, Mw 5.9, 4096 FFSP
+subfaults (mean slip 0.47 m, max 1.8 m), SRF2 slip-rate functions. Three
+surface stations at Rrup 6.7, 11.4 and 16.1 km (Rjb 0.03-14.6 km). Crust:
+five layers down to 57.7 km over a half-space (Vs 2.36-4.74 km/s, Qs
+118-237). FK: `dt` 0.0025, `nfft` 16384, `dk` 0.083, `tb` 800, `tmax` 28.8;
+5015 Green's functions. The truncated crust keeps the first three layers
+and makes the fourth (Vs 3.92 km/s) a half-space below 32.8 km.
 
 | Crust | Production launch (32 ranks, OpenMP not set) | Dynamic + flags, 8 x 4 |
 |---|---|---|
@@ -128,6 +170,49 @@ Blocking time fell from 83-454 s to 0.4 s and the load imbalance from 1.5 to
 The gain is smaller than on the synthetic models: this FK kernel looks
 memory-bandwidth bound (throughput per node barely changes with the rank x
 thread split).
+
+### Several slots per core call
+
+For each frequency and wavenumber the FK core evaluates a kernel (the
+response of the layer stack) that does not depend on the horizontal distance;
+the distance only enters through the Bessel terms. `subfk` already loops over
+several distances inside one kernel evaluation, so `compute_gf` groups the
+slots that share the source and receiver depths into one core call.
+
+The wavenumber step is `dk*pi/max(hs, x)`, where `hs` is the total finite
+thickness of the crust split at the source and receiver depths (as the core
+computes it, in float32). Distances up to `hs` share the step, so one call
+with all of them returns, for each slot, exactly what a call per slot
+returns; slots beyond `hs` keep a call of their own. Each extra distance
+costs 3-6 % of a call. The batching is on by default and bit-identical.
+
+| Case (Stage 1, same launch as the reference) | Slots | Core calls | One call per slot | Batched | Results |
+|---|---|---|---|---|---|
+| 4096 sources, 3 stations, crust with 57.7 km of finite layers, `nfft` 16384; 10 nodes x 8 x 4 | 5015 | 102 | 18 150 s | **1 900 s (9.6x)** | bit-identical database and motions |
+| 32 768 sources, 1 station, crust with 15.5 km of finite layers, station farther than `hs` from the fault; 2 nodes x 16 x 2 | 2703 | 2703 | 19 948 s | 19 669 s | bit-identical (nothing to group) |
+
+The gain depends on how many slots fall within `hs`: deep crust models and
+stations near the source benefit most.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SM_GF_BATCH=0` | on | one core call per slot (previous behaviour) |
+| `SM_GF_BATCH_MB` | 512 | memory per call; a distance needs about `9*2*nfft*12` bytes (`tdata` plus the wavenumber sums) |
+| `SM_GF_BATCH_MAX` | 64 | upper limit of distances per call |
+
+The wavenumber sums in `subfk` live on the heap (an automatic array of
+`nx*9*2*nfft` complex values would overflow the default stack); the core
+must be rebuilt.
+
+### Compact Green's function database
+
+The core returns `tdata` in float32 and, with `smth = 1`, only the first
+`smth*nfft` of its `2*nfft` samples are non-zero. `SM_GF_F32=1` stores
+`/tdata` as float32 with only those samples (the attribute `nt_full` keeps
+`2*nfft`); Stage 2 reads both layouts and zero-pads the compact one, so the
+core receives exactly the same values. Off by default, because tools that
+read `/tdata` directly expect the original layout. It applies to the MPI
+(dynamic) Stage 1 path.
 
 ## 4. Compiler flags
 
@@ -157,13 +242,89 @@ worked. Two changes:
   station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
   `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
 - **split crust models cached** per (source depth, receiver depth).
+- **STF convolution** (`SM_S2_CONV=fast`, off by default): each source time
+  function is resampled once per (source, pair time step) instead of once
+  per component and pair, the three components are convolved in one FFT,
+  and only up to the last sample that `add_to_response` keeps (the
+  convolution is causal, so those samples do not change). The pair time
+  step is `t[1] - t[0]` of the pair's own grid, which differs from the
+  nominal `dt` in the last bits and can change the resampled STF by one
+  sample, so the cache is keyed on its exact value.
+- **compact database** (`SM_GF_F32=1`, see section 3): less to read and
+  decompress, and no float64 to float32 conversion per pair.
+
+Stage 2 of the 4096-source, 3-station case on one node (16 x 2), same database:
+
+| Variant | Stage 2 | Read | `subgreen2` | Convolution | Motions |
+|---|---|---|---|---|---|
+| reference | 6.92 s | 2.41 s | 1.50 s | 2.61 s | - |
+| compact database, gzip | 3.95 s | 0.92 s | 0.41 s | 2.29 s | bit-identical |
+| compact database, uncompressed | **3.85 s** | 0.53 s | 0.46 s | 2.50 s | bit-identical |
+| `SM_S2_CONV=fast` | 6.95 s | - | - | **1.43 s** (from 2.67) | 1e-7 of the peak |
+
+The convolution gain grows with the ratio between the trace length
+(`2*nfft`) and the output window: 3.1-3.5x on a small DRM box with
+`nfft` 8192 and a 10 s window.
 
 | Case | Before | Sources split | Difference |
 |---|---|---|---|
-| Carcelen-El Inca (4096 sources, 3 stations), 1 node | 42.0 s | 5.5 s (16 ranks) | 4e-14 |
-| Full Quito rupture (32 768 sources, 3 stations), 1 node | 633 s | 251 s (32 ranks) | 2e-13 |
+| FF-A (4096 sources, 3 stations), 1 node | 42.0 s | 5.5 s (16 ranks) | 4e-14 |
+| FF-B (32 768 sources, 3 stations), 1 node | 633 s | 251 s (32 ranks) | 2e-13 |
+
+FF-B: same mechanism and crust as FF-A, plane 60 x 23.3 km from 3.0 to 17.9
+km depth, Mw 7.1, 32 768 subfaults, three stations above the rupture (Rrup
+4.0-6.7 km, Rjb < 0.1 km), `nfft` 32768, `dk` 0.044, `tmax` 54.2, 28 932
+Green's functions.
 
 The crust cache alone is bit-identical and saves ~10 %.
+
+### Grouped Stage 2 (`SM_S2_GROUP=1`)
+
+For one source, `subfocal` combines the components of the slot's Green's
+function with coefficients that depend only on the source mechanism and the
+source-receiver azimuth, and the convolution with the source time function
+is linear, so the two can be swapped. With `SM_S2_GROUP=1` the components
+are convolved once per (source, slot, pair time step) and every receiver of
+that group only applies its own coefficients and integer shift. On a DRM box
+of 8179 receivers and a 32 768-subfault fault there are 6.4e5 such groups
+for 2.7e8 pairs (about 400 receivers per group).
+
+The other parts of the grouped path:
+
+- only the samples that `add_to_response` keeps are computed (the output
+  window is about a third of the `2*nfft` trace);
+- `t0` comes from `core.subtrav` with the single-precision steps of
+  `subgreen2`, so windows, shifts and time grids are those of the per-pair
+  path; `subgreen2` is no longer called per pair;
+- receivers go in chunks (`SM_S2_CHUNK`, or as many as fit in
+  `SM_S2_CHUNK_MB`, default 1024 MB of buffers per rank); within a chunk
+  each rank owns a set of slots balanced by pair count, reads each slot
+  once, and the partial responses are summed with one Reduce per chunk
+  (`SM_S2_ORDER=source` gives each rank a block of sources instead);
+- groups of fewer than 3 receivers combine first and convolve 3 components;
+- with Numba a compiled kernel combines and adds each group in one pass over
+  the receiver buffers (`SM_S2_FUSED=0` uses a matrix product instead).
+
+The combination is done in float64. The per-pair path combines in single
+precision inside `subfocal`, and that round-off, summed over the sources, is
+the only difference: recomputing every pair on its own in float64 gives the
+grouped result to 2e-15. That is why the option is off by default.
+
+| Case | Per-pair path | Grouped | Difference / peak |
+|---|---|---|---|
+| DRM box, 64 receivers x 32 768 subfaults, float64 gzip database, 2 nodes x 16 | 869 s (`SM_S2_CONV=fast`: 737 s) | **128 s** | 1.7e-5 |
+| Same box, all 8179 receivers, 2 nodes x 16, without the kernel | previous code: 33 197 s on 10 nodes | **11 961 s** (14x fewer node-hours) | 3.2e-5 over 24 534 traces |
+| Same box, float32 compact database of the current core, all receivers | 9 896 s on 10 nodes (`SM_S2_CONV=fast`) = 27.5 node-h | **3 507 s on 3 nodes** = 3.1 node-h (database copied to each node's local disk first, 171 s) | 3.5e-5; peaks within 5.4e-5; response spectra within 1.8e-4 |
+| One surface receiver x 32 768 subfaults, 1 node x 16 | 38.6 / 41.8 s (`fast`: 31.0 / 33.9 s) | **12.6 / 17.7 s** | 0.8-3e-5 |
+| 3 surface receivers x 4096 subfaults, 1 node x 16 | 2-9 s | 2-7 s | 4e-7 |
+
+With few receivers the gain comes from the cropped window and from no
+longer calling `subgreen2` per pair; with many it also comes from the shared
+convolutions. What remains is the shifted add into the receiver buffers,
+about 1 MB per pair, which is bound by memory bandwidth (about 42 GB/s per
+node with 16 ranks): fewer operations per sample barely change it.
+Reading the database from each node's local disk instead of the shared one
+cut the read time from about 1 300 s to 57 s per rank on the whole box.
 
 ## 6. What was tried and not adopted
 
@@ -173,11 +334,29 @@ The crust cache alone is bit-identical and saves ~10 %.
 - **Stage 2 summed in the frequency domain** (CPU): correct (1e-7) but not
   faster than splitting the sources.
 - **Stage 2 on the GPU:** 10x faster than the old loop and ~4x faster than
-  splitting the sources on the full Quito rupture, but the PGA differs by
-  1e-3 from the CPU result, most likely from rounding `t0` in float64
-  instead of float32 before the integer shift. Not adopted until that is
-  fixed. Its natural use is many FFSP realisations on one GF database, which
-  can stay in GPU memory.
+  splitting the sources on a 32 768-source, 3-station case, but the
+  acceleration differs by up to
+  1e-3 of the PGA away from the peak, with broadband content. The CPU
+  reference is accurate to 1e-7, so this is not round-off: the prototype
+  resamples each STF with the nominal `dt`, while `convolve` uses each pair's
+  own time step. Doing the same on the CPU reproduces the error (1e-3 of the
+  PGA in acceleration, centroid 45-50 Hz, maximum away from the PGA; below
+  1e-4 in response spectra). Not adopted yet; its natural use is many FFSP
+  realisations on one GF database, which can stay in GPU memory.
+- **Coarser time step with the same unfiltered band** (Stage 1): the FK cost
+  scales with the square of the Nyquist frequency, and below the start of
+  the taper the spectrum does not depend on `dt`. On the 4096-source,
+  3-station case, `dt` 0.005 s with
+  taper 0.8 and `dt` 0.01 s with taper 0.6 (same 20 Hz unfiltered band) made
+  Stage 1 4.1x and 16.4x faster, but response spectra changed by 3-14 %
+  below 0.5 s: the source time functions are also discretised with the run
+  `dt`. It would need separate time steps for the Green's functions and the
+  sources.
+- **Grouping slots beyond `hs` by distance band** (Stage 1): each group uses
+  the wavenumber step of its largest distance. 7.7x on the 32 768-source,
+  1-station case, but results
+  change by a few per cent where `dk` is not converged; it can only be judged
+  against a reference with a finer `dk`.
 
 ## 7. Correctness: the `subtrav` fix checked against SW4
 
@@ -185,37 +364,44 @@ The crust cache alone is bit-identical and saves ~10 %.
 where its ray loop needs 0-based ones, so the ray crossed the wrong layers
 whenever source and receiver were not in adjacent layers. With OP, Stage 2
 places the GF of a slot at the `t0` of each real pair, so a wrong `t0` puts
-each subfault at the wrong time. On the Quito case the fix changes `t0` in
+each subfault at the wrong time. On FF-A the fix changes `t0` in
 99 % of the slots (median 0.16 s, max 1.05 s).
 
-Check: the Carcelen-El Inca case with the crust truncated at 32.79 km, run
+Check: FF-A with the crust truncated at 32.8 km, run
 with the old and the fixed core (Q = 1000 in every layer) and with SW4 on
 the same crust, source and stations (7 Hz, h = 33.3 m, no attenuation),
 compared up to 14 s, 0.05-7 Hz:
 
-| Station CAROLINA (E / N / Z) | Old `subtrav` | Fixed `subtrav` |
+| Station at Rrup 6.7 km (E / N / Z) | Old `subtrav` | Fixed `subtrav` |
 |---|---|---|
 | correlation with SW4 | 0.919 / 0.898 / 0.955 | **0.973 / 0.944 / 0.962** |
 | normalised misfit | 0.40 / 0.45 / 0.30 | **0.23 / 0.33 / 0.27** |
 | PGV / PGV SW4 | 1.08 / 0.93 / 0.95 | **0.98 / 1.01 / 1.02** |
 
-![SW4 against both cores, station CAROLINA](../assets/performance/sw4_vs_shakermaker_QX11.png)
+![SW4 against both cores, station at Rrup 6.7 km](../assets/performance/sw4_vs_shakermaker_near_station.png)
 
-CAROLINA, the station closest to the fault, is where the two cores differ;
+The station closest to the fault is where the two cores differ;
 the old core adds acceleration pulses that SW4 does not have. At the two
 farther stations both cores tie (correlation 0.85-0.95). Runs made before
 the fix can differ by up to about +-25 % in PGA and short-period PSA at
 stations near the fault; long periods barely change.
 
-With the production Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
+With the case's own Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
 decreasing with distance; with Q = 1000 it is at 0.85-1.05. Compare against
 an elastic SW4 run with Q = 1000 in ShakerMaker.
 
 ## 8. Open items
 
-- With the fixed core, CAROLINA shows a small pulse at 1.0-1.7 s (5-10 % of
-  the PGV) that neither SW4 nor the old core has. It does not move the peaks
-  but is an artefact still to be traced.
-- The `dk` recommended by `check_parameters` (0.4) drops the vertical
-  correlation with LOH.1 to 0.89; `dk` 0.2 keeps it at >= 0.997.
-- Stage 2 on the GPU needs the `t0` rounding fix above.
+- With the fixed core, the station at Rrup 6.7 km shows a small pulse at
+  1.0-1.7 s (5-10 % of the PGV) that neither SW4 nor the old core has. It is
+  energy ahead of the first arrival inside the `tb` padding of the Green's
+  functions of many subfaults (an FK precursor), not a misplaced slot; with
+  the old core the window started about 1 s later and hid it. It does not
+  move the peaks; which FK parameter controls it is still to be measured.
+- `check_parameters` recommends `dk` 0.4 whatever the input, and that value
+  drops the vertical correlation with LOH.1 to 0.89 (0.2: 0.9975; 0.1:
+  0.9998; 0.05: 0.9999).
+- Stage 2 on the GPU: its integer sample shift is the same as on the CPU.
+  The difference against the CPU is broadband noise around 60 Hz that grows
+  when differentiating to acceleration (<= 1e-5 at the PGA itself); it has
+  to be judged after low-pass filtering to the model's band.
