@@ -7,7 +7,10 @@ Each test pins a bug that was fixed or a property the engine relies on:
 - subgreen must not return NaN at zero epicentral distance (0/0 in the
   Bessel terms);
 - the OpenMP wavenumber loop must give bit-identical results for any number
-  of threads.
+  of threads;
+- one call with several distances that share the wavenumber step returns,
+  for each distance, exactly what a call with that distance alone returns
+  (Stage 1 batches slots on this property).
 """
 
 import hashlib
@@ -103,3 +106,30 @@ def _hash_with_threads(n):
 
 def test_openmp_thread_count_does_not_change_results():
     assert _hash_with_threads(1) == _hash_with_threads(4)
+
+
+def _subgreen_loh1_multi(xs):
+    # Same model as _subgreen_loh1, several distances in one call.
+    d = [1.0, 1.0, 0.0]
+    a = [4.0, 6.0, 6.0]
+    b = [2.0, 3.464, 3.464]
+    rho = [2.6, 2.7, 2.7]
+    q = [10000.0, 10000.0, 10000.0]
+    xs = np.asarray(xs, dtype=np.float64)
+    return core.subgreen(
+        3, 3, 1, 2, 0, d, a, b, rho, q, q, 0.02, 512, 50, len(xs),
+        2, 1, 1, 2, 0, 1, 0.1, 15.0, 0.9, xs,
+        0.0, 0.7853981633974483, 1.5707963267948966,
+        0.0, 0.0, 0.0, float(xs[0]))
+
+
+def test_several_distances_per_call_match_one_call_each():
+    # The wavenumber step is dk*pi/max(hs, x), with hs the finite thickness of
+    # the model (2 km here). Distances up to hs share it, so the kernel is
+    # evaluated once for all of them and only the Bessel terms differ.
+    xs = [0.0, 0.3, 0.9, 1.4, 1.95]
+    tdata, _, _, _, t0 = _subgreen_loh1_multi(xs)
+    for i, x in enumerate(xs):
+        one, _, _, _, t0_one = _subgreen_loh1_multi([x])
+        assert np.array_equal(tdata[i], one[0]), f"tdata differs at x = {x}"
+        assert t0[i] == t0_one[0], f"t0 differs at x = {x}"
