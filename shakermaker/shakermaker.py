@@ -14,11 +14,15 @@ Three-stage pipeline with O(1) Green's Function lookup via pair_to_slot:
       vs plain Python) and writes the HDF5 mapping file.
 
   Stage 1  compute_gf
-      Computes the FK kernel (tdata) for each unique slot k.
+      Computes the FK kernel (tdata) for each unique slot k. Slots that share
+      the source and receiver depths and lie within hs (the finite thickness
+      of the split crust) are computed in one multi-distance core call.
       MPI parallel: workers compute, rank 0 collects and writes to HDF5.
 
       HDF5 layout (new, efficient):
-        /tdata   shape=(n_slots, nt, 9)    float32  chunks=(1,nt,9)    gzip
+        /tdata   shape=(n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip
+                 or, with SM_GF_F32=1, float32 holding only the smth*nfft
+                 non-zero samples (attribute nt_full = 2*nfft)
         /t0      shape=(n_slots,)          float64
       One dataset per quantity (not one dataset per slot), so metadata
       overhead is O(1) regardless of the number of slots.
@@ -57,6 +61,8 @@ HDF5 database -- two files (separated to keep mapping light):
 
   {name}_gf.h5
     /tdata   (n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip=4
+             compact layout (SM_GF_F32=1): float32, nt = smth*nfft, attribute
+             nt_full = 2*nfft; Stage 2 reads both and zero-pads the compact one
     /t0      (n_slots,)          float64
     Note: nt = actual samples from core.subgreen (= nfft when smth=1,
           = smth*nfft otherwise). Dataset created lazily on first slot.
@@ -131,6 +137,66 @@ def _perf_counters():
             for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read')}
 
 
+# Stage 2 convolution mode. 'legacy' (default) calls stf.convolve
+# three times per pair. 'fast' resamples each source time function once per run,
+# convolves the three components in one FFT and only up to the last sample that
+# add_to_response will keep (the convolution is causal, so the kept samples are the
+# same up to FFT round-off). Set with SM_S2_CONV (read when Stage 2 starts).
+
+
+class _STFCache:
+    """Source time functions resampled onto the Stage 2 grid, one per (STF, dt).
+
+    dt is the pair's own t[1] - t[0], which differs from the nominal dt in the last
+    bits and can change the length of the resampled STF by one sample; keying on the
+    exact value reproduces stf.convolve exactly (a handful of distinct values per run).
+    """
+
+    def __init__(self):
+        self._c = {}
+
+    def get(self, stf, dt):
+        hit = self._c.get((id(stf), dt))
+        if hit is not None and hit[0] is stf:
+            return hit[1]
+        if len(stf.data) == 1:
+            r = (None, stf.data[0])
+        else:
+            from scipy.interpolate import interp1d
+            t_r = np.arange(stf.t[0], stf.t[-1] + dt, dt)
+            r = (interp1d(stf.t, stf.data, bounds_error=False, fill_value=0.0)(t_r), None)
+        self._c[(id(stf), dt)] = (stf, r)
+        return r
+
+
+def _conv3(cache, stf, z, e, n, dti, keep):
+    """z, e, n convolved with stf, first 'keep' samples, as stf.convolve does it."""
+    if keep <= 0:
+        return np.zeros((3, 0))
+    zen = np.vstack((z[:keep], e[:keep], n[:keep]))
+    stf_r, scale = cache.get(stf, dti)
+    if stf_r is None:
+        return zen * scale
+    from scipy.signal import fftconvolve
+    return fftconvolve(zen, stf_r[None, :], mode="full", axes=-1)[:, :keep] * dti
+
+
+# Green's function database layout. The core returns tdata in float32
+# and, with smth = 1, only the first smth*nfft of its 2*nfft samples are non-zero.
+# SM_GF_F32=1 makes Stage 1 store float32 and only those samples (attribute nt_full on
+# /tdata keeps 2*nfft); Stage 2 reads both layouts, zero-padding the new one back.
+
+
+def _read_tdata(ds, k, nt_full):
+    """Row k of /tdata as the (2*nfft, 9) array subgreen2 expects, any layout."""
+    x = ds[k]
+    if nt_full is None:                      # original layout: float64, all samples
+        return np.ascontiguousarray(x, dtype=np.float64)
+    out = np.zeros((nt_full, 9), dtype=np.float32)
+    out[:x.shape[0]] = x
+    return out
+
+
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
 
 
@@ -138,8 +204,8 @@ def _dbg(msg):
     """Per-rank, timestamped, flushed diagnostic print -- only when
     SHAKERMAKER_PERF_STATS_DEBUG=1 is set in the environment. Used to
     pinpoint exactly which rank/call hangs inside a blocking MPI collective,
-    since a hang (unlike an exception) leaves no trace otherwise. See
-    BUG_stage2_mpi_hang -- this is for the *second*, still-unexplained hang
+    since a hang (unlike an exception) leaves no trace otherwise. This is
+    for the Stage 2 MPI hang -- the *second*, still-unexplained one
     that reproduces even with the comm.Abort() and close()-timeout fixes in
     place, so the culprit must be somewhere neither of those covers.
     """
@@ -585,6 +651,11 @@ class ShakerMaker:
 
         perf_time_begin = perf_counter()
         c = _perf_counters()
+
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
 
         if debugMPI:
             fid_debug_mpi = open(f"rank_{rank}.debuginfo", "w")
@@ -1276,11 +1347,94 @@ class ShakerMaker:
                     taper, aux_crust, psource, station, verbose)
                 dtc = perf_counter() - t1
                 c['core'] += dtc
-                tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
+                if _gf_f32:
+                    tdata_c = np.ascontiguousarray(tdata[0, :, :smth * nfft].T, dtype=np.float32)
+                else:
+                    tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
                 t1 = perf_counter()
                 comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
                 c['zip'] += perf_counter() - t1
                 return tdata_c.shape[0], float(t0), comp, dtc
+
+            _gf_f32 = os.environ.get("SM_GF_F32", "0") == "1"
+
+            # Several slots per core call. The core evaluates the wavenumber kernel
+            # once per (omega, k) for all the distances of a call; only the Bessel
+            # terms depend on the distance. Slots with the same (z_src, z_rec) whose
+            # distance is <= hs (the total finite thickness of the split crust, as
+            # the core computes it in float32) share the wavenumber step dk*pi/hs,
+            # so one call with all of them returns, for each, exactly what a call
+            # per slot returns. Slots beyond hs keep a call of their own. Every rank
+            # builds the same groups. On by default; SM_GF_BATCH=0 restores one call
+            # per slot. A call holds about 9*2*nfft*12 bytes per distance (tdata and
+            # the wavenumber sums), so the distances per call are capped by
+            # SM_GF_BATCH_MB (default 512) and SM_GF_BATCH_MAX (default 64).
+            _batch = os.environ.get("SM_GF_BATCH", "1") != "0"
+            _per_dist = 9 * 2 * nfft * 12
+            _gmax = max(1, min(int(os.environ.get("SM_GF_BATCH_MAX", "64")),
+                               int(float(os.environ.get("SM_GF_BATCH_MB", "512")) * 2**20 // _per_dist)))
+            groups = []
+            if _batch:
+                _bykey, _hs = {}, {}
+                for k in range(npairs):
+                    i_st, i_ps = pairs_to_compute[k]
+                    st = self._receivers.get_station_by_id(int(i_st))
+                    ps = self._source.get_source_by_id(int(i_ps))
+                    key = (float(ps.x[2]), float(st.x[2]))
+                    if key not in _hs:
+                        _cc = copy.deepcopy(self._crust)
+                        _cc.split_at_depth(key[0]); _cc.split_at_depth(key[1])
+                        h32 = np.float32(0.0)
+                        for _d in np.asarray(_cc.d, dtype=np.float32):
+                            h32 = np.float32(h32 + _d)
+                        _hs[key] = h32
+                    x = np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2)
+                    if np.float32(x) <= _hs[key]:
+                        _bykey.setdefault(key, []).append(k)
+                    else:
+                        groups.append([k])
+                for key in sorted(_bykey):
+                    ks = _bykey[key]
+                    for i0 in range(0, len(ks), _gmax):
+                        groups.append(ks[i0:i0 + _gmax])
+            else:
+                groups = [[k] for k in range(npairs)]
+            ngroups = len(groups)
+
+            def _compute_group(g):
+                ks = groups[g]
+                if len(ks) == 1:
+                    nt_real, t0v, comp, dtc = _compute_slot(ks[0])
+                    return [(ks[0], nt_real, t0v, comp)], dtc
+                i_st, i_ps = pairs_to_compute[ks[0]]
+                station = self._receivers.get_station_by_id(int(i_st))
+                psource = self._source.get_source_by_id(int(i_ps))
+                aux_crust = copy.deepcopy(self._crust)
+                aux_crust.split_at_depth(psource.x[2])
+                aux_crust.split_at_depth(station.x[2])
+                xs = []
+                for k in ks:
+                    a_st, a_ps = pairs_to_compute[k]
+                    st = self._receivers.get_station_by_id(int(a_st))
+                    ps = self._source.get_source_by_id(int(a_ps))
+                    xs.append(np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2))
+                t1 = perf_counter()
+                tdata, t0 = self._call_core_multi(
+                    dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper,
+                    aux_crust, psource, station, np.array(xs, dtype=np.float64))
+                dtc = perf_counter() - t1
+                c['core'] += dtc
+                out = []
+                for ix, k in enumerate(ks):
+                    if _gf_f32:
+                        tdata_c = np.ascontiguousarray(tdata[ix, :, :smth * nfft].T, dtype=np.float32)
+                    else:
+                        tdata_c = np.ascontiguousarray(tdata[ix].T, dtype=np.float64)
+                    t1 = perf_counter()
+                    comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
+                    c['zip'] += perf_counter() - t1
+                    out.append((k, tdata_c.shape[0], float(t0[ix]), comp))
+                return out, dtc
 
             # Longest-processing-time-first order (results unchanged:
             # each slot is still written at its own index). With
@@ -1302,6 +1456,14 @@ class ShakerMaker:
                     order = np.lexsort((-_dh, _dv)).astype(np.int64)
                     _src = "geometric proxy (dv asc, dh desc)"
                 print(f"  GF slot order: {_src}")
+            # Task order over groups: largest groups first, then by the slot order.
+            _pos = np.empty(npairs, dtype=np.int64); _pos[order] = np.arange(npairs)
+            gorder = np.array(sorted(range(ngroups),
+                                     key=lambda g: (-len(groups[g]), int(_pos[groups[g]].min()))),
+                              dtype=np.int64)
+            if rank == 0 and _batch:
+                print(f"  GF batching: {npairs} slots in {ngroups} core calls "
+                      f"(max {_gmax} distances per call)")
 
             if rank == 0:
                 costs = np.zeros(npairs, dtype=np.float64)
@@ -1310,10 +1472,10 @@ class ShakerMaker:
 
                 def _take():
                     with lock:
-                        if state['pos'] < npairs:
-                            k = int(order[state['pos']])
+                        if state['pos'] < ngroups:
+                            g = int(gorder[state['pos']])
                             state['pos'] += 1
-                            return k
+                            return g
                     return -1
 
                 outstanding = np.zeros(nprocs, dtype=np.int64)
@@ -1337,7 +1499,10 @@ class ShakerMaker:
                         gf_holder[0] = hfile_gf.create_dataset(
                             '/tdata', shape=(npairs, nt_real, 9),
                             maxshape=(None, nt_real, 9), chunks=(1, nt_real, 9),
-                            dtype=np.float64, compression='gzip', compression_opts=4)
+                            dtype=np.float32 if _gf_f32 else np.float64,
+                            compression='gzip', compression_opts=4)
+                        if _gf_f32:
+                            gf_holder[0].attrs['nt_full'] = 2 * nfft
                     gf_holder[0].id.write_direct_chunk((k, 0, 0), comp.tobytes())
                     t0_ds[k] = t0v
                     c['write'] += perf_counter() - t_w0
@@ -1349,7 +1514,7 @@ class ShakerMaker:
                     try:
                         received = 0
                         status = MPI.Status()
-                        hdr = np.empty(4, dtype=np.int64)      # slot, nt, nbytes, core_us
+                        hdr = np.empty(5, dtype=np.int64)      # slot, nt, nbytes, core_us, last
                         while received < npairs:
                             try:
                                 k, nt_real, t0v, comp = local_q.get_nowait()
@@ -1369,13 +1534,14 @@ class ShakerMaker:
                             buf = np.empty(int(hdr[2]), dtype=np.uint8)
                             comm.Recv(buf, source=src, tag=TAG_DATA)
                             c['recv'] += perf_counter() - t1
-                            outstanding[src] -= 1
-                            k_next = _take()
-                            if k_next >= 0:
-                                comm.Send(np.array([k_next], dtype=np.int64), dest=src, tag=TAG_TASK)
-                                outstanding[src] += 1
-                            elif outstanding[src] == 0:
-                                comm.Send(STOP, dest=src, tag=TAG_TASK)
+                            if hdr[4]:                         # last slot of its group
+                                outstanding[src] -= 1
+                                k_next = _take()
+                                if k_next >= 0:
+                                    comm.Send(np.array([k_next], dtype=np.int64), dest=src, tag=TAG_TASK)
+                                    outstanding[src] += 1
+                                elif outstanding[src] == 0:
+                                    comm.Send(STOP, dest=src, tag=TAG_TASK)
                             k = int(hdr[0])
                             costs[k] = hdr[3] * 1e-6
                             _store(k, int(hdr[1]), t0_arr[0], buf)
@@ -1392,12 +1558,13 @@ class ShakerMaker:
                 try:
                     if os.environ.get("SM_GF_RANK0_COMPUTE", "1") == "1":
                         while th.is_alive():
-                            k = _take()
-                            if k < 0:
+                            g = _take()
+                            if g < 0:
                                 break
-                            nt_real, t0v, comp, dtc = _compute_slot(k)
-                            costs[k] = dtc
-                            local_q.put((k, nt_real, t0v, comp))
+                            out, dtc = _compute_group(g)
+                            for k, nt_real, t0v, comp in out:
+                                costs[k] = dtc / len(out)
+                                local_q.put((k, nt_real, t0v, comp))
                     th.join()
                     if err:
                         raise err[0]
@@ -1411,13 +1578,14 @@ class ShakerMaker:
                 task = np.empty(1, dtype=np.int64)
                 comm.Recv(task, source=0, tag=TAG_TASK)
                 while task[0] >= 0:
-                    k = int(task[0])
-                    nt_real, t0v, comp, dtc = _compute_slot(k)
+                    out, dtc = _compute_group(int(task[0]))
                     t1 = perf_counter()
-                    hdr = np.array([k, nt_real, comp.size, int(round(dtc * 1e6))], dtype=np.int64)
-                    comm.Send(hdr, dest=0, tag=TAG_HDR)
-                    comm.Send(np.array([t0v], dtype=np.double), dest=0, tag=TAG_T0)
-                    comm.Send(comp, dest=0, tag=TAG_DATA)
+                    for i_o, (k, nt_real, t0v, comp) in enumerate(out):
+                        hdr = np.array([k, nt_real, comp.size, int(round(dtc / len(out) * 1e6)),
+                                        int(i_o == len(out) - 1)], dtype=np.int64)
+                        comm.Send(hdr, dest=0, tag=TAG_HDR)
+                        comm.Send(np.array([t0v], dtype=np.double), dest=0, tag=TAG_T0)
+                        comm.Send(comp, dest=0, tag=TAG_DATA)
                     c['send'] += perf_counter() - t1
                     comm.Recv(task, source=0, tag=TAG_TASK)
 
@@ -1619,7 +1787,7 @@ class ShakerMaker:
         # error opening a shared file under concurrent access from ~100+
         # ranks) it used to die silently -- with no comm.Abort() -- while
         # every other rank eventually blocked forever on the comm.Reduce()
-        # calls inside _print_perf_stats(). See BUG_stage2_mpi_hang.
+        # calls inside _print_perf_stats() (the Stage 2 MPI hang).
         try:
             if rank == 0:
                 print(f"\n\n{title}")
@@ -1640,6 +1808,10 @@ class ShakerMaker:
                 gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
                 hfile    = _wait_and_open_h5(map_file, 'r')
                 hfile_gf = _wait_and_open_h5(gf_file,  'r')
+
+            # Layout of /tdata: original (float64, 2*nfft) or compact (float32, nt_full attribute)
+            _nt_full = hfile_gf['/tdata'].attrs.get('nt_full', None)
+            _nt_full = None if _nt_full is None else int(_nt_full)
 
             # O(1) lookup array — loaded once, shared across all stations
             pair_to_slot = hfile["/pair_to_slot"][:]
@@ -1694,6 +1866,13 @@ class ShakerMaker:
         perf_time_begin = perf_counter()
         c         = _perf_counters()
         tstart    = perf_counter()
+
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
+        _stf_cache = _STFCache()
+        _s2conv = os.environ.get("SM_S2_CONV", "legacy")
 
         for psource in self._source:
             psource.stf.dt = dt
@@ -1772,8 +1951,7 @@ class ShakerMaker:
                     # Output grid from source 0, the first source the per-station
                     # loop adds (its t_arr fixes the station's dt and grid).
                     ps0 = source_list_cache[0]
-                    tdata0 = np.ascontiguousarray(
-                        hfile_gf['/tdata'][int(slot_matrix[i_station][0])], dtype=np.float64)
+                    tdata0 = _read_tdata(hfile_gf['/tdata'], int(slot_matrix[i_station][0]), _nt_full)
                     z0, e0, n0, t00 = self._call_core_fast(
                         tdata0, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax,
                         dk, kc, taper, _crust_for(ps0.x[2], z_rec), ps0, station, verbose)
@@ -1783,7 +1961,7 @@ class ShakerMaker:
                     buf = np.zeros((3, nout))
                     for k in keys[rank::nprocs]:
                         t1 = perf_counter()
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                         c['read'] += perf_counter() - t1
                         for i_psource, psource in slot_to_sources[k]:
                             t1 = perf_counter()
@@ -1805,9 +1983,13 @@ class ShakerMaker:
                             if nw <= 0:
                                 continue
                             t1 = perf_counter()
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, ns_ + nw)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
                             t1 = perf_counter()
                             buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
@@ -1877,9 +2059,9 @@ class ShakerMaker:
                     # # any cast. Keeping float32 avoids a full-array copy.
                     # tdata = hfile_gf['/tdata'][k]   # float32, shape (nt, 9)
 
-                    # tdata is stored as float64
+                    # tdata: float64 (original layout) or float32 (compact layout), shape (nt, 9)
                     try:
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)   # float64, shape (nt, 9)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                     except Exception:
                         traceback.print_exc()
                         if use_mpi and nprocs > 1:
@@ -1911,9 +2093,20 @@ class ShakerMaker:
 
                             t1    = perf_counter()
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                # keep what add_to_response can write (+2 samples of margin)
+                                dti = t_arr[1] - t_arr[0]
+                                nb_ = int(t_arr[0] / dti) if t_arr[0] >= 0 else 0
+                                ns_ = 0 if t_arr[0] >= 0 else int(-t_arr[0] / dti)
+                                nbuf = (len(station._t) if station._initialized
+                                        else len(np.arange(tmin, tmax, dti)))
+                                keep = min(len(z), max(ns_ + nbuf - nb_ + 2, 0))
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, keep)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
 
                             t1 = perf_counter()
@@ -2014,12 +2207,18 @@ class ShakerMaker:
         # ------------------------------------------------------------------
         # All stations processed — close resources
         #
-        # Timeout-guarded: see _close_with_timeout(). A stuck NFS close()
-        # here on any single rank would otherwise hang every rank forever
-        # in the comm.Reduce() calls inside _print_perf_stats() below --
-        # exactly the same externally-visible symptom as BUG_stage2_mpi_hang,
-        # but caused by a blocking call instead of an uncaught exception, so
-        # the try/except-based fix for that bug does not help here.
+        # The read-only handles are closed with a timeout (see
+        # _close_with_timeout()): a stuck NFS close() on any single rank would
+        # otherwise hang every rank forever in the comm.Reduce() calls inside
+        # _print_perf_stats() below, and a blocked call raises nothing for a
+        # try/except to catch.
+        #
+        # The writer is NOT closed with a timeout. Its close() does real work:
+        # in 'legacy' mode it interpolates and writes every station (39-53 s
+        # for ~20 000 stations), and abandoning it would leave a truncated
+        # output file with only a warning, since the daemon thread dies with
+        # the process. Waiting for it cannot create a hang either: the other
+        # ranks are already waiting for rank 0 in the next collective.
         # ------------------------------------------------------------------
         _dbg("loop over stations finished, entering close-resources block")
         _close_with_timeout(hfile, label="map_file")
@@ -2030,7 +2229,7 @@ class ShakerMaker:
         _dbg("closed fid")
 
         if rank == 0 and writer:
-            _close_with_timeout(writer, label="writer")
+            writer.close()
             _dbg("closed writer")
 
         perf_time_total = perf_counter() - perf_time_begin
@@ -2228,8 +2427,14 @@ class ShakerMaker:
                 return
 
         if stage in (2, 'all'):
-            if writer is None and rank == 0:
-                print("WARNING: Stage 2 requires a writer. Aborting.")
+            # The writer usually exists only on rank 0, so rank 0 decides and every
+            # rank leaves together; otherwise the others would wait for rank 0.
+            has_writer = writer is not None
+            if use_mpi and nprocs > 1:
+                has_writer = comm.bcast(has_writer, root=0)
+            if not has_writer:
+                if rank == 0:
+                    print("WARNING: Stage 2 requires a writer. Aborting.")
                 return
             self.run_fast(
                 h5_database_name=h5_database_name,
@@ -2808,6 +3013,22 @@ class ShakerMaker:
 
         return tdata, z, e, n, t0
 
+
+    def _call_core_multi(self, dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
+                         taper, crust, psource, station, xs):
+        """core.subgreen with several distances xs (km) for one (z_src, z_rec).
+
+        Used by compute_gf (Stage 1) to batch slots. Returns tdata (nx, 9, 2*nfft)
+        and t0 (nx,), each row what _call_core returns for that distance.
+        """
+        src = crust.get_layer(psource.x[2]) + 1
+        rcv = crust.get_layer(station.x[2]) + 1
+        tdata, z, e, n, t0 = core.subgreen(
+            crust.nlayers, src, rcv, 2, 0, crust.d, crust.a, crust.b, crust.rho,
+            crust.qa, crust.qb, dt, nfft, tb, len(xs), sigma, smth, wc1, wc2, pmin,
+            pmax, dk, kc, taper, xs, psource.angles[0], psource.angles[1],
+            psource.angles[2], psource.x[0], psource.x[1], station.x[0], station.x[1])
+        return tdata, t0
 
     def _call_core_fast(self, tdata, dt, nfft, tb, nx, sigma, smth, wc1, wc2,
                         pmin, pmax, dk, kc, taper, crust, psource, station,
