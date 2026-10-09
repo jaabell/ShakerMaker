@@ -2115,6 +2115,13 @@ class ShakerMaker:
             _s2split = _s2env == "1"
         else:
             _s2split = use_mpi and nprocs > 1 and nstations < nprocs
+        # SM_S2_GROUP=1: convolve once per (source, slot, pair time step) and apply
+        # the result to every station of the chunk that shares it (_stage2_grouped).
+        if os.environ.get("SM_S2_GROUP", "0") == "1":
+            self._stage2_grouped(hfile_gf['/tdata'], _nt_full, slot_matrix, source_list_cache,
+                                 _crust_for, _stf_cache, dt, nfft, tb, tmin, tmax,
+                                 writer, writer_mode, c, perf_time_begin, showProgress)
+            _s2split = None
         if _s2split:
             for i_station in range(nstations):
                 station = self._receivers.get_station_by_id(i_station)
@@ -2196,7 +2203,7 @@ class ShakerMaker:
                     if use_mpi and nprocs > 1:
                         comm.Abort()
 
-        for i_station in (range(nstations) if not _s2split else []):
+        for i_station in (range(nstations) if _s2split is False else []):
             owner = i_station % nprocs
 
             # ----------------------------------------------------------------
@@ -2423,6 +2430,273 @@ class ShakerMaker:
         if use_mpi and nprocs > 1:
             comm.Barrier()
 
+
+    def _stage2_grouped(self, ds, nt_full, slot_matrix, srcs, crust_for, stf_cache,
+                        dt, nfft, tb, tmin, tmax, writer, writer_mode, c, t_begin,
+                        showProgress):
+        """Stage 2 by (source, slot, pair time step) groups (SM_S2_GROUP=1).
+
+        For one source, subfocal combines the components of the slot's Green's
+        function with coefficients that depend only on the source mechanism
+        (strike, dip, rake) and the source-station azimuth, and the convolution
+        with the source time function is linear, so both can be swapped: the 8
+        components subfocal uses are convolved once per group and every station
+        of the group only applies its own coefficients and its own integer
+        shift. The pair time step t[1] - t[0] is part of the group key because
+        the source time function is resampled with it, as stf.convolve does.
+        Groups shared by fewer than 3 stations combine first and convolve the 3
+        components of each station instead (cheaper, same arithmetic).
+
+        Only the samples that add_to_response keeps are computed, and t0 comes
+        from core.subtrav with the same single-precision steps as subgreen2, so
+        windows, shifts and time grids are those of the per-pair path. The
+        combination is done in float64, which differs from the per-pair path
+        (single-precision subfocal) only by that path's round-off.
+
+        Stations are processed in chunks of SM_S2_CHUNK stations (default: as
+        many as fit in SM_S2_CHUNK_MB = 1024 MB of station buffers per rank, at
+        3 x output samples x 8 bytes per station). Within a
+        chunk, SM_S2_ORDER=slot (default) gives every rank a set of slots
+        balanced by pair count, so each slot is read once per chunk, and
+        SM_S2_ORDER=source gives every rank a block of sources; the partial
+        station responses are summed on rank 0 with one Reduce, which hands
+        them to the stations and the writer as the split path does.
+        SM_S2_CACHE_MB caps the per-rank cache of slot arrays (default 1024).
+        With Numba (SM_S2_FUSED=1, default) a compiled kernel combines and adds
+        each group in one pass over the station buffers; otherwise a matrix
+        product and NumPy slices do the same.
+        """
+        from scipy.signal import fftconvolve
+        fused = None
+        if os.environ.get("SM_S2_FUSED", "1") == "1":
+            try:
+                from numba import njit as _nj
+
+                @_nj(nogil=True, cache=False)
+                def fused(buf, K, cg, mem):
+                    # subfocal structure, one pass over the 8 convolved components
+                    # (rows g1 g2 g4 g5 g6 g7 g8 g9) per receiver:
+                    #   z = Z2 g7 + Z1 g4 - A0 g1,  r = Z2 g8 + Z1 g5 - A0 g2,
+                    #   t = T2 g9 + T1 g6,  e = -s r - c t,  n = -c r + s t
+                    for q in range(mem.shape[0]):
+                        m, nb, ns, nw = mem[q, 0], mem[q, 1], mem[q, 2], mem[q, 3]
+                        Z2, Z1, A0, T2, T1, cc, ss = K[q, 0], K[q, 1], K[q, 2], K[q, 3], K[q, 4], K[q, 5], K[q, 6]
+                        for t in range(nw):
+                            s = ns + t
+                            zv = Z2 * cg[5, s] + Z1 * cg[2, s] - A0 * cg[0, s]
+                            rv = Z2 * cg[6, s] + Z1 * cg[3, s] - A0 * cg[1, s]
+                            tv = T2 * cg[7, s] + T1 * cg[4, s]
+                            buf[m, 0, nb + t] += zv
+                            buf[m, 1, nb + t] += -ss * rv - cc * tv
+                            buf[m, 2, nb + t] += -cc * rv + ss * tv
+            except ImportError:
+                fused = None
+        nsta, nsrc = slot_matrix.shape
+        L = 2 * nfft
+        # stations per chunk: SM_S2_CHUNK, or as many as fit in SM_S2_CHUNK_MB of
+        # station buffers per rank (default 1024 MB)
+        nout0 = len(np.arange(tmin, tmax, dt))
+        chunk = int(os.environ.get("SM_S2_CHUNK", "0") or 0)
+        if chunk <= 0:
+            mb_ = float(os.environ.get("SM_S2_CHUNK_MB", "1024"))
+            chunk = max(1, int(mb_ * 2**20 // (3 * (nout0 + 2) * 8)))
+        chunk = min(chunk, nsta)
+        cache_cap = float(os.environ.get("SM_S2_CACHE_MB", "1024")) * 2**20
+        tbdt = np.float32(np.float32(tb) * np.float32(dt))
+        comps = np.array([0, 1, 3, 4, 5, 6, 7, 8])     # g1 g2 g4 g5 g6 g7 g8 g9 (g3 unused)
+        stations = [self._receivers.get_station_by_id(i) for i in range(nsta)]
+        rx = np.array([s.x for s in stations], dtype=np.float64)
+
+        cache, cache_bytes, order = {}, 0, []
+
+        def slot(k):
+            nonlocal cache_bytes
+            g = cache.get(k)
+            if g is None:
+                t1 = perf_counter()
+                g = np.ascontiguousarray(_read_tdata(ds, k, nt_full)[:, comps].T, dtype=np.float64)
+                c['read'] += perf_counter() - t1
+                cache[k] = g; order.append(k); cache_bytes += g.nbytes
+                while cache_bytes > cache_cap and len(order) > 1:
+                    old = order.pop(0); cache_bytes -= cache.pop(old).nbytes
+            return g
+
+        trav = {}
+
+        def t0_of(ps, st):
+            """t0 of subgreen2 for this pair (same casts and flip)."""
+            key = (float(ps.x[2]), float(st.x[2]))
+            args = trav.get(key)
+            if args is None:
+                aux = crust_for(ps.x[2], st.x[2])
+                mb = aux.nlayers
+                src = aux.get_layer(ps.x[2]) + 1
+                rcv = aux.get_layer(st.x[2]) + 1
+                a = np.asarray(aux.a, dtype=np.float32); d = np.asarray(aux.d, dtype=np.float32)
+                if rcv > src:
+                    src, rcv = mb - src + 2, mb - rcv + 2
+                    a, d = a[::-1].copy(), d[::-1].copy()
+                args = trav[key] = (mb, a, d, src, rcv)
+            mb, a, d, src, rcv = args
+            x = np.float32(np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2))
+            tt0 = core.subtrav(mb, a, d, src, rcv, x)
+            return np.float32(np.float32(tt0) - tbdt)
+
+        def lpt_owner(cnt):
+            """Owner rank of every slot, longest-processing-time first by pair count."""
+            import heapq
+            owner = np.full(len(cnt), -1, dtype=np.int64)
+            heap = [(0.0, r) for r in range(nprocs)]
+            for k in np.argsort(-cnt, kind="stable"):
+                if cnt[k] == 0:
+                    break
+                load, r = heapq.heappop(heap)
+                owner[k] = r
+                heapq.heappush(heap, (load + float(cnt[k]), r))
+            return owner
+
+        s2order = os.environ.get("SM_S2_ORDER", "slot")
+
+        def window(ps, t0, nout):
+            """dti, nb, ns, nw of add_to_response for this pair."""
+            a0 = (0.0 + ps.tt) + np.float64(t0)
+            a1 = (dt + ps.tt) + np.float64(t0)
+            dti = a1 - a0
+            if a0 >= 0:
+                nb, ns = int(a0 / dti), 0
+            else:
+                nb, ns = 0, int(-a0 / dti)
+            return dti, nb, ns, min(L - ns, nout - nb)
+
+        for c0 in range(0, nsta, chunk):
+            ids = np.arange(c0, min(c0 + chunk, nsta))
+            # station grids: step of the pair with source 0, the first one added
+            t1 = perf_counter()
+            dt_sta = np.empty(len(ids)); nout = np.empty(len(ids), dtype=np.int64)
+            for m, i in enumerate(ids):
+                dti, _, _, _ = window(srcs[0], t0_of(srcs[0], stations[i]), 0)
+                dt_sta[m] = dti
+                nout[m] = len(np.arange(tmin, tmax, dti))
+            c['core'] += perf_counter() - t1
+            buf = np.zeros((len(ids), 3, int(nout.max())))
+            sm = slot_matrix[ids]
+
+            def work_items():
+                """(source, stations of the chunk, their slots) handled by this rank.
+
+                SM_S2_ORDER=slot (default): every rank owns a set of slots (balanced by
+                pair count) and handles all their pairs, so each slot is read once per
+                chunk. SM_S2_ORDER=source: every rank takes a contiguous block of sources.
+                """
+                if s2order == "source":
+                    lo, hi = (rank * nsrc) // nprocs, ((rank + 1) * nsrc) // nprocs
+                    for j_ in range(lo, hi):
+                        yield j_, np.arange(len(ids)), sm[:, j_]
+                    return
+                owner = lpt_owner(np.bincount(sm.ravel()))
+                mm_, jj_ = np.nonzero(owner[sm] == rank)
+                kk_ = sm[mm_, jj_]
+                o = np.lexsort((mm_, jj_, kk_))
+                mm_, jj_, kk_ = mm_[o], jj_[o], kk_[o]
+                key = kk_.astype(np.int64) * nsrc + jj_
+                cut = np.flatnonzero(np.diff(key)) + 1
+                for a_, b_ in zip(np.r_[0, cut], np.r_[cut, len(key)]):
+                    yield int(jj_[a_]), mm_[a_:b_], kk_[a_:b_]
+
+            for j, mlist, klist in work_items():
+                ps = srcs[j]
+                t1 = perf_counter()
+                pf, df, lf = ps.angles
+                f1 = np.cos(lf)*np.cos(pf) + np.sin(lf)*np.cos(df)*np.sin(pf)
+                f2 = np.cos(lf)*np.sin(pf) - np.sin(lf)*np.cos(df)*np.cos(pf)
+                f3 = -np.sin(lf)*np.sin(df)
+                n1 = -np.sin(pf)*np.sin(df); n2 = np.cos(pf)*np.sin(df); n3 = -np.cos(df)
+                a2c, a2s = f1*n1 - f2*n2, f1*n2 + f2*n1
+                a1c, a1s = f1*n3 + f3*n1, f2*n3 + f3*n2
+                a0 = f3*n3
+                groups = {}
+                for m, k in zip(mlist, klist):
+                    st = stations[ids[m]]
+                    dti, nb, ns, nw = window(ps, t0_of(ps, st), int(nout[m]))
+                    if nw <= 0:
+                        continue
+                    groups.setdefault((int(k), dti), []).append((int(m), nb, ns, nw))
+                c['core'] += perf_counter() - t1
+                for (k, dti), members in groups.items():
+                    keep = max(ns + nw for _, _, ns, nw in members)
+                    g = slot(k)
+                    stf_r, scale = stf_cache.get(ps.stf, dti)
+                    t1 = perf_counter()
+                    mm = np.array([mb_[0] for mb_ in members])
+                    p = np.arctan2(rx[ids[mm], 1] - ps.x[1], rx[ids[mm], 0] - ps.x[0])
+                    c1, s1, c2, s2 = np.cos(p), np.sin(p), np.cos(2*p), np.sin(2*p)
+                    Z2 = a2c*c2 + a2s*s2; Z1 = a1c*c1 + a1s*s1
+                    T2 = a2c*s2 - a2s*c2; T1 = a1c*s1 - a1s*c1
+                    W = np.zeros((len(members), 3, 8))
+                    # columns: g1 g2 g4 g5 g6 g7 g8 g9 ; rows: z, e, n
+                    W[:, 0, 5] = Z2; W[:, 0, 2] = Z1; W[:, 0, 0] = -a0
+                    W[:, 1, 6] = -s1*Z2; W[:, 1, 3] = -s1*Z1; W[:, 1, 1] = s1*a0
+                    W[:, 1, 7] = -c1*T2; W[:, 1, 4] = -c1*T1
+                    W[:, 2, 6] = -c1*Z2; W[:, 2, 3] = -c1*Z1; W[:, 2, 1] = c1*a0
+                    W[:, 2, 7] = s1*T2;  W[:, 2, 4] = s1*T1
+                    if 3 * len(members) < 8:
+                        # Few receivers share this group: combining first and
+                        # convolving the 3 components of each is cheaper than
+                        # convolving the 8 components once (same arithmetic).
+                        out = (W.reshape(-1, 8) @ g[:, :keep]).reshape(len(members), 3, keep)
+                        c['add'] += perf_counter() - t1
+                        t1 = perf_counter()
+                        if stf_r is None:
+                            out = out * scale
+                        else:
+                            out = fftconvolve(out, stf_r[None, None, :], mode="full", axes=-1)[:, :, :keep] * dti
+                        c['conv'] += perf_counter() - t1
+                        t1 = perf_counter()
+                    else:
+                        c['add'] += perf_counter() - t1
+                        t1 = perf_counter()
+                        if stf_r is None:
+                            cg = g[:, :keep] * scale
+                        else:
+                            cg = fftconvolve(g[:, :keep], stf_r[None, :], mode="full", axes=-1)[:, :keep] * dti
+                        c['conv'] += perf_counter() - t1
+                        t1 = perf_counter()
+                        if fused is not None:
+                            # combine and add in one pass, no (members, 3, keep) temporary
+                            mem = np.array(members, dtype=np.int64)
+                            K = np.column_stack((Z2, Z1, np.full(len(members), a0), T2, T1, c1, s1))
+                            fused(buf, np.ascontiguousarray(K), np.ascontiguousarray(cg), mem)
+                            c['add'] += perf_counter() - t1
+                            continue
+                        out = (W.reshape(-1, 8) @ cg).reshape(len(members), 3, keep)
+                    for q, (m, nb, ns, nw) in enumerate(members):
+                        buf[m, :, nb:nb + nw] += out[q, :, ns:ns + nw]
+                    c['add'] += perf_counter() - t1
+            tot = np.zeros_like(buf) if rank == 0 else None
+            t1 = perf_counter()
+            if use_mpi and nprocs > 1:
+                comm.Reduce(buf, tot, op=MPI.SUM, root=0)
+            else:
+                tot = buf
+            c['send'] += perf_counter() - t1
+            if rank == 0:
+                t1 = perf_counter()
+                for m, i in enumerate(ids):
+                    st = stations[i]
+                    n_ = int(nout[m])
+                    # buffer index 0 is t = 0, as add_to_response counts the shifts;
+                    # the station grid itself is arange(tmin, tmax, dt_sta) as usual
+                    t_buf = np.arange(n_) * dt_sta[m]
+                    st.add_to_response(tot[m, 0, :n_], tot[m, 1, :n_], tot[m, 2, :n_],
+                                       t_buf, tmin, tmax)
+                    if writer:
+                        writer.write_station(st, int(i))
+                    if writer_mode == 'progressive' and writer:
+                        st.clear_response()
+                c['recv'] += perf_counter() - t1
+                if showProgress:
+                    print(f"  [rank=0] grouped chunk {c0 // chunk + 1}: stations "
+                          f"{ids[0]}..{ids[-1]} written", flush=True)
 
     # =========================================================================
     # Orchestrator  --  run_nearest
