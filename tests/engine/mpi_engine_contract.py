@@ -25,6 +25,8 @@ It checks properties that only show up under MPI:
    source-station distances, slots are grouped into multi-distance core calls
    and the Green's functions are bit-identical to one call per slot
    (SM_GF_BATCH=0).
+9. The compact database (SM_GF_F32=1: float32, only the non-zero samples)
+   gives bit-identical Stage 2 motions.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -57,7 +59,7 @@ FK = dict(dt=0.02, nfft=512, dk=0.1, tb=50, smth=1)
 STAGE0 = dict(delta_h=0.0025, delta_v_rec=0.0025, delta_v_src=0.2)
 TMIN, TMAX = 0.0, 8.0
 SLOW_CLOSE = float(os.environ.get("SM_TEST_SLOW_CLOSE", "35"))
-ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH")
+ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH", "SM_GF_F32")
 
 WORK = os.path.abspath(os.environ.get("SM_TEST_WORKDIR", "_engine_contract_work"))
 
@@ -244,6 +246,23 @@ def main():
         check(np.array_equal(gfb["batched"][0], gfb["one_per_slot"][0])
               and np.array_equal(gfb["batched"][1], gfb["one_per_slot"][1]),
               "stage 1 batched GFs bit-identical to one core call per slot")
+
+    # ---------------------------------------------------------------- 9
+    with_env(SM_GF_F32=1)
+    db32 = p("gf_f32.h5")
+    run_stage(model, 0, db32, **STAGE0)
+    run_stage(model, 1, db32)
+    with_env()
+    m64 = stage2(new_model(), "progressive", TMAX, "layout_f64")
+    out = p("modes_layout_f32.h5")
+    run_stage(new_model(), 2, db32, writer=HDF5StationListWriter(out),
+              writer_mode="progressive", tmin=TMIN, tmax=TMAX)
+    if rank == 0:
+        with h5py.File(db32.replace(".h5", "_gf.h5"), "r") as f:
+            ds = f["/tdata"]
+            check(ds.dtype == np.float32 and int(ds.attrs.get("nt_full", 0)) == 2 * ds.shape[1],
+                  f"compact database: float32, {ds.shape[1]} of {ds.attrs.get('nt_full')} samples")
+        check(same(read(out, ["Data"], fields), m64), "compact database gives bit-identical motions")
 
     # ---------------------------------------------------------------- 3
     with_env()

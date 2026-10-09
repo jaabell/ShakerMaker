@@ -162,6 +162,16 @@ The wavenumber sums in `subfk` live on the heap (an automatic array of
 `nx*9*2*nfft` complex values would overflow the default stack); the core
 must be rebuilt.
 
+### Compact Green's function database
+
+The core returns `tdata` in float32 and, with `smth = 1`, only the first
+`smth*nfft` of its `2*nfft` samples are non-zero. `SM_GF_F32=1` stores
+`/tdata` as float32 with only those samples (the attribute `nt_full` keeps
+`2*nfft`); Stage 2 reads both layouts and zero-pads the compact one, so the
+core receives exactly the same values. Off by default, because tools that
+read `/tdata` directly expect the original layout. It applies to the MPI
+(dynamic) Stage 1 path.
+
 ## 4. Compiler flags
 
 Fortran core rebuilt with different flags, everything else equal:
@@ -190,6 +200,16 @@ worked. Two changes:
   station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
   `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
 - **split crust models cached** per (source depth, receiver depth).
+- **compact database** (`SM_GF_F32=1`, see section 3): less to read and
+  decompress, and no float64 to float32 conversion per pair.
+
+Stage 2 of the 4096-source, 3-station case on one node (16 x 2), same database:
+
+| Variant | Stage 2 | Read | `subgreen2` | Convolution | Motions |
+|---|---|---|---|---|---|
+| reference | 6.92 s | 2.41 s | 1.50 s | 2.61 s | - |
+| compact database, gzip | 3.95 s | 0.92 s | 0.41 s | 2.29 s | bit-identical |
+| compact database, uncompressed | **3.85 s** | 0.53 s | 0.46 s | 2.50 s | bit-identical |
 
 | Case | Before | Sources split | Difference |
 |---|---|---|---|
