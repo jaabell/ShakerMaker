@@ -142,6 +142,10 @@ def main():
     model.run(dt=0.0025, nfft=8192 * 4, dk=0.2, tb=800, tmax=60,
               tmin=0.0, sigma=2, pmax=1, nx=1, kc=15.0, verbose=True)
 
+    # Under MPI only rank 0 holds the station responses.
+    if not model.mpi_is_master_process():
+        return
+
     sw4_names = ["sf00001", "sf00002"]
     for sid, sw4_name in enumerate(sw4_names):
         sta = stations.get_station_by_id(sid)
@@ -152,6 +156,16 @@ def main():
         z_f, e_f, n_f = (bandpass(z_s, dt_s),
                          bandpass(e_s, dt_s),
                          bandpass(n_s, dt_s))
+
+        # Correlation with SW4 on the common 0-15 s window, for the record.
+        tc = np.arange(0.0, 15.0, dt_s)
+        cc = []
+        for sm, sw in ((z_sm, z_f), (e_sm, e_f), (n_sm, n_f)):
+            a = np.interp(tc, t_sm, sm)
+            b = np.interp(tc, t_s, sw)
+            cc.append(float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-300)))
+        print(f"{sw4_name}: cc with SW4 (z, e, n) = "
+              + ", ".join(f"{c:.3f}" for c in cc))
 
         fig, ax = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
         for k, (sm, sw, lab) in enumerate([(z_sm, z_f, r"$u_z$"),
