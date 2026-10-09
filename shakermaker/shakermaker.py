@@ -2238,7 +2238,9 @@ class ShakerMaker:
 
                     # tdata: float64 (original layout) or float32 (compact layout), shape (nt, 9)
                     try:
+                        t1 = perf_counter()
                         tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
+                        c['read'] += perf_counter() - t1
                     except Exception:
                         traceback.print_exc()
                         if use_mpi and nprocs > 1:
