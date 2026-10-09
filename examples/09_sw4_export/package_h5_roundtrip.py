@@ -45,7 +45,7 @@ fault = FaultSource([src], metadata={"name": "centro_source"})
 stations = []
 for i in range(1, len(names)):
     stations.append(Station([x_km[i], y_km[i], 0.0], metadata={"name": names[i]}))
-stationlist = StationList(stations, metadata={"name": "stg_stations"})
+stationlist = StationList(stations, metadata={"name": "stations"})
 
 model = ShakerMaker(crust, fault, stationlist)
 

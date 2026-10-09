@@ -93,7 +93,7 @@ if ($SOURCE_FROM_CFG -ne "") {
 if ($sourcePath -eq "") {
     Write-Host "  Enter the full path to your ShakerMaker repository." -ForegroundColor White
     Write-Host "  This folder must contain setup.py and the shakermaker/ subfolder." -ForegroundColor Gray
-    Write-Host "  Example: C:\Dropbox\01. Brain\11. GitHub\ShakerMaker_OP" -ForegroundColor Gray
+    Write-Host "  Example: C:\Users\you\My Projects\ShakerMaker" -ForegroundColor Gray
     Write-Host ""
 
     $attempts = 0
