@@ -16,11 +16,47 @@ differences below ~3 % are not conclusive.
 
 | Stage | Work | Parallelism |
 |---|---|---|
-| 0 | source-receiver pairs and unique GF slots | all ranks, seconds |
+| 0 `gen_pairs` | source-receiver pairs and unique GF slots | rank 0 alone, seconds to minutes |
 | 1 `compute_gf` | one FK Green's function per unique slot (`subgreen` + `subfk`) | MPI over slots, OpenMP inside the FK kernel |
 | 2 `run_fast` | per source: `subgreen2`, STF convolution, shift and sum | MPI only |
 
 Stage 1 dominates (90-99 % of the wall time in every case below).
+
+### Stage 0: grouping on one process
+
+Stage 0 visits the pairs in order and puts each one in the existing slot
+that covers it (every difference within its tolerance) with the smallest L1
+distance, or opens a new slot. Each decision depends on the slots opened
+before it, so the grouping is sequential. The previous implementation
+compared every pair with every slot (cost pairs x slots) after gathering the
+geometry of all pairs on rank 0 (32 bytes per pair, ~200 bytes per pair on
+the node), while the other ranks waited.
+
+Now rank 0 builds the map alone. A slot that covers a pair can only lie in
+one of the 27 cells around it when the cells are slightly larger than the
+tolerances, so a hash table over those cells gives the candidates, tested
+with the same coverage rule, distance and tie rule (lowest slot index). The
+geometry is computed one block of stations at a time with the same NumPy
+expressions, and the representative of a slot is the pair that opened it,
+so the final sorts are gone. The map is the same, dataset by dataset.
+`SM_S0_LEGACY=1` runs the previous path.
+
+DRM boxes of 8179 receivers with a 32768-subfault fault (2.7e8 pairs,
+tolerances 40 / 5 / 200 m):
+
+| | previous (10 nodes x 16 ranks) | now (one process) |
+|---|---|---|
+| 14 460 slots | 1 888 s | 173 s |
+| 20 688 slots | 2 666 s | 190 s |
+| 25 686 slots | 3 280 s (grouping 3 215 s, gather 31 s, sorts 31 s) | 195 s (grouping 183 s) |
+| memory | ~99 bytes per pair on rank 0 | 1.7 GB in total (~6 bytes per pair) |
+
+The previous grouping cost 0.125 s per slot at this size; the new one does
+not depend on the number of slots (57 380 slots: 259 s). Eleven such boxes
+ran at once on one node in 4.5 min (1.7 GB each). The three maps with a
+previous reference are identical to it. Stage 0 therefore needs one process:
+inside a many-node `stage='all'` job the other nodes now wait minutes instead
+of up to an hour, and a separate `stage=0` job on one node is enough.
 
 ## 2. OpenMP in the FK kernel (PR #19)
 

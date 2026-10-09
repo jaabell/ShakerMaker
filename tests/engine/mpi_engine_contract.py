@@ -29,6 +29,9 @@ It checks properties that only show up under MPI:
    gives bit-identical Stage 2 motions.
 10. SM_S2_CONV=fast gives the same motions as the default convolution to
    1e-6 (single-precision FFT round-off), with both Stage 2 variants.
+11. Stage 0 (default: hash-table grouping on rank 0 alone, the other ranks
+   waiting) writes the same map as the legacy greedy (SM_S0_LEGACY=1), on the
+   fault and on a DRM box with receivers every 5 m.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -62,7 +65,7 @@ STAGE0 = dict(delta_h=0.0025, delta_v_rec=0.0025, delta_v_src=0.2)
 TMIN, TMAX = 0.0, 8.0
 SLOW_CLOSE = float(os.environ.get("SM_TEST_SLOW_CLOSE", "35"))
 ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH", "SM_GF_F32",
-            "SM_S2_CONV")
+            "SM_S2_CONV", "SM_S0_LEGACY")
 
 WORK = os.path.abspath(os.environ.get("SM_TEST_WORKDIR", "_engine_contract_work"))
 
@@ -311,6 +314,26 @@ def main():
             check(ref is not None and np.array_equal(v, ref),
                   f"slow-close .h5drm {k} identical to the fast close")
             check(np.all(np.isfinite(v)), f".h5drm {k} has no NaN")
+
+    # ---------------------------------------------------------------- 11
+    s0_names = ["pairs_to_compute", "dh_of_pairs", "dv_of_pairs", "zrec_of_pairs",
+                "zsrc_of_pairs", "pair_to_slot", "delta_h", "delta_v_rec", "delta_v_src",
+                "nstations", "nsources"]
+    box = DRMBox([6.0, 8.0, 0.0], [6, 6, 4], [0.005, 0.005, 0.005], metadata={"name": "s0"})
+    for tag, m in (("fault", ShakerMaker(SCEC_LOH_1(), fault_sources(), stations_with_roundoff_depths())),
+                   ("drm", ShakerMaker(SCEC_LOH_1(), fault_sources(), box))):
+        maps = {}
+        for mode, env in (("legacy", {"SM_S0_LEGACY": 1}), ("default", {})):
+            with_env(**env)
+            run_stage(m, 0, p(f"s0_{tag}_{mode}.h5"), **STAGE0)
+            if rank == 0:
+                maps[mode] = read(p(f"s0_{tag}_{mode}_map.h5"), [""], s0_names)
+        if rank == 0:
+            same = (len(maps["default"]) == len(s0_names) and
+                    all(np.array_equal(maps["default"][k], maps["legacy"][k]) for k in maps["legacy"]))
+            check(same, f"stage 0 default map identical to SM_S0_LEGACY=1 ({tag}, "
+                        f"{len(maps['legacy']['/dh_of_pairs'])} slots)")
+    with_env()
 
     comm.Barrier()
     if rank == 0:
