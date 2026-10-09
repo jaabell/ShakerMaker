@@ -64,6 +64,7 @@ HDF5 database -- two files (separated to keep mapping light):
 
 import copy
 import os
+import re
 import sys
 import threading
 import traceback
@@ -128,7 +129,134 @@ except (ImportError, RuntimeError):
 def _perf_counters():
     """Return a dict of zeroed timing accumulators."""
     return {k: np.zeros(1, dtype=np.double)
-            for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read')}
+            for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read',
+                      'wstation', 'wclose')}
+
+
+# Optional performance record (off by default, results unchanged):
+#   SM_PERF_JSON=<dir>   every rank writes <dir>/<stage>_rank<NNNN>.json with all
+#                        timing counters, wall time and peak RSS; rank 0 adds the
+#                        writer timeline and run_nearest's per-stage wall times.
+#   SM_NODE_MONITOR=<s>  one sampler thread per node (CPU, memory, network, disk)
+#                        writing <dir>/node_<host>.jsonl every <s> seconds.
+_PERF_JSON_DIR = os.environ.get("SM_PERF_JSON", "")
+_PERF_EXTRA = {}
+
+
+def _perf_timeline(key, item):
+    """Append an item to a per-rank timeline kept only when SM_PERF_JSON is set."""
+    if _PERF_JSON_DIR:
+        _PERF_EXTRA.setdefault(key, []).append(item)
+
+
+def _perf_dump(stage, c, total):
+    """Write this rank's counters for one stage to SM_PERF_JSON (if set)."""
+    if not _PERF_JSON_DIR:
+        return
+    import json, resource, socket
+    try:
+        os.makedirs(_PERF_JSON_DIR, exist_ok=True)
+        rec = {"stage": stage, "rank": rank, "nprocs": nprocs,
+               "host": socket.gethostname(), "wall_s": total,
+               "counters_s": {k: float(v[0]) for k, v in c.items()},
+               "maxrss_mb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0,
+               "omp_num_threads": os.environ.get("OMP_NUM_THREADS")}
+        rec.update({k: v for k, v in _PERF_EXTRA.items()})
+        with open(os.path.join(_PERF_JSON_DIR, f"{stage}_rank{rank:04d}.json"), "w") as f:
+            json.dump(rec, f)
+    except Exception:
+        traceback.print_exc()
+    _PERF_EXTRA.clear()
+
+
+class _NodeMonitor:
+    """One sampler thread per node (local rank 0), enabled by SM_NODE_MONITOR."""
+
+    def __init__(self):
+        self._thread = None
+        self._stop = None
+        self._started = False      # set on every rank, so the collective runs once
+
+    @staticmethod
+    def _read():
+        with open("/proc/stat") as f:
+            cpu = [int(x) for x in f.readline().split()[1:]]
+        mem = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                if k in ("MemTotal", "MemAvailable"):
+                    mem[k] = int(v.split()[0])
+        rx = tx = 0
+        with open("/proc/net/dev") as f:
+            for line in f.readlines()[2:]:
+                name, data = line.split(":", 1)
+                if name.strip() == "lo":
+                    continue
+                d = data.split()
+                rx += int(d[0]); tx += int(d[8])
+        rd = wr = 0
+        with open("/proc/diskstats") as f:
+            for line in f:
+                d = line.split()
+                if re.match(r"^(nvme\d+n\d+|sd[a-z]+)$", d[2]):
+                    rd += int(d[5]); wr += int(d[9])
+        return cpu, mem, rx, tx, rd, wr
+
+    def start(self):
+        interval = float(os.environ.get("SM_NODE_MONITOR", "0") or 0)
+        if interval <= 0 or not _PERF_JSON_DIR or self._started:
+            return
+        self._started = True
+        local = comm.Split_type(MPI.COMM_TYPE_SHARED) if (use_mpi and nprocs > 1) else None
+        is_leader = local is None or local.Get_rank() == 0
+        if local is not None:
+            local.Free()
+        if not is_leader:
+            return
+        import json, socket, threading
+        from time import time as _wall
+        os.makedirs(_PERF_JSON_DIR, exist_ok=True)
+        path = os.path.join(_PERF_JSON_DIR, f"node_{socket.gethostname()}.jsonl")
+        self._stop = threading.Event()
+
+        def run():
+            prev = self._read(); t_prev = perf_counter()
+            with open(path, "a") as f:
+                while not self._stop.wait(interval):
+                    cur = self._read(); t = perf_counter(); dtw = max(t - t_prev, 1e-9)
+                    idle = lambda c_: c_[3] + c_[4]
+                    tot = sum(cur[0]) - sum(prev[0]); busy = tot - (idle(cur[0]) - idle(prev[0]))
+                    f.write(json.dumps({"t": _wall(), "cpu_busy_pct": 100.0 * busy / max(tot, 1),
+                                        "mem_avail_mb": cur[1].get("MemAvailable", 0) / 1024.0,
+                                        "net_rx_mbs": (cur[2] - prev[2]) / dtw / 1e6,
+                                        "net_tx_mbs": (cur[3] - prev[3]) / dtw / 1e6,
+                                        "disk_rd_mbs": (cur[4] - prev[4]) * 512 / dtw / 1e6,
+                                        "disk_wr_mbs": (cur[5] - prev[5]) * 512 / dtw / 1e6}) + "\n")
+                    f.flush()
+                    prev, t_prev = cur, t
+
+        self._thread = threading.Thread(target=run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        if self._thread is not None:
+            self._stop.set()
+            self._thread.join(timeout=5)
+            self._thread = None
+
+
+_NODE_MONITOR = _NodeMonitor()
+
+
+def _timed_write(writer, station, i_station, c, t_begin):
+    """writer.write_station with its time added to c['wstation'] (and to the
+    SM_PERF_JSON write timeline: station, start since the stage began, seconds)."""
+    t1 = perf_counter()
+    writer.write_station(station, i_station)
+    dtw = perf_counter() - t1
+    c['wstation'] += dtw
+    _perf_timeline("write_timeline", (int(i_station), round(t1 - t_begin, 4), round(dtw, 5)))
 
 
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
@@ -138,8 +266,8 @@ def _dbg(msg):
     """Per-rank, timestamped, flushed diagnostic print -- only when
     SHAKERMAKER_PERF_STATS_DEBUG=1 is set in the environment. Used to
     pinpoint exactly which rank/call hangs inside a blocking MPI collective,
-    since a hang (unlike an exception) leaves no trace otherwise. See
-    BUG_stage2_mpi_hang -- this is for the *second*, still-unexplained hang
+    since a hang (unlike an exception) leaves no trace otherwise. This is
+    for the Stage 2 MPI hang -- the *second*, still-unexplained one
     that reproduces even with the comm.Abort() and close()-timeout fixes in
     place, so the culprit must be somewhere neither of those covers.
     """
@@ -147,27 +275,32 @@ def _dbg(msg):
         print(f"[DBG t={perf_counter():.1f}] rank={rank} {msg}", flush=True)
 
 
-def _print_perf_stats(c, total):
-    """Reduce timing counters across MPI ranks and print on rank 0."""
+def _print_perf_stats(c, total, stage="stage"):
+    """Reduce timing counters across MPI ranks and print on rank 0.
+
+    Every counter is reported (max, min and mean over ranks); the per-rank
+    values also go to SM_PERF_JSON when that is set.
+    """
+    _perf_dump(stage, c, total)
     if not (use_mpi and nprocs > 1):
         return
-    labels = {'core': 'time_core', 'send': 'time_send', 'recv': 'time_recv',
-              'conv': 'time_conv', 'add':  'time_add'}
     _dbg("entered _print_perf_stats")
     if rank == 0:
         print("\nPerformance statistics (all MPI processes):")
-    for key in ('core', 'send', 'recv', 'conv', 'add'):
-        mx = np.array([-np.inf]); mn = np.array([np.inf])
+    for key in c:
+        mx = np.array([-np.inf]); mn = np.array([np.inf]); sm = np.array([0.0])
         _dbg(f"before Reduce(MAX, {key})")
         comm.Reduce(c[key], mx, op=MPI.MAX, root=0)
         _dbg(f"after  Reduce(MAX, {key})")
         _dbg(f"before Reduce(MIN, {key})")
         comm.Reduce(c[key], mn, op=MPI.MIN, root=0)
         _dbg(f"after  Reduce(MIN, {key})")
-        if rank == 0 and total > 0:
-            print(f"  {labels[key]:12s}:  "
+        comm.Reduce(c[key], sm, op=MPI.SUM, root=0)
+        if rank == 0 and total > 0 and mx[0] > 0:
+            print(f"  time_{key:9s}:  "
                   f"max={mx[0]:.3f}s ({mx[0]/total*100:.2f}%)  "
-                  f"min={mn[0]:.3f}s ({mn[0]/total*100:.2f}%)")
+                  f"min={mn[0]:.3f}s ({mn[0]/total*100:.2f}%)  "
+                  f"mean={sm[0]/nprocs:.3f}s")
     _dbg("leaving _print_perf_stats")
 
 
@@ -716,7 +849,7 @@ class ShakerMaker:
             print(f"\n\nShakerMaker run done. Total time: {perf_time_total:.2f} s")
             print("-" * 50)
 
-        _print_perf_stats(c, perf_time_total)
+        _print_perf_stats(c, perf_time_total, 'run')
     # =========================================================================
     # Stage 0  --  gen_pairs
     # =========================================================================
@@ -1537,7 +1670,7 @@ class ShakerMaker:
                   f"Total time: {perf_time_total:.2f} s")
             print("-" * 50)
 
-        _print_perf_stats(c, perf_time_total)
+        _print_perf_stats(c, perf_time_total, 'stage1')
 
         if use_mpi and nprocs > 1:
             comm.Barrier()
@@ -1619,7 +1752,7 @@ class ShakerMaker:
         # error opening a shared file under concurrent access from ~100+
         # ranks) it used to die silently -- with no comm.Abort() -- while
         # every other rank eventually blocked forever on the comm.Reduce()
-        # calls inside _print_perf_stats(). See BUG_stage2_mpi_hang.
+        # calls inside _print_perf_stats() (the Stage 2 MPI hang).
         try:
             if rank == 0:
                 print(f"\n\n{title}")
@@ -1825,7 +1958,7 @@ class ShakerMaker:
                         t1 = perf_counter()
                         station.add_to_response(tot[0], tot[1], tot[2], t_out, tmin, tmax)
                         if writer:
-                            writer.write_station(station, i_station)
+                            _timed_write(writer, station, i_station, c, perf_time_begin)
                         if writer_mode == 'progressive' and writer:
                             station.clear_response()
                         c['recv'] += perf_counter() - t1
@@ -1958,7 +2091,7 @@ class ShakerMaker:
                         # Rank 0 owns this station: write directly
                         if writer:
                             t1 = perf_counter()
-                            writer.write_station(station, i_station)
+                            _timed_write(writer, station, i_station, c, perf_time_begin)
                             c['recv'] += perf_counter() - t1
                         # progressive: release RAM only after the station has been
                         # written to disk. If no writer is set, keep data in memory.
@@ -1990,7 +2123,7 @@ class ShakerMaker:
                         tmin, tmax)
 
                     if writer:
-                        writer.write_station(sta, i_station)
+                        _timed_write(writer, sta, i_station, c, perf_time_begin)
 
                     # progressive: release RAM only after the station has been
                     # written to disk. If no writer is set, keep data in memory.
@@ -2014,12 +2147,18 @@ class ShakerMaker:
         # ------------------------------------------------------------------
         # All stations processed — close resources
         #
-        # Timeout-guarded: see _close_with_timeout(). A stuck NFS close()
-        # here on any single rank would otherwise hang every rank forever
-        # in the comm.Reduce() calls inside _print_perf_stats() below --
-        # exactly the same externally-visible symptom as BUG_stage2_mpi_hang,
-        # but caused by a blocking call instead of an uncaught exception, so
-        # the try/except-based fix for that bug does not help here.
+        # The read-only handles are closed with a timeout (see
+        # _close_with_timeout()): a stuck NFS close() on any single rank would
+        # otherwise hang every rank forever in the comm.Reduce() calls inside
+        # _print_perf_stats() below, and a blocked call raises nothing for a
+        # try/except to catch.
+        #
+        # The writer is NOT closed with a timeout. Its close() does real work:
+        # in 'legacy' mode it interpolates and writes every station (39-53 s
+        # for ~20 000 stations), and abandoning it would leave a truncated
+        # output file with only a warning, since the daemon thread dies with
+        # the process. Waiting for it cannot create a hang either: the other
+        # ranks are already waiting for rank 0 in the next collective.
         # ------------------------------------------------------------------
         _dbg("loop over stations finished, entering close-resources block")
         _close_with_timeout(hfile, label="map_file")
@@ -2030,7 +2169,9 @@ class ShakerMaker:
         _dbg("closed fid")
 
         if rank == 0 and writer:
-            _close_with_timeout(writer, label="writer")
+            t_wc = perf_counter()
+            writer.close()
+            c['wclose'] += perf_counter() - t_wc
             _dbg("closed writer")
 
         perf_time_total = perf_counter() - perf_time_begin
@@ -2040,7 +2181,7 @@ class ShakerMaker:
                   f"Total time: {perf_time_total:.2f} s")
             print("-" * 50)
 
-        _print_perf_stats(c, perf_time_total)
+        _print_perf_stats(c, perf_time_total, 'stage2')
 
         if use_mpi and nprocs > 1:
             comm.Barrier()
@@ -2155,6 +2296,7 @@ class ShakerMaker:
             h5_database_name = h5_database_name[:-3] + '.h5'
 
         perf_time_begin = perf_counter()
+        _NODE_MONITOR.start()
 
         if rank == 0:
             title = (f"ShakerMaker run_nearest | stage={stage} | "
@@ -2176,11 +2318,13 @@ class ShakerMaker:
 
         if stage == '0_1':
             # Sequential: Stage 0 (gen_pairs) -> Stage 1 (compute_gf)
+            t_s0 = perf_counter()
             self.gen_pairs(
                 h5_database_name=h5_database_name,
                 delta_h=delta_h, delta_v_rec=delta_v_rec,
                 delta_v_src=delta_v_src, npairs_max=npairs_max,
                 showProgress=showProgress)
+            _perf_dump('stage0', {}, perf_counter() - t_s0)
             if rank == 0:
                 print(f"Stage 0 complete -> {h5_database_name}")
 
@@ -2204,11 +2348,13 @@ class ShakerMaker:
             return
 
         if stage in (0, 'all'):
+            t_s0 = perf_counter()
             self.gen_pairs(
                 h5_database_name=h5_database_name,
                 delta_h=delta_h, delta_v_rec=delta_v_rec,
                 delta_v_src=delta_v_src, npairs_max=npairs_max,
                 showProgress=showProgress)
+            _perf_dump('stage0', {}, perf_counter() - t_s0)
             if stage == 0:
                 if rank == 0:
                     print(f"Stage 0 complete -> {h5_database_name}")
