@@ -14,11 +14,15 @@ Three-stage pipeline with O(1) Green's Function lookup via pair_to_slot:
       vs plain Python) and writes the HDF5 mapping file.
 
   Stage 1  compute_gf
-      Computes the FK kernel (tdata) for each unique slot k.
+      Computes the FK kernel (tdata) for each unique slot k. Slots that share
+      the source and receiver depths and lie within hs (the finite thickness
+      of the split crust) are computed in one multi-distance core call.
       MPI parallel: workers compute, rank 0 collects and writes to HDF5.
 
       HDF5 layout (new, efficient):
-        /tdata   shape=(n_slots, nt, 9)    float32  chunks=(1,nt,9)    gzip
+        /tdata   shape=(n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip
+                 or, with SM_GF_F32=1, float32 holding only the smth*nfft
+                 non-zero samples (attribute nt_full = 2*nfft)
         /t0      shape=(n_slots,)          float64
       One dataset per quantity (not one dataset per slot), so metadata
       overhead is O(1) regardless of the number of slots.
@@ -57,6 +61,8 @@ HDF5 database -- two files (separated to keep mapping light):
 
   {name}_gf.h5
     /tdata   (n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip=4
+             compact layout (SM_GF_F32=1): float32, nt = smth*nfft, attribute
+             nt_full = 2*nfft; Stage 2 reads both and zero-pads the compact one
     /t0      (n_slots,)          float64
     Note: nt = actual samples from core.subgreen (= nfft when smth=1,
           = smth*nfft otherwise). Dataset created lazily on first slot.
@@ -83,6 +89,11 @@ from shakermaker import core
 # _win_run() relaunches a callable in a 64 MB thread on Windows only.
 # On Linux/macOS it is a transparent no-op (calls fn directly).
 _WIN_STACK_SIZE = 64 * 1024 * 1024  # 64 MB
+
+# Stage 0 computes the pair geometry for this many pairs at a time (rounded to
+# whole stations), so its memory does not grow with the number of pairs.
+_S0_BLOCK_PAIRS = 1 << 21
+
 
 def _win_run(fn, *args, **kwargs):
     """Call fn(*args, **kwargs) in a 64 MB stack thread on Windows only."""
@@ -131,6 +142,66 @@ def _perf_counters():
             for k in ('core', 'send', 'recv', 'conv', 'add', 'write', 'zip', 'split', 'read')}
 
 
+# Stage 2 convolution mode. 'legacy' (default) calls stf.convolve
+# three times per pair. 'fast' resamples each source time function once per run,
+# convolves the three components in one FFT and only up to the last sample that
+# add_to_response will keep (the convolution is causal, so the kept samples are the
+# same up to FFT round-off). Set with SM_S2_CONV (read when Stage 2 starts).
+
+
+class _STFCache:
+    """Source time functions resampled onto the Stage 2 grid, one per (STF, dt).
+
+    dt is the pair's own t[1] - t[0], which differs from the nominal dt in the last
+    bits and can change the length of the resampled STF by one sample; keying on the
+    exact value reproduces stf.convolve exactly (a handful of distinct values per run).
+    """
+
+    def __init__(self):
+        self._c = {}
+
+    def get(self, stf, dt):
+        hit = self._c.get((id(stf), dt))
+        if hit is not None and hit[0] is stf:
+            return hit[1]
+        if len(stf.data) == 1:
+            r = (None, stf.data[0])
+        else:
+            from scipy.interpolate import interp1d
+            t_r = np.arange(stf.t[0], stf.t[-1] + dt, dt)
+            r = (interp1d(stf.t, stf.data, bounds_error=False, fill_value=0.0)(t_r), None)
+        self._c[(id(stf), dt)] = (stf, r)
+        return r
+
+
+def _conv3(cache, stf, z, e, n, dti, keep):
+    """z, e, n convolved with stf, first 'keep' samples, as stf.convolve does it."""
+    if keep <= 0:
+        return np.zeros((3, 0))
+    zen = np.vstack((z[:keep], e[:keep], n[:keep]))
+    stf_r, scale = cache.get(stf, dti)
+    if stf_r is None:
+        return zen * scale
+    from scipy.signal import fftconvolve
+    return fftconvolve(zen, stf_r[None, :], mode="full", axes=-1)[:, :keep] * dti
+
+
+# Green's function database layout. The core returns tdata in float32
+# and, with smth = 1, only the first smth*nfft of its 2*nfft samples are non-zero.
+# SM_GF_F32=1 makes Stage 1 store float32 and only those samples (attribute nt_full on
+# /tdata keeps 2*nfft); Stage 2 reads both layouts, zero-padding the new one back.
+
+
+def _read_tdata(ds, k, nt_full):
+    """Row k of /tdata as the (2*nfft, 9) array subgreen2 expects, any layout."""
+    x = ds[k]
+    if nt_full is None:                      # original layout: float64, all samples
+        return np.ascontiguousarray(x, dtype=np.float64)
+    out = np.zeros((nt_full, 9), dtype=np.float32)
+    out[:x.shape[0]] = x
+    return out
+
+
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
 
 
@@ -138,8 +209,8 @@ def _dbg(msg):
     """Per-rank, timestamped, flushed diagnostic print -- only when
     SHAKERMAKER_PERF_STATS_DEBUG=1 is set in the environment. Used to
     pinpoint exactly which rank/call hangs inside a blocking MPI collective,
-    since a hang (unlike an exception) leaves no trace otherwise. See
-    BUG_stage2_mpi_hang -- this is for the *second*, still-unexplained hang
+    since a hang (unlike an exception) leaves no trace otherwise. This is
+    for the Stage 2 MPI hang -- the *second*, still-unexplained one
     that reproduces even with the comm.Abort() and close()-timeout fixes in
     place, so the culprit must be somewhere neither of those covers.
     """
@@ -586,6 +657,11 @@ class ShakerMaker:
         perf_time_begin = perf_counter()
         c = _perf_counters()
 
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
+
         if debugMPI:
             fid_debug_mpi = open(f"rank_{rank}.debuginfo", "w")
             def printMPI(*args):
@@ -736,32 +812,26 @@ class ShakerMaker:
 
             pair_to_slot[i_station * nsources + i_psource] = k
 
-        **Algorithm -- MPI parallel geometry + Numba-compiled JAA greedy:**
+        **Algorithm.** The pairs are visited in canonical order (station by
+        station, source by source). A pair joins the existing slot that
+        covers it (every difference within its tolerance) with the smallest
+        L1 distance, the lowest slot index on ties; if no slot covers it, it
+        opens a new one. The decisions are sequential: each depends on the
+        slots opened by the pairs before it.
 
-        The geometry computation is distributed across all MPI ranks
-        (vectorised, no Python loop).  The greedy slot-finding uses
-        *exactly* the same algorithm as JAA, compiled to native code with
-        Numba ``@njit`` so that it runs 100--500× faster than Python while
-        producing bit-for-bit identical results.
-
-        1. [All ranks] Vectorised geometry for local station slice:
-           compute (dh, z_src, z_rec) via NumPy broadcasting.
-        2. [All ranks] Gather geometry arrays to rank 0 via ``Gatherv``.
-        3. [Rank 0] Run the JAA greedy in canonical pair order, compiled
-           to C via Numba @njit.  Produces exactly the same slots as the
-           original serial JAA implementation.
-        4. [Rank 0] Build ``pair_to_slot`` and ``pairs_to_compute``,
-           write HDF5 database.
-        5. All ranks synchronise at a ``Barrier``.
+        By default (Numba installed) rank 0 builds the map alone with
+        :meth:`_gen_pairs_fast`: the candidate slots are looked up in a hash
+        table, so the cost is linear in the number of pairs instead of
+        pairs x slots; the geometry is computed one block of stations at a
+        time; memory is about 4 bytes per pair. The other ranks wait at a
+        ``Barrier``. ``SM_S0_LEGACY=1`` (or no Numba) runs the previous
+        implementation (geometry on every rank, ``Gatherv`` to rank 0 and a
+        search over every slot for every pair), which writes the same map.
 
         Complexity:
-          - Geometry : O(n_pairs / nprocs) -- vectorised, MPI parallel.
-          - Greedy   : O(n_pairs × n_slots) -- Numba compiled (single rank).
-                       Typical speedup vs Python: 100--500×.
-                       A 24-hour Python Stage 0 becomes ~10 minutes.
-
-        Result: **identical slot count and pair_to_slot mapping** as the
-        original serial JAA greedy for every geometry type.
+          - default : O(n_pairs), one process.
+          - legacy  : O(n_pairs x n_slots) on rank 0, plus 32 bytes per
+                      pair gathered on rank 0.
 
         Writes to ``h5_database_name``:
 
@@ -787,6 +857,21 @@ class ShakerMaker:
         :param showProgress: Print per-rank timing lines.
         :type showProgress: bool
         """
+        # Default: the same map, built by rank 0 alone (see _gen_pairs_fast).
+        # SM_S0_LEGACY=1, or no Numba, keeps the previous implementation below.
+        try:
+            import numba  # noqa: F401
+            _fast = os.environ.get("SM_S0_LEGACY", "0") != "1"
+        except ImportError:
+            _fast = False
+        if _fast:
+            if rank == 0:
+                self._gen_pairs_fast(h5_database_name, delta_h, delta_v_rec,
+                                     delta_v_src, showProgress)
+            if use_mpi and nprocs > 1:
+                comm.Barrier()
+            return
+
         # ------------------------------------------------------------------
         # JAA greedy compiled to native C with Numba.
         # Defined inside the method so it is always available even if Numba
@@ -805,7 +890,9 @@ class ShakerMaker:
         try:
             from numba import njit as _njit
 
-            @_njit
+            # nogil: a compiled call that holds the GIL for the whole grouping
+            # stops every other thread of rank 0, including the node monitor.
+            @_njit(nogil=True)
             def _greedy_jaa(dh_arr, zsrc_arr, zrec_arr,
                              delta_h, delta_v_src, delta_v_rec):
                 N         = len(dh_arr)
@@ -1091,6 +1178,167 @@ class ShakerMaker:
         if use_mpi and nprocs > 1:
             comm.Barrier()
 
+    def _gen_pairs_fast(self, h5_database_name, delta_h, delta_v_rec,
+                        delta_v_src, showProgress):
+        """Stage 0 on the calling rank alone (the default), same map as the legacy path.
+
+        - Grouping: a slot that covers a pair lies in one of the 27 cells
+          around it when the cells are slightly larger than the tolerances.
+          Only those slots are tested, with the greedy's coverage test, L1
+          distance and tie rule (lowest slot index), so the decisions are the
+          same and the cost no longer grows with the number of slots.
+        - Geometry: computed for a block of stations at a time with the same
+          NumPy expressions as gen_pairs; the (N, 4) array and the Gatherv
+          are never built.
+        - Representatives: pairs are visited in canonical order and only join
+          slots that already exist, so the first pair of a slot is the one
+          that created it. It is recorded on creation; no argsort or unique.
+        """
+        from numba import njit, types
+        from numba.typed import Dict
+
+        @njit(nogil=True)
+        def _cell_key(a, b, c):
+            return (a + 1048576) * 4398046511104 + (b + 1048576) * 2097152 + (c + 1048576)
+
+        @njit(nogil=True)
+        def _group_block(dh_arr, zsrc_arr, zrec_arr, base, p2s, head,
+                         slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots,
+                         delta_h, delta_v_src, delta_v_rec):
+            ch = delta_h * (1.0 + 1e-9)
+            cs = delta_v_src * (1.0 + 1e-9)
+            cr = delta_v_rec * (1.0 + 1e-9)
+            for j in range(len(dh_arr)):
+                a = int(np.floor(dh_arr[j] / ch))
+                b = int(np.floor(zsrc_arr[j] / cs))
+                c = int(np.floor(zrec_arr[j] / cr))
+                found = -1
+                best_dist = 1e18
+                for da in range(-1, 2):
+                    for db in range(-1, 2):
+                        for dc in range(-1, 2):
+                            kk = _cell_key(a + da, b + db, c + dc)
+                            if kk in head:
+                                k = head[kk]
+                                while k >= 0:
+                                    d_dh = dh_arr[j] - slot_dh[k]
+                                    d_zs = zsrc_arr[j] - slot_zsrc[k]
+                                    d_zr = zrec_arr[j] - slot_zrec[k]
+                                    if d_dh < 0.0: d_dh = -d_dh
+                                    if d_zs < 0.0: d_zs = -d_zs
+                                    if d_zr < 0.0: d_zr = -d_zr
+                                    if (d_dh <= delta_h and d_zs <= delta_v_src and
+                                            d_zr <= delta_v_rec):
+                                        dist = d_dh + d_zs + d_zr
+                                        if dist < best_dist or (dist == best_dist and k < found):
+                                            best_dist = dist
+                                            found = k
+                                    k = nxt[k]
+                if found == -1:
+                    if n_slots == len(slot_dh):
+                        grow = len(slot_dh)
+                        slot_dh = np.concatenate((slot_dh, np.empty(grow)))
+                        slot_zsrc = np.concatenate((slot_zsrc, np.empty(grow)))
+                        slot_zrec = np.concatenate((slot_zrec, np.empty(grow)))
+                        nxt = np.concatenate((nxt, np.empty(grow, dtype=np.int64)))
+                        anchor = np.concatenate((anchor, np.empty(grow, dtype=np.int64)))
+                    slot_dh[n_slots] = dh_arr[j]
+                    slot_zsrc[n_slots] = zsrc_arr[j]
+                    slot_zrec[n_slots] = zrec_arr[j]
+                    anchor[n_slots] = base + j
+                    kk = _cell_key(a, b, c)
+                    nxt[n_slots] = head[kk] if kk in head else -1
+                    head[kk] = n_slots
+                    p2s[base + j] = n_slots
+                    n_slots += 1
+                else:
+                    p2s[base + j] = found
+            return slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots
+
+        def _new_state(cap):
+            return (Dict.empty(key_type=types.int64, value_type=types.int64),
+                    np.empty(cap), np.empty(cap), np.empty(cap),
+                    np.empty(cap, dtype=np.int64), np.empty(cap, dtype=np.int64))
+
+        nsources = self._source.nsources
+        nstations = self._receivers.nstations
+        N = nstations * nsources
+        print(f"\n\nShakerMaker Gen GF database pairs begin (one process). "
+              f"{delta_h=} {delta_v_rec=} {delta_v_src=}")
+        print(f"  Stations    : {nstations}")
+        print(f"  Sources     : {nsources}")
+        print(f"  Total pairs : {N}")
+
+        t0 = perf_counter()
+        sta = np.array([self._receivers.get_station_by_id(i).x for i in range(nstations)],
+                       dtype=np.float64).reshape(-1, 3)
+        src = np.array([self._source.get_source_by_id(j).x for j in range(nsources)],
+                       dtype=np.float64).reshape(-1, 3)
+
+        # Compile on a one-pair problem so the JIT is not timed with the grouping.
+        h, a1, a2, a3, a4, a5 = _new_state(1)
+        _group_block(np.zeros(1), np.zeros(1), np.zeros(1), 0, np.empty(1, dtype=np.int32),
+                     h, a1, a2, a3, a4, a5, 0, delta_h, delta_v_src, delta_v_rec)
+        t_jit = perf_counter()
+
+        p2s = np.empty(N, dtype=np.int32)
+        head, slot_dh, slot_zsrc, slot_zrec, nxt, anchor = _new_state(1024)
+        n_slots = 0
+        t_geom = 0.0
+        block = max(1, _S0_BLOCK_PAIRS // max(nsources, 1))
+        for s0 in range(0, nstations, block):
+            s1 = min(s0 + block, nstations)
+            tg = perf_counter()
+            sta_rep = np.repeat(sta[s0:s1], nsources, axis=0)
+            src_tile = np.tile(src, (s1 - s0, 1))
+            d_xy = sta_rep[:, :2] - src_tile[:, :2]
+            dh = np.sqrt(np.einsum('ij,ij->i', d_xy, d_xy))
+            zs = np.ascontiguousarray(src_tile[:, 2])
+            zr = np.ascontiguousarray(sta_rep[:, 2])
+            t_geom += perf_counter() - tg
+            slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots = _group_block(
+                dh, zs, zr, s0 * nsources, p2s, head,
+                slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots,
+                delta_h, delta_v_src, delta_v_rec)
+        t_group = perf_counter()
+
+        slot_dh = slot_dh[:n_slots]
+        slot_zsrc = slot_zsrc[:n_slots]
+        slot_zrec = slot_zrec[:n_slots]
+        repr_flat = anchor[:n_slots]
+        pairs_to_compute = np.column_stack(
+            [(repr_flat // nsources).astype(np.int32),
+             (repr_flat % nsources).astype(np.int32)]).astype(np.int32)
+        dv_of_pairs = np.abs(slot_zrec - slot_zsrc)
+        assert p2s.min() >= 0 and p2s.max() < n_slots, \
+            "[Stage 0] BUG: pair_to_slot index out of range"
+        t_repr = perf_counter()
+
+        if showProgress:
+            print(f"  [S0 fast] Numba JIT: {t_jit - t0:.3f}s")
+            print(f"  [S0 fast] geometry ({N:,} pairs, blocks of {block} stations): {t_geom:.3f}s")
+            print(f"  [S0 fast] grouping ({N:,} pairs -> {n_slots} slots): "
+                  f"{t_group - t_jit - t_geom:.3f}s")
+            print(f"  [S0 fast] representatives: {t_repr - t_group:.3f}s")
+        print(f"\nNeed only {n_slots} pairs of {N} "
+              f"({n_slots / N * 100:.1f}% of total, {(1.0 - n_slots / N) * 100:.1f}% reduction)")
+        print(f"Stage 0 done. Time: {t_repr - t0:.1f}s")
+
+        map_file = h5_database_name.replace('.h5', '') + '_map.h5'
+        with h5py.File(map_file, 'w', locking=False) as hf:
+            hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
+            hf.create_dataset("dh_of_pairs",      data=slot_dh)
+            hf.create_dataset("dv_of_pairs",      data=dv_of_pairs)
+            hf.create_dataset("zrec_of_pairs",    data=slot_zrec)
+            hf.create_dataset("zsrc_of_pairs",    data=slot_zsrc)
+            hf.create_dataset("pair_to_slot",     data=p2s)
+            hf.create_dataset("delta_h",          data=delta_h)
+            hf.create_dataset("delta_v_rec",      data=delta_v_rec)
+            hf.create_dataset("delta_v_src",      data=delta_v_src)
+            hf.create_dataset("nstations",        data=int(nstations))
+            hf.create_dataset("nsources",         data=int(nsources))
+        print(f"Mapping database written to: {map_file} ({perf_counter() - t_repr:.1f}s)")
+
     # =========================================================================
     # Stage 1  --  compute_gf
     # =========================================================================
@@ -1276,11 +1524,94 @@ class ShakerMaker:
                     taper, aux_crust, psource, station, verbose)
                 dtc = perf_counter() - t1
                 c['core'] += dtc
-                tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
+                if _gf_f32:
+                    tdata_c = np.ascontiguousarray(tdata[0, :, :smth * nfft].T, dtype=np.float32)
+                else:
+                    tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
                 t1 = perf_counter()
                 comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
                 c['zip'] += perf_counter() - t1
                 return tdata_c.shape[0], float(t0), comp, dtc
+
+            _gf_f32 = os.environ.get("SM_GF_F32", "0") == "1"
+
+            # Several slots per core call. The core evaluates the wavenumber kernel
+            # once per (omega, k) for all the distances of a call; only the Bessel
+            # terms depend on the distance. Slots with the same (z_src, z_rec) whose
+            # distance is <= hs (the total finite thickness of the split crust, as
+            # the core computes it in float32) share the wavenumber step dk*pi/hs,
+            # so one call with all of them returns, for each, exactly what a call
+            # per slot returns. Slots beyond hs keep a call of their own. Every rank
+            # builds the same groups. On by default; SM_GF_BATCH=0 restores one call
+            # per slot. A call holds about 9*2*nfft*12 bytes per distance (tdata and
+            # the wavenumber sums), so the distances per call are capped by
+            # SM_GF_BATCH_MB (default 512) and SM_GF_BATCH_MAX (default 64).
+            _batch = os.environ.get("SM_GF_BATCH", "1") != "0"
+            _per_dist = 9 * 2 * nfft * 12
+            _gmax = max(1, min(int(os.environ.get("SM_GF_BATCH_MAX", "64")),
+                               int(float(os.environ.get("SM_GF_BATCH_MB", "512")) * 2**20 // _per_dist)))
+            groups = []
+            if _batch:
+                _bykey, _hs = {}, {}
+                for k in range(npairs):
+                    i_st, i_ps = pairs_to_compute[k]
+                    st = self._receivers.get_station_by_id(int(i_st))
+                    ps = self._source.get_source_by_id(int(i_ps))
+                    key = (float(ps.x[2]), float(st.x[2]))
+                    if key not in _hs:
+                        _cc = copy.deepcopy(self._crust)
+                        _cc.split_at_depth(key[0]); _cc.split_at_depth(key[1])
+                        h32 = np.float32(0.0)
+                        for _d in np.asarray(_cc.d, dtype=np.float32):
+                            h32 = np.float32(h32 + _d)
+                        _hs[key] = h32
+                    x = np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2)
+                    if np.float32(x) <= _hs[key]:
+                        _bykey.setdefault(key, []).append(k)
+                    else:
+                        groups.append([k])
+                for key in sorted(_bykey):
+                    ks = _bykey[key]
+                    for i0 in range(0, len(ks), _gmax):
+                        groups.append(ks[i0:i0 + _gmax])
+            else:
+                groups = [[k] for k in range(npairs)]
+            ngroups = len(groups)
+
+            def _compute_group(g):
+                ks = groups[g]
+                if len(ks) == 1:
+                    nt_real, t0v, comp, dtc = _compute_slot(ks[0])
+                    return [(ks[0], nt_real, t0v, comp)], dtc
+                i_st, i_ps = pairs_to_compute[ks[0]]
+                station = self._receivers.get_station_by_id(int(i_st))
+                psource = self._source.get_source_by_id(int(i_ps))
+                aux_crust = copy.deepcopy(self._crust)
+                aux_crust.split_at_depth(psource.x[2])
+                aux_crust.split_at_depth(station.x[2])
+                xs = []
+                for k in ks:
+                    a_st, a_ps = pairs_to_compute[k]
+                    st = self._receivers.get_station_by_id(int(a_st))
+                    ps = self._source.get_source_by_id(int(a_ps))
+                    xs.append(np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2))
+                t1 = perf_counter()
+                tdata, t0 = self._call_core_multi(
+                    dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper,
+                    aux_crust, psource, station, np.array(xs, dtype=np.float64))
+                dtc = perf_counter() - t1
+                c['core'] += dtc
+                out = []
+                for ix, k in enumerate(ks):
+                    if _gf_f32:
+                        tdata_c = np.ascontiguousarray(tdata[ix, :, :smth * nfft].T, dtype=np.float32)
+                    else:
+                        tdata_c = np.ascontiguousarray(tdata[ix].T, dtype=np.float64)
+                    t1 = perf_counter()
+                    comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
+                    c['zip'] += perf_counter() - t1
+                    out.append((k, tdata_c.shape[0], float(t0[ix]), comp))
+                return out, dtc
 
             # Longest-processing-time-first order (results unchanged:
             # each slot is still written at its own index). With
@@ -1302,6 +1633,14 @@ class ShakerMaker:
                     order = np.lexsort((-_dh, _dv)).astype(np.int64)
                     _src = "geometric proxy (dv asc, dh desc)"
                 print(f"  GF slot order: {_src}")
+            # Task order over groups: largest groups first, then by the slot order.
+            _pos = np.empty(npairs, dtype=np.int64); _pos[order] = np.arange(npairs)
+            gorder = np.array(sorted(range(ngroups),
+                                     key=lambda g: (-len(groups[g]), int(_pos[groups[g]].min()))),
+                              dtype=np.int64)
+            if rank == 0 and _batch:
+                print(f"  GF batching: {npairs} slots in {ngroups} core calls "
+                      f"(max {_gmax} distances per call)")
 
             if rank == 0:
                 costs = np.zeros(npairs, dtype=np.float64)
@@ -1310,10 +1649,10 @@ class ShakerMaker:
 
                 def _take():
                     with lock:
-                        if state['pos'] < npairs:
-                            k = int(order[state['pos']])
+                        if state['pos'] < ngroups:
+                            g = int(gorder[state['pos']])
                             state['pos'] += 1
-                            return k
+                            return g
                     return -1
 
                 outstanding = np.zeros(nprocs, dtype=np.int64)
@@ -1337,7 +1676,10 @@ class ShakerMaker:
                         gf_holder[0] = hfile_gf.create_dataset(
                             '/tdata', shape=(npairs, nt_real, 9),
                             maxshape=(None, nt_real, 9), chunks=(1, nt_real, 9),
-                            dtype=np.float64, compression='gzip', compression_opts=4)
+                            dtype=np.float32 if _gf_f32 else np.float64,
+                            compression='gzip', compression_opts=4)
+                        if _gf_f32:
+                            gf_holder[0].attrs['nt_full'] = 2 * nfft
                     gf_holder[0].id.write_direct_chunk((k, 0, 0), comp.tobytes())
                     t0_ds[k] = t0v
                     c['write'] += perf_counter() - t_w0
@@ -1349,7 +1691,7 @@ class ShakerMaker:
                     try:
                         received = 0
                         status = MPI.Status()
-                        hdr = np.empty(4, dtype=np.int64)      # slot, nt, nbytes, core_us
+                        hdr = np.empty(5, dtype=np.int64)      # slot, nt, nbytes, core_us, last
                         while received < npairs:
                             try:
                                 k, nt_real, t0v, comp = local_q.get_nowait()
@@ -1369,13 +1711,14 @@ class ShakerMaker:
                             buf = np.empty(int(hdr[2]), dtype=np.uint8)
                             comm.Recv(buf, source=src, tag=TAG_DATA)
                             c['recv'] += perf_counter() - t1
-                            outstanding[src] -= 1
-                            k_next = _take()
-                            if k_next >= 0:
-                                comm.Send(np.array([k_next], dtype=np.int64), dest=src, tag=TAG_TASK)
-                                outstanding[src] += 1
-                            elif outstanding[src] == 0:
-                                comm.Send(STOP, dest=src, tag=TAG_TASK)
+                            if hdr[4]:                         # last slot of its group
+                                outstanding[src] -= 1
+                                k_next = _take()
+                                if k_next >= 0:
+                                    comm.Send(np.array([k_next], dtype=np.int64), dest=src, tag=TAG_TASK)
+                                    outstanding[src] += 1
+                                elif outstanding[src] == 0:
+                                    comm.Send(STOP, dest=src, tag=TAG_TASK)
                             k = int(hdr[0])
                             costs[k] = hdr[3] * 1e-6
                             _store(k, int(hdr[1]), t0_arr[0], buf)
@@ -1392,12 +1735,13 @@ class ShakerMaker:
                 try:
                     if os.environ.get("SM_GF_RANK0_COMPUTE", "1") == "1":
                         while th.is_alive():
-                            k = _take()
-                            if k < 0:
+                            g = _take()
+                            if g < 0:
                                 break
-                            nt_real, t0v, comp, dtc = _compute_slot(k)
-                            costs[k] = dtc
-                            local_q.put((k, nt_real, t0v, comp))
+                            out, dtc = _compute_group(g)
+                            for k, nt_real, t0v, comp in out:
+                                costs[k] = dtc / len(out)
+                                local_q.put((k, nt_real, t0v, comp))
                     th.join()
                     if err:
                         raise err[0]
@@ -1411,13 +1755,14 @@ class ShakerMaker:
                 task = np.empty(1, dtype=np.int64)
                 comm.Recv(task, source=0, tag=TAG_TASK)
                 while task[0] >= 0:
-                    k = int(task[0])
-                    nt_real, t0v, comp, dtc = _compute_slot(k)
+                    out, dtc = _compute_group(int(task[0]))
                     t1 = perf_counter()
-                    hdr = np.array([k, nt_real, comp.size, int(round(dtc * 1e6))], dtype=np.int64)
-                    comm.Send(hdr, dest=0, tag=TAG_HDR)
-                    comm.Send(np.array([t0v], dtype=np.double), dest=0, tag=TAG_T0)
-                    comm.Send(comp, dest=0, tag=TAG_DATA)
+                    for i_o, (k, nt_real, t0v, comp) in enumerate(out):
+                        hdr = np.array([k, nt_real, comp.size, int(round(dtc / len(out) * 1e6)),
+                                        int(i_o == len(out) - 1)], dtype=np.int64)
+                        comm.Send(hdr, dest=0, tag=TAG_HDR)
+                        comm.Send(np.array([t0v], dtype=np.double), dest=0, tag=TAG_T0)
+                        comm.Send(comp, dest=0, tag=TAG_DATA)
                     c['send'] += perf_counter() - t1
                     comm.Recv(task, source=0, tag=TAG_TASK)
 
@@ -1619,7 +1964,7 @@ class ShakerMaker:
         # error opening a shared file under concurrent access from ~100+
         # ranks) it used to die silently -- with no comm.Abort() -- while
         # every other rank eventually blocked forever on the comm.Reduce()
-        # calls inside _print_perf_stats(). See BUG_stage2_mpi_hang.
+        # calls inside _print_perf_stats() (the Stage 2 MPI hang).
         try:
             if rank == 0:
                 print(f"\n\n{title}")
@@ -1640,6 +1985,10 @@ class ShakerMaker:
                 gf_file  = h5_database_name.replace('.h5', '') + '_gf.h5'
                 hfile    = _wait_and_open_h5(map_file, 'r')
                 hfile_gf = _wait_and_open_h5(gf_file,  'r')
+
+            # Layout of /tdata: original (float64, 2*nfft) or compact (float32, nt_full attribute)
+            _nt_full = hfile_gf['/tdata'].attrs.get('nt_full', None)
+            _nt_full = None if _nt_full is None else int(_nt_full)
 
             # O(1) lookup array — loaded once, shared across all stations
             pair_to_slot = hfile["/pair_to_slot"][:]
@@ -1694,6 +2043,13 @@ class ShakerMaker:
         perf_time_begin = perf_counter()
         c         = _perf_counters()
         tstart    = perf_counter()
+
+        # Start every run from zero: in legacy mode the stations keep the
+        # previous run's response, which add_to_response would add to.
+        for sta in self._receivers:
+            sta.clear_response()
+        _stf_cache = _STFCache()
+        _s2conv = os.environ.get("SM_S2_CONV", "legacy")
 
         for psource in self._source:
             psource.stf.dt = dt
@@ -1772,8 +2128,7 @@ class ShakerMaker:
                     # Output grid from source 0, the first source the per-station
                     # loop adds (its t_arr fixes the station's dt and grid).
                     ps0 = source_list_cache[0]
-                    tdata0 = np.ascontiguousarray(
-                        hfile_gf['/tdata'][int(slot_matrix[i_station][0])], dtype=np.float64)
+                    tdata0 = _read_tdata(hfile_gf['/tdata'], int(slot_matrix[i_station][0]), _nt_full)
                     z0, e0, n0, t00 = self._call_core_fast(
                         tdata0, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax,
                         dk, kc, taper, _crust_for(ps0.x[2], z_rec), ps0, station, verbose)
@@ -1783,7 +2138,7 @@ class ShakerMaker:
                     buf = np.zeros((3, nout))
                     for k in keys[rank::nprocs]:
                         t1 = perf_counter()
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                         c['read'] += perf_counter() - t1
                         for i_psource, psource in slot_to_sources[k]:
                             t1 = perf_counter()
@@ -1805,9 +2160,13 @@ class ShakerMaker:
                             if nw <= 0:
                                 continue
                             t1 = perf_counter()
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, ns_ + nw)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
                             t1 = perf_counter()
                             buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
@@ -1877,9 +2236,9 @@ class ShakerMaker:
                     # # any cast. Keeping float32 avoids a full-array copy.
                     # tdata = hfile_gf['/tdata'][k]   # float32, shape (nt, 9)
 
-                    # tdata is stored as float64
+                    # tdata: float64 (original layout) or float32 (compact layout), shape (nt, 9)
                     try:
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)   # float64, shape (nt, 9)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                     except Exception:
                         traceback.print_exc()
                         if use_mpi and nprocs > 1:
@@ -1911,9 +2270,20 @@ class ShakerMaker:
 
                             t1    = perf_counter()
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
-                            z_stf = psource.stf.convolve(z, t_arr)
-                            e_stf = psource.stf.convolve(e, t_arr)
-                            n_stf = psource.stf.convolve(n, t_arr)
+                            if _s2conv == "fast":
+                                # keep what add_to_response can write (+2 samples of margin)
+                                dti = t_arr[1] - t_arr[0]
+                                nb_ = int(t_arr[0] / dti) if t_arr[0] >= 0 else 0
+                                ns_ = 0 if t_arr[0] >= 0 else int(-t_arr[0] / dti)
+                                nbuf = (len(station._t) if station._initialized
+                                        else len(np.arange(tmin, tmax, dti)))
+                                keep = min(len(z), max(ns_ + nbuf - nb_ + 2, 0))
+                                z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
+                                                             dti, keep)
+                            else:
+                                z_stf = psource.stf.convolve(z, t_arr)
+                                e_stf = psource.stf.convolve(e, t_arr)
+                                n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
 
                             t1 = perf_counter()
@@ -2014,12 +2384,18 @@ class ShakerMaker:
         # ------------------------------------------------------------------
         # All stations processed — close resources
         #
-        # Timeout-guarded: see _close_with_timeout(). A stuck NFS close()
-        # here on any single rank would otherwise hang every rank forever
-        # in the comm.Reduce() calls inside _print_perf_stats() below --
-        # exactly the same externally-visible symptom as BUG_stage2_mpi_hang,
-        # but caused by a blocking call instead of an uncaught exception, so
-        # the try/except-based fix for that bug does not help here.
+        # The read-only handles are closed with a timeout (see
+        # _close_with_timeout()): a stuck NFS close() on any single rank would
+        # otherwise hang every rank forever in the comm.Reduce() calls inside
+        # _print_perf_stats() below, and a blocked call raises nothing for a
+        # try/except to catch.
+        #
+        # The writer is NOT closed with a timeout. Its close() does real work:
+        # in 'legacy' mode it interpolates and writes every station (39-53 s
+        # for ~20 000 stations), and abandoning it would leave a truncated
+        # output file with only a warning, since the daemon thread dies with
+        # the process. Waiting for it cannot create a hang either: the other
+        # ranks are already waiting for rank 0 in the next collective.
         # ------------------------------------------------------------------
         _dbg("loop over stations finished, entering close-resources block")
         _close_with_timeout(hfile, label="map_file")
@@ -2030,7 +2406,7 @@ class ShakerMaker:
         _dbg("closed fid")
 
         if rank == 0 and writer:
-            _close_with_timeout(writer, label="writer")
+            writer.close()
             _dbg("closed writer")
 
         perf_time_total = perf_counter() - perf_time_begin
@@ -2228,8 +2604,14 @@ class ShakerMaker:
                 return
 
         if stage in (2, 'all'):
-            if writer is None and rank == 0:
-                print("WARNING: Stage 2 requires a writer. Aborting.")
+            # The writer usually exists only on rank 0, so rank 0 decides and every
+            # rank leaves together; otherwise the others would wait for rank 0.
+            has_writer = writer is not None
+            if use_mpi and nprocs > 1:
+                has_writer = comm.bcast(has_writer, root=0)
+            if not has_writer:
+                if rank == 0:
+                    print("WARNING: Stage 2 requires a writer. Aborting.")
                 return
             self.run_fast(
                 h5_database_name=h5_database_name,
@@ -2808,6 +3190,22 @@ class ShakerMaker:
 
         return tdata, z, e, n, t0
 
+
+    def _call_core_multi(self, dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
+                         taper, crust, psource, station, xs):
+        """core.subgreen with several distances xs (km) for one (z_src, z_rec).
+
+        Used by compute_gf (Stage 1) to batch slots. Returns tdata (nx, 9, 2*nfft)
+        and t0 (nx,), each row what _call_core returns for that distance.
+        """
+        src = crust.get_layer(psource.x[2]) + 1
+        rcv = crust.get_layer(station.x[2]) + 1
+        tdata, z, e, n, t0 = core.subgreen(
+            crust.nlayers, src, rcv, 2, 0, crust.d, crust.a, crust.b, crust.rho,
+            crust.qa, crust.qb, dt, nfft, tb, len(xs), sigma, smth, wc1, wc2, pmin,
+            pmax, dk, kc, taper, xs, psource.angles[0], psource.angles[1],
+            psource.angles[2], psource.x[0], psource.x[1], station.x[0], station.x[1])
+        return tdata, t0
 
     def _call_core_fast(self, tdata, dt, nfft, tb, nx, sigma, smth, wc1, wc2,
                         pmin, pmax, dk, kc, taper, crust, psource, station,
