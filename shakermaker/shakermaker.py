@@ -21,6 +21,8 @@ Three-stage pipeline with O(1) Green's Function lookup via pair_to_slot:
 
       HDF5 layout (new, efficient):
         /tdata   shape=(n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip
+                 or, with SM_GF_F32=1, float32 holding only the smth*nfft
+                 non-zero samples (attribute nt_full = 2*nfft)
         /t0      shape=(n_slots,)          float64
       One dataset per quantity (not one dataset per slot), so metadata
       overhead is O(1) regardless of the number of slots.
@@ -59,6 +61,8 @@ HDF5 database -- two files (separated to keep mapping light):
 
   {name}_gf.h5
     /tdata   (n_slots, nt, 9)    float64  chunks=(1,nt,9)    gzip=4
+             compact layout (SM_GF_F32=1): float32, nt = smth*nfft, attribute
+             nt_full = 2*nfft; Stage 2 reads both and zero-pads the compact one
     /t0      (n_slots,)          float64
     Note: nt = actual samples from core.subgreen (= nfft when smth=1,
           = smth*nfft otherwise). Dataset created lazily on first slot.
@@ -259,6 +263,22 @@ def _timed_write(writer, station, i_station, c, t_begin):
     dtw = perf_counter() - t1
     c['wstation'] += dtw
     _perf_timeline("write_timeline", (int(i_station), round(t1 - t_begin, 4), round(dtw, 5)))
+
+
+# Green's function database layout. The core returns tdata in float32
+# and, with smth = 1, only the first smth*nfft of its 2*nfft samples are non-zero.
+# SM_GF_F32=1 makes Stage 1 store float32 and only those samples (attribute nt_full on
+# /tdata keeps 2*nfft); Stage 2 reads both layouts, zero-padding the new one back.
+
+
+def _read_tdata(ds, k, nt_full):
+    """Row k of /tdata as the (2*nfft, 9) array subgreen2 expects, any layout."""
+    x = ds[k]
+    if nt_full is None:                      # original layout: float64, all samples
+        return np.ascontiguousarray(x, dtype=np.float64)
+    out = np.zeros((nt_full, 9), dtype=np.float32)
+    out[:x.shape[0]] = x
+    return out
 
 
 _PERF_STATS_DEBUG = os.environ.get("SHAKERMAKER_PERF_STATS_DEBUG", "0") == "1"
@@ -1416,11 +1436,16 @@ class ShakerMaker:
                     taper, aux_crust, psource, station, verbose)
                 dtc = perf_counter() - t1
                 c['core'] += dtc
-                tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
+                if _gf_f32:
+                    tdata_c = np.ascontiguousarray(tdata[0, :, :smth * nfft].T, dtype=np.float32)
+                else:
+                    tdata_c = np.ascontiguousarray(tdata[0].T, dtype=np.float64)
                 t1 = perf_counter()
                 comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
                 c['zip'] += perf_counter() - t1
                 return tdata_c.shape[0], float(t0), comp, dtc
+
+            _gf_f32 = os.environ.get("SM_GF_F32", "0") == "1"
 
             # Several slots per core call. The core evaluates the wavenumber kernel
             # once per (omega, k) for all the distances of a call; only the Bessel
@@ -1490,7 +1515,10 @@ class ShakerMaker:
                 c['core'] += dtc
                 out = []
                 for ix, k in enumerate(ks):
-                    tdata_c = np.ascontiguousarray(tdata[ix].T, dtype=np.float64)
+                    if _gf_f32:
+                        tdata_c = np.ascontiguousarray(tdata[ix, :, :smth * nfft].T, dtype=np.float32)
+                    else:
+                        tdata_c = np.ascontiguousarray(tdata[ix].T, dtype=np.float64)
                     t1 = perf_counter()
                     comp = np.frombuffer(zlib.compress(tdata_c.tobytes(), 4), dtype=np.uint8)
                     c['zip'] += perf_counter() - t1
@@ -1560,7 +1588,10 @@ class ShakerMaker:
                         gf_holder[0] = hfile_gf.create_dataset(
                             '/tdata', shape=(npairs, nt_real, 9),
                             maxshape=(None, nt_real, 9), chunks=(1, nt_real, 9),
-                            dtype=np.float64, compression='gzip', compression_opts=4)
+                            dtype=np.float32 if _gf_f32 else np.float64,
+                            compression='gzip', compression_opts=4)
+                        if _gf_f32:
+                            gf_holder[0].attrs['nt_full'] = 2 * nfft
                     gf_holder[0].id.write_direct_chunk((k, 0, 0), comp.tobytes())
                     t0_ds[k] = t0v
                     c['write'] += perf_counter() - t_w0
@@ -1867,6 +1898,10 @@ class ShakerMaker:
                 hfile    = _wait_and_open_h5(map_file, 'r')
                 hfile_gf = _wait_and_open_h5(gf_file,  'r')
 
+            # Layout of /tdata: original (float64, 2*nfft) or compact (float32, nt_full attribute)
+            _nt_full = hfile_gf['/tdata'].attrs.get('nt_full', None)
+            _nt_full = None if _nt_full is None else int(_nt_full)
+
             # O(1) lookup array — loaded once, shared across all stations
             pair_to_slot = hfile["/pair_to_slot"][:]
             nsources_db  = int(hfile["/nsources"][()])
@@ -2003,8 +2038,7 @@ class ShakerMaker:
                     # Output grid from source 0, the first source the per-station
                     # loop adds (its t_arr fixes the station's dt and grid).
                     ps0 = source_list_cache[0]
-                    tdata0 = np.ascontiguousarray(
-                        hfile_gf['/tdata'][int(slot_matrix[i_station][0])], dtype=np.float64)
+                    tdata0 = _read_tdata(hfile_gf['/tdata'], int(slot_matrix[i_station][0]), _nt_full)
                     z0, e0, n0, t00 = self._call_core_fast(
                         tdata0, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax,
                         dk, kc, taper, _crust_for(ps0.x[2], z_rec), ps0, station, verbose)
@@ -2014,7 +2048,7 @@ class ShakerMaker:
                     buf = np.zeros((3, nout))
                     for k in keys[rank::nprocs]:
                         t1 = perf_counter()
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                         c['read'] += perf_counter() - t1
                         for i_psource, psource in slot_to_sources[k]:
                             t1 = perf_counter()
@@ -2108,9 +2142,9 @@ class ShakerMaker:
                     # # any cast. Keeping float32 avoids a full-array copy.
                     # tdata = hfile_gf['/tdata'][k]   # float32, shape (nt, 9)
 
-                    # tdata is stored as float64
+                    # tdata: float64 (original layout) or float32 (compact layout), shape (nt, 9)
                     try:
-                        tdata = np.ascontiguousarray(hfile_gf['/tdata'][k], dtype=np.float64)   # float64, shape (nt, 9)
+                        tdata = _read_tdata(hfile_gf['/tdata'], k, _nt_full)
                     except Exception:
                         traceback.print_exc()
                         if use_mpi and nprocs > 1:
