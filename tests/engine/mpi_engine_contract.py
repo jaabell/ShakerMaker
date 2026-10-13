@@ -32,6 +32,9 @@ It checks properties that only show up under MPI:
 11. Stage 0 (default: hash-table grouping on rank 0 alone, the other ranks
    waiting) writes the same map as the legacy greedy (SM_S0_LEGACY=1), on the
    fault and on a DRM box with receivers every 5 m.
+12. Grouped Stage 2 (SM_S2_GROUP=1, several chunks) gives the per-station
+   path's motions to its single-precision round-off (1e-5), on the fault (few
+   stations) and on the DRM box, with the same time grid.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -65,7 +68,8 @@ STAGE0 = dict(delta_h=0.0025, delta_v_rec=0.0025, delta_v_src=0.2)
 TMIN, TMAX = 0.0, 8.0
 SLOW_CLOSE = float(os.environ.get("SM_TEST_SLOW_CLOSE", "35"))
 ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH", "SM_GF_F32",
-            "SM_S2_CONV", "SM_S0_LEGACY")
+            "SM_S2_CONV", "SM_S0_LEGACY", "SM_S2_GROUP", "SM_S2_ORDER", "SM_S2_CHUNK",
+            "SM_S2_FUSED")
 
 WORK = os.path.abspath(os.environ.get("SM_TEST_WORKDIR", "_engine_contract_work"))
 
@@ -314,6 +318,34 @@ def main():
             check(ref is not None and np.array_equal(v, ref),
                   f"slow-close .h5drm {k} identical to the fast close")
             check(np.all(np.isfinite(v)), f".h5drm {k} has no NaN")
+
+    # ---------------------------------------------------------------- 12
+    fields = ["velocity", "displacement", "acceleration"]
+    for tag, grp, w_cls, mk in (
+            ("fault", "Data", HDF5StationListWriter,
+             lambda: ShakerMaker(SCEC_LOH_1(), fault_sources(), stations_with_roundoff_depths())),
+            ("drm", "DRM_Data", DRMHDF5StationListWriter,
+             lambda: ShakerMaker(SCEC_LOH_1(), fault_sources(),
+                                 DRMBox([6.0, 8.0, 0.0], [4, 4, 2], [0.005] * 3, metadata={"name": "g"})))):
+        with_env()
+        db = p(f"gf_s2g_{tag}.h5")
+        m = mk()
+        run_stage(m, 0, db, **STAGE0)
+        run_stage(m, 1, db)
+        res = {}
+        for mode, env in (("per_station", {"SM_S2_SPLIT": 0}), ("grouped", {"SM_S2_GROUP": 1, "SM_S2_CHUNK": 3})):
+            with_env(**env)
+            out = p(f"s2g_{tag}_{mode}.h5")
+            run_stage(mk(), 2, db, writer=w_cls(out), writer_mode="progressive", tmin=TMIN, tmax=TMAX)
+            if rank == 0:
+                res[mode] = read(out, [grp], fields)
+        if rank == 0:
+            for k, v in res["grouped"].items():
+                ref = res["per_station"][k]
+                check(v.shape == ref.shape and max_rel(v, ref) < 1e-5,
+                      f"stage 2 grouped vs per-station ({tag}), {k}: max rel diff "
+                      f"{max_rel(v, ref) if v.shape == ref.shape else 'shape mismatch'}")
+    with_env()
 
     # ---------------------------------------------------------------- 11
     s0_names = ["pairs_to_compute", "dh_of_pairs", "dv_of_pairs", "zrec_of_pairs",

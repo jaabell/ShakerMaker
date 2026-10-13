@@ -278,6 +278,54 @@ Green's functions.
 
 The crust cache alone is bit-identical and saves ~10 %.
 
+### Grouped Stage 2 (`SM_S2_GROUP=1`)
+
+For one source, `subfocal` combines the components of the slot's Green's
+function with coefficients that depend only on the source mechanism and the
+source-receiver azimuth, and the convolution with the source time function
+is linear, so the two can be swapped. With `SM_S2_GROUP=1` the components
+are convolved once per (source, slot, pair time step) and every receiver of
+that group only applies its own coefficients and integer shift. On a DRM box
+of 8179 receivers and a 32 768-subfault fault there are 6.4e5 such groups
+for 2.7e8 pairs (about 400 receivers per group).
+
+The other parts of the grouped path:
+
+- only the samples that `add_to_response` keeps are computed (the output
+  window is about a third of the `2*nfft` trace);
+- `t0` comes from `core.subtrav` with the single-precision steps of
+  `subgreen2`, so windows, shifts and time grids are those of the per-pair
+  path; `subgreen2` is no longer called per pair;
+- receivers go in chunks (`SM_S2_CHUNK`, or as many as fit in
+  `SM_S2_CHUNK_MB`, default 1024 MB of buffers per rank); within a chunk
+  each rank owns a set of slots balanced by pair count, reads each slot
+  once, and the partial responses are summed with one Reduce per chunk
+  (`SM_S2_ORDER=source` gives each rank a block of sources instead);
+- groups of fewer than 3 receivers combine first and convolve 3 components;
+- with Numba a compiled kernel combines and adds each group in one pass over
+  the receiver buffers (`SM_S2_FUSED=0` uses a matrix product instead).
+
+The combination is done in float64. The per-pair path combines in single
+precision inside `subfocal`, and that round-off, summed over the sources, is
+the only difference: recomputing every pair on its own in float64 gives the
+grouped result to 2e-15. That is why the option is off by default.
+
+| Case | Per-pair path | Grouped | Difference / peak |
+|---|---|---|---|
+| DRM box, 64 receivers x 32 768 subfaults, float64 gzip database, 2 nodes x 16 | 869 s (`SM_S2_CONV=fast`: 737 s) | **128 s** | 1.7e-5 |
+| Same box, all 8179 receivers, 2 nodes x 16, without the kernel | previous code: 33 197 s on 10 nodes | **11 961 s** (14x fewer node-hours) | 3.2e-5 over 24 534 traces |
+| Same box, float32 compact database of the current core, all receivers | 9 896 s on 10 nodes (`SM_S2_CONV=fast`) = 27.5 node-h | **3 507 s on 3 nodes** = 3.1 node-h (database copied to each node's local disk first, 171 s) | 3.5e-5; peaks within 5.4e-5; response spectra within 1.8e-4 |
+| One surface receiver x 32 768 subfaults, 1 node x 16 | 38.6 / 41.8 s (`fast`: 31.0 / 33.9 s) | **12.6 / 17.7 s** | 0.8-3e-5 |
+| 3 surface receivers x 4096 subfaults, 1 node x 16 | 2-9 s | 2-7 s | 4e-7 |
+
+With few receivers the gain comes from the cropped window and from no
+longer calling `subgreen2` per pair; with many it also comes from the shared
+convolutions. What remains is the shifted add into the receiver buffers,
+about 1 MB per pair, which is bound by memory bandwidth (about 42 GB/s per
+node with 16 ranks): fewer operations per sample barely change it.
+Reading the database from each node's local disk instead of the shared one
+cut the read time from about 1 300 s to 57 s per rank on the whole box.
+
 ## 6. What was tried and not adopted
 
 - **FK kernel on a GPU** (RTX 5090, PyTorch prototype): FP64 throughput on
