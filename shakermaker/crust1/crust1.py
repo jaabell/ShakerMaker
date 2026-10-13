@@ -97,9 +97,9 @@ class Crust1:
     """
 
     BENCHMARK_SITES = [
-        (-33.420003,  -70.606470, "Providencia, Santiago"),
-        ( 37.771670, -122.508652, "San Francisco"),
-        ( 46.231455,    6.055684, "Meyrin / CERN"),
+        (-33.420003,  -70.606470, "subduction margin, 33.42 S 70.61 W"),
+        ( 37.771670, -122.508652, "transform plate boundary, 37.77 N 122.51 W"),
+        ( 46.231455,    6.055684, "alpine foreland basin, 46.23 N 6.06 E"),
     ]
 
     # ------------------------------------------------------------

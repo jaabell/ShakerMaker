@@ -12,7 +12,9 @@ from shakermaker.station import Station
 from shakermaker.stationlist import StationList
 from shakermaker.stf_extensions.gaussian import Gaussian
 
-TOPO = r"C:\Dropbox\01. Brain\10. Ph.D U ANDES\04. Clases\02. Semestre02 2025-2\01. SAIC\04. SW4\STG_Surface\topo\cuenca_STG_h500_cartesian.topo"
+# Topography file: absolute UTM "x y z" rows (500 m spacing), header-less.
+# Point SHAKERMAKER_TOPO_FILE at your own file; the example skips without one.
+TOPO = os.environ.get("SHAKERMAKER_TOPO_FILE", "topography_h500_cartesian.topo")
 
 if not os.path.exists(TOPO):
     print("SKIP: topo file not found")
@@ -46,7 +48,7 @@ fault = FaultSource([src], metadata={"name": "centro_source"})
 stations = []
 for i in range(1, len(names)):
     stations.append(Station([x_km[i], y_km[i], 0.0], metadata={"name": names[i]}))
-stationlist = StationList(stations, metadata={"name": "stg_stations"})
+stationlist = StationList(stations, metadata={"name": "stations"})
 
 model = ShakerMaker(crust, fault, stationlist)
 
@@ -65,7 +67,7 @@ topo_rows[:, 1] = topo_rows[:, 1] - utmy[0]   # North_local = utmy_topo - utmy[0
 out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_sw4_out_topo")
 os.makedirs(out_dir, exist_ok=True)
 
-TOPO_LOCAL = os.path.join(out_dir, "cuenca_STG_h500_local.topo")
+TOPO_LOCAL = os.path.join(out_dir, "topography_h500_local.topo")
 with open(TOPO_LOCAL, "w") as f:
     f.write(f"{nx_topo} {ny_topo}\n")
     for r in topo_rows:

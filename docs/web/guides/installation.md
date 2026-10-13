@@ -143,7 +143,7 @@ internal build log; the order matters.
 
 !!! warning "Read these first, they cause most failures"
     - **Paths with spaces break the build.** If the repo lives under
-      `C:\Dropbox\…` (a space in `01. Brain`), create a junction to a
+      a folder whose name has a space (for example `C:\Users\you\My Projects\…`), create a junction to a
       space-free path and build from there.
     - **Use CMD, not PowerShell, for build steps.** PowerShell quoting breaks
       the compiler invocations.
@@ -167,7 +167,7 @@ In an **Administrator CMD**:
 
 ```cmd
 mkdir C:\shakermaker_compiler
-mklink /J "C:\shakermaker_compiler\ShakerMaker" "C:\Dropbox\01. Brain\11. GitHub\ShakerMaker"
+mklink /J "C:\shakermaker_compiler\ShakerMaker" "C:\Users\you\My Projects\ShakerMaker"
 ```
 
 All build commands then run from `C:\shakermaker_compiler\ShakerMaker`.
