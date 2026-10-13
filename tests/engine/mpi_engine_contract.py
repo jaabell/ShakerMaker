@@ -18,6 +18,7 @@ It checks properties that only show up under MPI:
    identical to a fast close.
 4. No NaN anywhere.
 5. Stage 2 without a writer returns on every rank instead of hanging.
+6. 'legacy' and 'progressive' write the same time grid and the same values.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -170,6 +171,27 @@ def main():
         run_stage(model, 2, p("gf_dynamic.h5"), writer=None, tmin=TMIN, tmax=TMAX)
         check(True, f"stage 2 without writer ({tag}) returns on every rank "
                     f"({time.perf_counter() - t1:.1f} s)")
+
+    # Legacy and progressive share the time grid.
+    with_env()
+    new_model = lambda: ShakerMaker(SCEC_LOH_1(), fault_sources(), stations_with_roundoff_depths())
+    fields = ["velocity", "displacement", "acceleration"]
+
+    def stage2(model_, mode, tmax, tag):
+        out = p(f"modes_{tag}.h5")
+        run_stage(model_, 2, p("gf_dynamic.h5"), writer=HDF5StationListWriter(out),
+                  writer_mode=mode, tmin=TMIN, tmax=tmax)
+        return read(out, ["Data"], fields) if rank == 0 else None
+
+    def same(a, b):
+        return all(a[k].shape == b[k].shape and np.array_equal(a[k], b[k]) for k in b)
+
+    for tmax in (TMAX, 7.3):
+        leg = stage2(new_model(), "legacy", tmax, f"legacy_{tmax}")
+        pro = stage2(new_model(), "progressive", tmax, f"progressive_{tmax}")
+        if rank == 0:
+            check(same(leg, pro), f"legacy == progressive (shape and values), tmax={tmax}: "
+                                  f"{[leg[k].shape for k in leg]} vs {[pro[k].shape for k in pro]}")
 
     # ---------------------------------------------------------------- 3
     with_env()
