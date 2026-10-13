@@ -1,1 +1,1 @@
-shakermaker_version = "2.1.0"
+shakermaker_version = "2.2.0"
