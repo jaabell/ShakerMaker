@@ -200,6 +200,14 @@ worked. Two changes:
   station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
   `SM_S2_SPLIT=1` forces the split, `SM_S2_SPLIT=0` disables it;
 - **split crust models cached** per (source depth, receiver depth).
+- **STF convolution** (`SM_S2_CONV=fast`, off by default): each source time
+  function is resampled once per (source, pair time step) instead of once
+  per component and pair, the three components are convolved in one FFT,
+  and only up to the last sample that `add_to_response` keeps (the
+  convolution is causal, so those samples do not change). The pair time
+  step is `t[1] - t[0]` of the pair's own grid, which differs from the
+  nominal `dt` in the last bits and can change the resampled STF by one
+  sample, so the cache is keyed on its exact value.
 - **compact database** (`SM_GF_F32=1`, see section 3): less to read and
   decompress, and no float64 to float32 conversion per pair.
 
@@ -210,6 +218,11 @@ Stage 2 of the 4096-source, 3-station case on one node (16 x 2), same database:
 | reference | 6.92 s | 2.41 s | 1.50 s | 2.61 s | - |
 | compact database, gzip | 3.95 s | 0.92 s | 0.41 s | 2.29 s | bit-identical |
 | compact database, uncompressed | **3.85 s** | 0.53 s | 0.46 s | 2.50 s | bit-identical |
+| `SM_S2_CONV=fast` | 6.95 s | - | - | **1.43 s** (from 2.67) | 1e-7 of the peak |
+
+The convolution gain grows with the ratio between the trace length
+(`2*nfft`) and the output window: 3.1-3.5x on a small DRM box with
+`nfft` 8192 and a 10 s window.
 
 | Case | Before | Sources split | Difference |
 |---|---|---|---|
@@ -226,11 +239,15 @@ The crust cache alone is bit-identical and saves ~10 %.
 - **Stage 2 summed in the frequency domain** (CPU): correct (1e-7) but not
   faster than splitting the sources.
 - **Stage 2 on the GPU:** 10x faster than the old loop and ~4x faster than
-  splitting the sources on the full Quito rupture, but the PGA differs by
-  1e-3 from the CPU result, most likely from rounding `t0` in float64
-  instead of float32 before the integer shift. Not adopted until that is
-  fixed. Its natural use is many FFSP realisations on one GF database, which
-  can stay in GPU memory.
+  splitting the sources on a 32 768-source, 3-station case, but the
+  acceleration differs by up to
+  1e-3 of the PGA away from the peak, with broadband content. The CPU
+  reference is accurate to 1e-7, so this is not round-off: the prototype
+  resamples each STF with the nominal `dt`, while `convolve` uses each pair's
+  own time step. Doing the same on the CPU reproduces the error (1e-3 of the
+  PGA in acceleration, centroid 45-50 Hz, maximum away from the PGA; below
+  1e-4 in response spectra). Not adopted yet; its natural use is many FFSP
+  realisations on one GF database, which can stay in GPU memory.
 - **Coarser time step with the same unfiltered band** (Stage 1): the FK cost
   scales with the square of the Nyquist frequency, and below the start of
   the taper the spectrum does not depend on `dt`. On the 4096-source,

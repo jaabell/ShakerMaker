@@ -27,6 +27,8 @@ It checks properties that only show up under MPI:
    (SM_GF_BATCH=0).
 9. The compact database (SM_GF_F32=1: float32, only the non-zero samples)
    gives bit-identical Stage 2 motions.
+10. SM_S2_CONV=fast gives the same motions as the default convolution to
+   1e-6 (single-precision FFT round-off), with both Stage 2 variants.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -59,7 +61,8 @@ FK = dict(dt=0.02, nfft=512, dk=0.1, tb=50, smth=1)
 STAGE0 = dict(delta_h=0.0025, delta_v_rec=0.0025, delta_v_src=0.2)
 TMIN, TMAX = 0.0, 8.0
 SLOW_CLOSE = float(os.environ.get("SM_TEST_SLOW_CLOSE", "35"))
-ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH", "SM_GF_F32")
+ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH", "SM_GF_F32",
+            "SM_S2_CONV")
 
 WORK = os.path.abspath(os.environ.get("SM_TEST_WORKDIR", "_engine_contract_work"))
 
@@ -263,6 +266,20 @@ def main():
             check(ds.dtype == np.float32 and int(ds.attrs.get("nt_full", 0)) == 2 * ds.shape[1],
                   f"compact database: float32, {ds.shape[1]} of {ds.attrs.get('nt_full')} samples")
         check(same(read(out, ["Data"], fields), m64), "compact database gives bit-identical motions")
+
+    # ---------------------------------------------------------------- 10
+    for tag, env in (("split", {"SM_S2_SPLIT": 1}), ("per_station", {"SM_S2_SPLIT": 0})):
+        res = {}
+        for conv in ("legacy", "fast"):
+            with_env(SM_S2_CONV=conv, **env)
+            out = p(f"conv_{tag}_{conv}.h5")
+            run_stage(new_model(), 2, p("gf_dynamic.h5"), writer=HDF5StationListWriter(out),
+                      writer_mode="progressive", tmin=TMIN, tmax=TMAX)
+            if rank == 0:
+                res[conv] = read(out, ["Data"], fields)
+        if rank == 0:
+            worst = max(max_rel(res["fast"][k], res["legacy"][k]) for k in res["legacy"])
+            check(worst < 1e-6, f"SM_S2_CONV=fast vs default ({tag}): max rel diff {worst:.1e}")
 
     # ---------------------------------------------------------------- 3
     with_env()
