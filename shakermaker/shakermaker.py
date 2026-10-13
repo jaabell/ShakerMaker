@@ -91,6 +91,11 @@ from shakermaker import core
 # On Linux/macOS it is a transparent no-op (calls fn directly).
 _WIN_STACK_SIZE = 64 * 1024 * 1024  # 64 MB
 
+# Stage 0 computes the pair geometry for this many pairs at a time (rounded to
+# whole stations), so its memory does not grow with the number of pairs.
+_S0_BLOCK_PAIRS = 1 << 21
+
+
 def _win_run(fn, *args, **kwargs):
     """Call fn(*args, **kwargs) in a 64 MB stack thread on Windows only."""
     if sys.platform != 'win32':
@@ -940,32 +945,26 @@ class ShakerMaker:
 
             pair_to_slot[i_station * nsources + i_psource] = k
 
-        **Algorithm -- MPI parallel geometry + Numba-compiled JAA greedy:**
+        **Algorithm.** The pairs are visited in canonical order (station by
+        station, source by source). A pair joins the existing slot that
+        covers it (every difference within its tolerance) with the smallest
+        L1 distance, the lowest slot index on ties; if no slot covers it, it
+        opens a new one. The decisions are sequential: each depends on the
+        slots opened by the pairs before it.
 
-        The geometry computation is distributed across all MPI ranks
-        (vectorised, no Python loop).  The greedy slot-finding uses
-        *exactly* the same algorithm as JAA, compiled to native code with
-        Numba ``@njit`` so that it runs 100--500× faster than Python while
-        producing bit-for-bit identical results.
-
-        1. [All ranks] Vectorised geometry for local station slice:
-           compute (dh, z_src, z_rec) via NumPy broadcasting.
-        2. [All ranks] Gather geometry arrays to rank 0 via ``Gatherv``.
-        3. [Rank 0] Run the JAA greedy in canonical pair order, compiled
-           to C via Numba @njit.  Produces exactly the same slots as the
-           original serial JAA implementation.
-        4. [Rank 0] Build ``pair_to_slot`` and ``pairs_to_compute``,
-           write HDF5 database.
-        5. All ranks synchronise at a ``Barrier``.
+        By default (Numba installed) rank 0 builds the map alone with
+        :meth:`_gen_pairs_fast`: the candidate slots are looked up in a hash
+        table, so the cost is linear in the number of pairs instead of
+        pairs x slots; the geometry is computed one block of stations at a
+        time; memory is about 4 bytes per pair. The other ranks wait at a
+        ``Barrier``. ``SM_S0_LEGACY=1`` (or no Numba) runs the previous
+        implementation (geometry on every rank, ``Gatherv`` to rank 0 and a
+        search over every slot for every pair), which writes the same map.
 
         Complexity:
-          - Geometry : O(n_pairs / nprocs) -- vectorised, MPI parallel.
-          - Greedy   : O(n_pairs × n_slots) -- Numba compiled (single rank).
-                       Typical speedup vs Python: 100--500×.
-                       A 24-hour Python Stage 0 becomes ~10 minutes.
-
-        Result: **identical slot count and pair_to_slot mapping** as the
-        original serial JAA greedy for every geometry type.
+          - default : O(n_pairs), one process.
+          - legacy  : O(n_pairs x n_slots) on rank 0, plus 32 bytes per
+                      pair gathered on rank 0.
 
         Writes to ``h5_database_name``:
 
@@ -991,6 +990,21 @@ class ShakerMaker:
         :param showProgress: Print per-rank timing lines.
         :type showProgress: bool
         """
+        # Default: the same map, built by rank 0 alone (see _gen_pairs_fast).
+        # SM_S0_LEGACY=1, or no Numba, keeps the previous implementation below.
+        try:
+            import numba  # noqa: F401
+            _fast = os.environ.get("SM_S0_LEGACY", "0") != "1"
+        except ImportError:
+            _fast = False
+        if _fast:
+            if rank == 0:
+                self._gen_pairs_fast(h5_database_name, delta_h, delta_v_rec,
+                                     delta_v_src, showProgress)
+            if use_mpi and nprocs > 1:
+                comm.Barrier()
+            return
+
         # ------------------------------------------------------------------
         # JAA greedy compiled to native C with Numba.
         # Defined inside the method so it is always available even if Numba
@@ -1009,7 +1023,9 @@ class ShakerMaker:
         try:
             from numba import njit as _njit
 
-            @_njit
+            # nogil: a compiled call that holds the GIL for the whole grouping
+            # stops every other thread of rank 0, including the node monitor.
+            @_njit(nogil=True)
             def _greedy_jaa(dh_arr, zsrc_arr, zrec_arr,
                              delta_h, delta_v_src, delta_v_rec):
                 N         = len(dh_arr)
@@ -1294,6 +1310,167 @@ class ShakerMaker:
         # All ranks wait here before Stage 1 starts
         if use_mpi and nprocs > 1:
             comm.Barrier()
+
+    def _gen_pairs_fast(self, h5_database_name, delta_h, delta_v_rec,
+                        delta_v_src, showProgress):
+        """Stage 0 on the calling rank alone (the default), same map as the legacy path.
+
+        - Grouping: a slot that covers a pair lies in one of the 27 cells
+          around it when the cells are slightly larger than the tolerances.
+          Only those slots are tested, with the greedy's coverage test, L1
+          distance and tie rule (lowest slot index), so the decisions are the
+          same and the cost no longer grows with the number of slots.
+        - Geometry: computed for a block of stations at a time with the same
+          NumPy expressions as gen_pairs; the (N, 4) array and the Gatherv
+          are never built.
+        - Representatives: pairs are visited in canonical order and only join
+          slots that already exist, so the first pair of a slot is the one
+          that created it. It is recorded on creation; no argsort or unique.
+        """
+        from numba import njit, types
+        from numba.typed import Dict
+
+        @njit(nogil=True)
+        def _cell_key(a, b, c):
+            return (a + 1048576) * 4398046511104 + (b + 1048576) * 2097152 + (c + 1048576)
+
+        @njit(nogil=True)
+        def _group_block(dh_arr, zsrc_arr, zrec_arr, base, p2s, head,
+                         slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots,
+                         delta_h, delta_v_src, delta_v_rec):
+            ch = delta_h * (1.0 + 1e-9)
+            cs = delta_v_src * (1.0 + 1e-9)
+            cr = delta_v_rec * (1.0 + 1e-9)
+            for j in range(len(dh_arr)):
+                a = int(np.floor(dh_arr[j] / ch))
+                b = int(np.floor(zsrc_arr[j] / cs))
+                c = int(np.floor(zrec_arr[j] / cr))
+                found = -1
+                best_dist = 1e18
+                for da in range(-1, 2):
+                    for db in range(-1, 2):
+                        for dc in range(-1, 2):
+                            kk = _cell_key(a + da, b + db, c + dc)
+                            if kk in head:
+                                k = head[kk]
+                                while k >= 0:
+                                    d_dh = dh_arr[j] - slot_dh[k]
+                                    d_zs = zsrc_arr[j] - slot_zsrc[k]
+                                    d_zr = zrec_arr[j] - slot_zrec[k]
+                                    if d_dh < 0.0: d_dh = -d_dh
+                                    if d_zs < 0.0: d_zs = -d_zs
+                                    if d_zr < 0.0: d_zr = -d_zr
+                                    if (d_dh <= delta_h and d_zs <= delta_v_src and
+                                            d_zr <= delta_v_rec):
+                                        dist = d_dh + d_zs + d_zr
+                                        if dist < best_dist or (dist == best_dist and k < found):
+                                            best_dist = dist
+                                            found = k
+                                    k = nxt[k]
+                if found == -1:
+                    if n_slots == len(slot_dh):
+                        grow = len(slot_dh)
+                        slot_dh = np.concatenate((slot_dh, np.empty(grow)))
+                        slot_zsrc = np.concatenate((slot_zsrc, np.empty(grow)))
+                        slot_zrec = np.concatenate((slot_zrec, np.empty(grow)))
+                        nxt = np.concatenate((nxt, np.empty(grow, dtype=np.int64)))
+                        anchor = np.concatenate((anchor, np.empty(grow, dtype=np.int64)))
+                    slot_dh[n_slots] = dh_arr[j]
+                    slot_zsrc[n_slots] = zsrc_arr[j]
+                    slot_zrec[n_slots] = zrec_arr[j]
+                    anchor[n_slots] = base + j
+                    kk = _cell_key(a, b, c)
+                    nxt[n_slots] = head[kk] if kk in head else -1
+                    head[kk] = n_slots
+                    p2s[base + j] = n_slots
+                    n_slots += 1
+                else:
+                    p2s[base + j] = found
+            return slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots
+
+        def _new_state(cap):
+            return (Dict.empty(key_type=types.int64, value_type=types.int64),
+                    np.empty(cap), np.empty(cap), np.empty(cap),
+                    np.empty(cap, dtype=np.int64), np.empty(cap, dtype=np.int64))
+
+        nsources = self._source.nsources
+        nstations = self._receivers.nstations
+        N = nstations * nsources
+        print(f"\n\nShakerMaker Gen GF database pairs begin (one process). "
+              f"{delta_h=} {delta_v_rec=} {delta_v_src=}")
+        print(f"  Stations    : {nstations}")
+        print(f"  Sources     : {nsources}")
+        print(f"  Total pairs : {N}")
+
+        t0 = perf_counter()
+        sta = np.array([self._receivers.get_station_by_id(i).x for i in range(nstations)],
+                       dtype=np.float64).reshape(-1, 3)
+        src = np.array([self._source.get_source_by_id(j).x for j in range(nsources)],
+                       dtype=np.float64).reshape(-1, 3)
+
+        # Compile on a one-pair problem so the JIT is not timed with the grouping.
+        h, a1, a2, a3, a4, a5 = _new_state(1)
+        _group_block(np.zeros(1), np.zeros(1), np.zeros(1), 0, np.empty(1, dtype=np.int32),
+                     h, a1, a2, a3, a4, a5, 0, delta_h, delta_v_src, delta_v_rec)
+        t_jit = perf_counter()
+
+        p2s = np.empty(N, dtype=np.int32)
+        head, slot_dh, slot_zsrc, slot_zrec, nxt, anchor = _new_state(1024)
+        n_slots = 0
+        t_geom = 0.0
+        block = max(1, _S0_BLOCK_PAIRS // max(nsources, 1))
+        for s0 in range(0, nstations, block):
+            s1 = min(s0 + block, nstations)
+            tg = perf_counter()
+            sta_rep = np.repeat(sta[s0:s1], nsources, axis=0)
+            src_tile = np.tile(src, (s1 - s0, 1))
+            d_xy = sta_rep[:, :2] - src_tile[:, :2]
+            dh = np.sqrt(np.einsum('ij,ij->i', d_xy, d_xy))
+            zs = np.ascontiguousarray(src_tile[:, 2])
+            zr = np.ascontiguousarray(sta_rep[:, 2])
+            t_geom += perf_counter() - tg
+            slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots = _group_block(
+                dh, zs, zr, s0 * nsources, p2s, head,
+                slot_dh, slot_zsrc, slot_zrec, nxt, anchor, n_slots,
+                delta_h, delta_v_src, delta_v_rec)
+        t_group = perf_counter()
+
+        slot_dh = slot_dh[:n_slots]
+        slot_zsrc = slot_zsrc[:n_slots]
+        slot_zrec = slot_zrec[:n_slots]
+        repr_flat = anchor[:n_slots]
+        pairs_to_compute = np.column_stack(
+            [(repr_flat // nsources).astype(np.int32),
+             (repr_flat % nsources).astype(np.int32)]).astype(np.int32)
+        dv_of_pairs = np.abs(slot_zrec - slot_zsrc)
+        assert p2s.min() >= 0 and p2s.max() < n_slots, \
+            "[Stage 0] BUG: pair_to_slot index out of range"
+        t_repr = perf_counter()
+
+        if showProgress:
+            print(f"  [S0 fast] Numba JIT: {t_jit - t0:.3f}s")
+            print(f"  [S0 fast] geometry ({N:,} pairs, blocks of {block} stations): {t_geom:.3f}s")
+            print(f"  [S0 fast] grouping ({N:,} pairs -> {n_slots} slots): "
+                  f"{t_group - t_jit - t_geom:.3f}s")
+            print(f"  [S0 fast] representatives: {t_repr - t_group:.3f}s")
+        print(f"\nNeed only {n_slots} pairs of {N} "
+              f"({n_slots / N * 100:.1f}% of total, {(1.0 - n_slots / N) * 100:.1f}% reduction)")
+        print(f"Stage 0 done. Time: {t_repr - t0:.1f}s")
+
+        map_file = h5_database_name.replace('.h5', '') + '_map.h5'
+        with h5py.File(map_file, 'w', locking=False) as hf:
+            hf.create_dataset("pairs_to_compute", data=pairs_to_compute)
+            hf.create_dataset("dh_of_pairs",      data=slot_dh)
+            hf.create_dataset("dv_of_pairs",      data=dv_of_pairs)
+            hf.create_dataset("zrec_of_pairs",    data=slot_zrec)
+            hf.create_dataset("zsrc_of_pairs",    data=slot_zsrc)
+            hf.create_dataset("pair_to_slot",     data=p2s)
+            hf.create_dataset("delta_h",          data=delta_h)
+            hf.create_dataset("delta_v_rec",      data=delta_v_rec)
+            hf.create_dataset("delta_v_src",      data=delta_v_src)
+            hf.create_dataset("nstations",        data=int(nstations))
+            hf.create_dataset("nsources",         data=int(nsources))
+        print(f"Mapping database written to: {map_file} ({perf_counter() - t_repr:.1f}s)")
 
     # =========================================================================
     # Stage 1  --  compute_gf
