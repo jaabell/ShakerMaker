@@ -22,7 +22,9 @@ vector:
 z, e, n, t = sta.get_response()      # NumPy arrays, length nfft (× smth)
 ```
 
-The components are **Z (vertical), E (East), N (North)**. The natural FK output
+The components are **Z (vertical, positive down), E (East), N (North)**, in that
+order (see [Coordinates & conventions](../background/conventions.md#motion-the-order-depends-on-the-output)
+for every output's order). The natural FK output
 is **velocity**, and its units follow the units in which the STF source was
 defined — the Green's functions are scaled by the source, so the output carries
 whatever moment/amplitude units you used for the STF. Integrate once for
@@ -88,8 +90,11 @@ There are two writers, sharing the same file philosophy:
 ```
 
 Each station occupies **three consecutive rows** in the signal datasets,
-ordered **E, N, Z** — station `i` starts at row `3·i` (that is exactly what
-`data_location[i]` records). Velocity is computed by the FK engine;
+ordered **E, N, Z** (East, North, vertical positive down) — station `i` starts
+at row `3·i` (that is exactly what `data_location[i]` records). The positions in
+`xyz` keep ShakerMaker's order (North, East, depth): positions and motion are
+stored in different orders on purpose, see
+[Coordinates & conventions](../background/conventions.md#why-the-h5-and-h5drm-reorder-the-motion). Velocity is computed by the FK engine;
 acceleration and displacement are differentiated/integrated **at write time**,
 so the file carries all three ready to use.
 
@@ -104,7 +109,9 @@ so the file carries all three ready to use.
 The **QA station** (the one whose metadata `name == "QA"`, added automatically
 by `DRMBox` / `PointCloudDRMReceiver` at the box centre) is split off into
 `/DRM_QA_Data`; every boundary node goes to `/DRM_Data`. This is the file
-OpenSees `H5DRMLoadPattern` reads directly — see the [DRM guide](drm.md).
+OpenSees `H5DRMLoadPattern` reads directly — see the [DRM guide](drm.md), and
+[Using the .h5drm in OpenSees](drm.md#using-the-h5drm-in-opensees) for the
+transformation matrix.
 
 To peek inside any `.h5` / `.h5drm` and list its groups and shapes, use
 [`examples/07_writers/explore_h5_output.py`](../examples/index.md#07-writers-io).
