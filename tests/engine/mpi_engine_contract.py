@@ -21,6 +21,10 @@ It checks properties that only show up under MPI:
 6. 'legacy' and 'progressive' write the same time grid and the same values.
 7. Running Stage 2 twice on the same model gives the same motions (the
    stations start from zero on every run).
+8. Stage 1 batching (default): on a crust whose finite thickness exceeds the
+   source-station distances, slots are grouped into multi-distance core calls
+   and the Green's functions are bit-identical to one call per slot
+   (SM_GF_BATCH=0).
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -36,6 +40,7 @@ import numpy as np
 from mpi4py import MPI
 
 from shakermaker.cm_library.LOH import SCEC_LOH_1
+from shakermaker.crustmodel import CrustModel
 from shakermaker.faultsource import FaultSource
 from shakermaker.pointsource import PointSource
 from shakermaker.shakermaker import ShakerMaker
@@ -52,7 +57,7 @@ FK = dict(dt=0.02, nfft=512, dk=0.1, tb=50, smth=1)
 STAGE0 = dict(delta_h=0.0025, delta_v_rec=0.0025, delta_v_src=0.2)
 TMIN, TMAX = 0.0, 8.0
 SLOW_CLOSE = float(os.environ.get("SM_TEST_SLOW_CLOSE", "35"))
-ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT")
+ENV_KEYS = ("SM_GF_STATIC", "SM_GF_RANK0_COMPUTE", "SM_S2_SPLIT", "SM_GF_BATCH")
 
 WORK = os.path.abspath(os.environ.get("SM_TEST_WORKDIR", "_engine_contract_work"))
 
@@ -200,6 +205,45 @@ def main():
     if rank == 0:
         check(same(runs[1], runs[0]), "second legacy run on the same model == first")
         check(same(runs[2], runs[0]), "progressive run after legacy on the same model == first")
+
+    # ---------------------------------------------------------------- 8
+    # LOH.1 with an extra interface at 30 km (same half-space below): the finite
+    # thickness then exceeds every distance and Stage 1 can group the slots.
+    def deep_crust():
+        c = CrustModel(3)
+        c.add_layer(1.0, 4.0, 2.0, 2.6, 10000.0, 10000.0)
+        c.add_layer(29.0, 6.0, 3.464, 2.7, 10000.0, 10000.0)
+        c.add_layer(0.0, 6.0, 3.464, 2.7, 10000.0, 10000.0)
+        return c
+
+    calls = {"multi": 0}
+    orig_multi = ShakerMaker._call_core_multi
+
+    def counting_multi(self, *a, **k):
+        calls["multi"] += 1
+        return orig_multi(self, *a, **k)
+
+    ShakerMaker._call_core_multi = counting_multi
+    deep = ShakerMaker(deep_crust(), fault_sources(), stations_with_roundoff_depths())
+    gfb = {}
+    for tag, env in (("batched", {}), ("one_per_slot", {"SM_GF_BATCH": 0})):
+        with_env(**env)
+        calls["multi"] = 0
+        db = p(f"gf_deep_{tag}.h5")
+        run_stage(deep, 0, db, **STAGE0)
+        run_stage(deep, 1, db)
+        n_multi = comm.allreduce(calls["multi"], op=MPI.SUM)
+        if rank == 0:
+            with h5py.File(db.replace(".h5", "_gf.h5"), "r") as f:
+                gfb[tag] = (f["/tdata"][...], f["/t0"][...], n_multi)
+    ShakerMaker._call_core_multi = orig_multi
+    if rank == 0:
+        check(gfb["batched"][2] > 0 and gfb["one_per_slot"][2] == 0,
+              f"stage 1 batching groups slots ({gfb['batched'][2]} multi-distance calls; "
+              f"{gfb['one_per_slot'][2]} with SM_GF_BATCH=0)")
+        check(np.array_equal(gfb["batched"][0], gfb["one_per_slot"][0])
+              and np.array_equal(gfb["batched"][1], gfb["one_per_slot"][1]),
+              "stage 1 batched GFs bit-identical to one core call per slot")
 
     # ---------------------------------------------------------------- 3
     with_env()

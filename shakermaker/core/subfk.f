@@ -13,11 +13,15 @@
       real qa(mb),qb(mb),a(mb),b(mb)
       complex w,att,nf,u(3,3)
       real aj0,aj1,aj2,z,tdata(nx,9,2*nfft)
-      complex sum(nx,9,2*nfft), data(2*nfft)
+      complex data(2*nfft)
+C     sum is on the heap: with nx distances per call (several slots in one
+C     call) an automatic array would overflow the default stack.
+      complex, allocatable :: sum(:,:,:)
       complex ka_local(mb), kb_local(mb) 
 
       nCom = 3 + 3*stype
       idx0 = 47
+      allocate(sum(nx,9,2*nfft))
 C       write(*,*) "mb=", mb
 C       write(*,*) "stype=", stype
 C       write(*,*) "src=", src
@@ -197,5 +201,6 @@ C                write(*,*) "l=", l, "(2)"
       enddo
 !$OMP END PARALLEL DO
       nfft=nfft/smth
+      deallocate(sum)
       return 
       end
