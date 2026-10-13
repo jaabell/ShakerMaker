@@ -2234,8 +2234,14 @@ class ShakerMaker:
                 return
 
         if stage in (2, 'all'):
-            if writer is None and rank == 0:
-                print("WARNING: Stage 2 requires a writer. Aborting.")
+            # The writer usually exists only on rank 0, so rank 0 decides and every
+            # rank leaves together; otherwise the others would wait for rank 0.
+            has_writer = writer is not None
+            if use_mpi and nprocs > 1:
+                has_writer = comm.bcast(has_writer, root=0)
+            if not has_writer:
+                if rank == 0:
+                    print("WARNING: Stage 2 requires a writer. Aborting.")
                 return
             self.run_fast(
                 h5_database_name=h5_database_name,

@@ -17,6 +17,7 @@ It checks properties that only show up under MPI:
    (SM_TEST_SLOW_CLOSE seconds, default 35) still produces a complete file
    identical to a fast close.
 4. No NaN anywhere.
+5. Stage 2 without a writer returns on every rank instead of hanging.
 
 Prints ENGINE_MPI_CONTRACT_PASS on rank 0 when everything holds. Work files go
 to SM_TEST_WORKDIR (default ./_engine_contract_work, removed at the end); it
@@ -161,6 +162,14 @@ def main():
                   f"stage 2 split vs per-station, {k}: max rel diff "
                   f"{max_rel(v, ref) if v.shape == ref.shape else 'shape mismatch'}")
             check(np.all(np.isfinite(v)), f"stage 2 {k} has no NaN")
+
+    # Stage 2 without a writer: every rank must leave (it used to hang ranks != 0).
+    for tag, env in (("split", {"SM_S2_SPLIT": 1}), ("per_station", {"SM_S2_SPLIT": 0})):
+        with_env(**env)
+        t1 = time.perf_counter()
+        run_stage(model, 2, p("gf_dynamic.h5"), writer=None, tmin=TMIN, tmax=TMAX)
+        check(True, f"stage 2 without writer ({tag}) returns on every rank "
+                    f"({time.perf_counter() - t1:.1f} s)")
 
     # ---------------------------------------------------------------- 3
     with_env()
