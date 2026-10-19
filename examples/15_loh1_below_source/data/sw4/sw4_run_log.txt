@@ -1,0 +1,100 @@
+----------------------------------------------------------------
+            sw4 version 3.0
+
+ This program comes with ABSOLUTELY NO WARRANTY; released under GPL.
+ This is free software, and you are welcome to redistribute     
+ it under certain conditions, see LICENSE.txt for more details  
+----------------------------------------------------------------
+  Compiled on: 260428
+  By user:     pxpalacios
+  Machine:     luisalane
+  Compiler:    /usr/bin/c++
+  3rd party include dir: NA, and library dir: NA
+----------------------------------------------------------------
+
+Input file: loh1_below_source.in
+
+* Processing the grid command...
+* Setting nx to 241 to be consistent with h=1.00000000e+02
+* Setting ny to 241 to be consistent with h=1.00000000e+02
+* Setting nz to 121 to be consistent with h=1.00000000e+02
+ Number of curvilinear grids = 0
+ Number of Cartesian grids = 2
+ Total number of grids = 2
+
+*** No topography command found in input file. Using z=0 as free surface boundary ***
+
+
+Global grid sizes (without ghost points)
+Grid         h        Nx        Ny        Nz       Points      Type
+   0       100       241       241       111      6446991     Cartesian
+   1        50       481       481        21      4858581     Cartesian
+Total number of grid points (without ghost points): 1.13056e+07
+
+
+Read station input, took 4.86625000e-04seconds.
+
+   Execution time, reading input file 5.16931970e-02 seconds 
+----------------------------------------------------
+ Making Directory: sw4_out/
+		
+... Done!
+----------------------------------------------------
+Geographic and Cartesian coordinates of the corners of the computational grid:
+0: Lon= -1.180000e+02, Lat=3.700000e+01, x=0.000000e+00, y=0.000000e+00
+1: Lon= -1.180000e+02, Lat=3.721560e+01, x=2.400000e+04, y=0.000000e+00
+2: Lon= -1.177293e+02, Lat=3.721560e+01, x=2.400000e+04, y=2.400000e+04
+3: Lon= -1.177300e+02, Lat=3.700000e+01, x=0.000000e+00, y=2.400000e+04
+
+Considering all material blocks
+block command: outside = 0, material = 13042224
+block command: outside = 7257236, material = 5784988
+
+       ----------- Material properties ranges ---------------
+       2.60000000e+03 kg/m^3 <=  Density <= 2.70000000e+03 kg/m^3
+       4.00000000e+03 m/s    <=  Vp      <= 6.00000000e+03 m/s
+       2.00000000e+03 m/s    <=  Vs      <= 3.46400000e+03 m/s
+       1.73210162e+00        <=  Vp/Vs   <= 2.00000000e+00
+       1.04000000e+10 Pa     <=  mu      <= 3.23980992e+10 Pa
+       2.08000000e+10 Pa     <=  lambda  <= 3.24038016e+10 Pa
+       ------------------------------------------------------
+
+***** PPW = minVs/h/maxFrequency ********
+g=0, h=1.000000e+02, minVs/h=34.64 (Cartesian)
+g=1, h=5.000000e+01, minVs/h=40 (Cartesian)
+
+  time step = 1.32743363e-02
+
+   Execution time, start up phase 3.52005982e-01 seconds 
+Running sw4 on 4 processors...
+Writing output to directory: sw4_out/
+============================================================
+ Running program on 4 MPI tasks using the following data: 
+
+ Start Time = 0 Goal Time = 9
+ Number of time steps = 678 dt: 0.0132743
+
+-----------------------------------------------------------------------
+  Total seismic moment (M0): 1e+18 Nm 
+  Moment magnitude     (Mw): 5.93333
+  Number of moment sources 1
+-----------------------------------------------------------------------
+
+   Execution time, initial data phase 3.90775240e-02 seconds 
+
+  Begin time stepping...
+Time step       1  t =   1.3274336e-02
+Time step     101  t =   1.3407080e+00
+Time step     201  t =   2.6681416e+00
+Time step     301  t =   3.9955752e+00
+Time step     401  t =   5.3230088e+00
+Time step     501  t =   6.6504425e+00
+Time step     601  t =   7.9778761e+00
+Time step     678  t =   9.0000000e+00
+  Time stepping finished...
+
+   Execution time, time stepping phase 22 minutes 4.58284700e+01 seconds 
+  ==> Max wallclock time to write time-series data is 1.33466060e-02 seconds.
+============================================================
+ program sw4 finished! 
+============================================================

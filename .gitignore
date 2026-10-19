@@ -33,3 +33,4 @@ examples/07_writers/*.npz
 examples/09_sw4_export/_sw4_out*/
 examples/10_ffsp/ffsp.h5
 examples/13_shakermaker_sw4/compare_*.png
+examples/15_loh1_below_source/_output/
