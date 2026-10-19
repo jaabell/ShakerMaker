@@ -19,25 +19,25 @@ surface to 4 km below the source:
 
 Both solutions band-passed to 0.1–1.2 Hz (SW4 reports a resolved bandwidth of 1.234 Hz for
 this grid), first 9 s, one amplitude factor fitted at the surface receiver `o6_z0000` and
-applied to every receiver (`data/`, `notebooks/comparison.csv`):
+applied to every receiver, default `kc = 15` (`data/`, `notebooks/comparison.csv`):
 
 | Receivers | Correlation with SW4 (Z, E, N) | Peak ratio ShakerMaker / SW4 |
 |---|---|---|
-| 1–4 km below the source, both verticals | 0.996–1.000 | 0.97–1.01 |
-| 0.5 km below the source, 10 km from the epicentre | 0.996–0.999 | 0.97–0.99 |
-| 0.5 km above the source, both verticals | 0.994–0.999 | 0.97–1.04 |
+| 1–4 km below the source, both verticals | 0.995–1.000 | 0.97–1.02 |
+| 0.5 km below the source, 10 km from the epicentre | 0.997–0.999 | 0.97–0.99 |
+| 0.5 km below the source, 1 km from the epicentre | 0.997 | 0.98 |
+| 0.5 km above the source, both verticals | 0.995–0.999 | 0.96–1.05 |
 | surface, 10 km / 1 km from the epicentre | 0.993–0.997 / 0.949–0.981 | 0.96–1.01 / 1.02–1.08 |
-| **0.5 km below the source, 1 km from the epicentre, Z, `kc = 15`** | **0.978** | **1.36** |
-| same receiver with `kc = 30` / `kc = 60` | 0.997 / 0.997 | 1.03 / 0.98 |
 
 - The receivers below the source match SW4 in shape and amplitude: the flipped-model path is
   correct.
-- The one exception (Z, 0.5 km below the source, near the epicentre) is the **wavenumber
-  cut-off**, not the flip: it converges to SW4 with `kc = 30` or larger (`kc_check.py`). The FK
-  kernels decay with wavenumber like exp(−k·dz), with dz the source–receiver depth separation;
-  `subfk.f` cuts at `kc / hs`, and `subgreen` passes `hs` = the total thickness of the layered
-  model, while `fk.f` uses the source–receiver separation. Receivers within about 1 km of the
-  source depth near the epicentre need a larger `kc` with the current core.
+- The receivers 0.5 km from the source depth are converged in the wavenumber cut-off: `kc` = 15,
+  30, 60 and 150 give the same seismograms (`kc_check.py`). The FK kernels decay with
+  wavenumber like exp(−k·dz), with dz the source–receiver depth separation, and `subfk.f` cuts
+  the integral at `kc / hs`. `subgreen` used to pass `hs` = the total thickness of the layered
+  model; it now passes the source–receiver separation, as `fk.f` does. Before that change the
+  vertical component 0.5 km below the source near the epicentre had a peak ratio of **1.36**
+  (correlation 0.978) with `kc = 15` and needed `kc` ≥ 30 to converge.
 - The surface receiver 1 km from the epicentre has the lowest correlation of the set (0.95 on E):
   it is in the near field of the source, where the 100 m SW4 grid is coarsest relative to the
   wavefield.
@@ -49,7 +49,7 @@ applied to every receiver (`data/`, `notebooks/comparison.csv`):
 ```bash
 python run_shakermaker.py     # ShakerMaker, 10 receivers, a few seconds -> _output/sm_*.npz
 python compare.py             # ShakerMaker (data/sm) vs SW4 (data/sw4) -> _output/comparison.csv, .png
-python kc_check.py            # receivers 0.5 km from the source with kc = 15, 30, 60, 150
+python kc_check.py            # receivers 0.5 km from the source with kc = 15, 30, 60, 150 (converged)
 ```
 
 `compare.py [SW4_DIR] [SM_DIR]` takes other directories (e.g. `_output` after
@@ -85,7 +85,7 @@ cp sw4_out/*.txt data/sw4/
 | `run_shakermaker.py` | ShakerMaker run (same crust, source and FK parameters as `12_validation/LOH1.py`) |
 | `loh1_below_source.in` | SW4 input for the same model, source and receivers |
 | `compare.py` | ShakerMaker vs SW4 comparison: table and trace figure |
-| `kc_check.py` | sensitivity of the receivers 0.5 km from the source to the wavenumber cut-off `kc` |
+| `kc_check.py` | convergence of the receivers 0.5 km from the source in the wavenumber cut-off `kc` |
 | `data/sw4/<receiver>.txt` | SW4 velocity time series (USGS ascii, `variables=velocity`) |
 | `data/sw4/sw4_run_log.txt` | SW4 log of the reference run (grid, time step, timing) |
 | `data/sm/sm_<receiver>.npz` | ShakerMaker reference output (Z, E, N, t; first 12 s) |
