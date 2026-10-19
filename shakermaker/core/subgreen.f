@@ -8,6 +8,8 @@
       integer i,j,nfft,ix,nx
       integer nCom,wc1,wc2,tb,smth,idx0,flip
       real dt,dk,sigma,hs,xmax,vs,taper
+      real hsmin,hstot
+      parameter(hsmin=0.05)
       real pmin,pmax,kc
       real qa(mb),qb(mb),a(mb),b(mb),x(nx),t0(nx)
       real tdata(nx,9,2*nfft)
@@ -29,12 +31,15 @@ c input velocity model
          rcv = mb - rcv + 2
       endif
 
-      hs = 0.
+C     Previous form, kept for reference (hs = total model thickness):
+C     hs = 0.
+      hstot = 0.
       do i = 1, mb
          if (b(i).lt.epsilon) b(i) = epsilon
          mu(i) = rho(i)*b(i)*b(i)
          xi(i) = b(i)*b(i)/(a(i)*a(i))
-         hs    = hs + d(i)
+C        hs    = hs + d(i)
+         hstot = hstot + d(i)
       enddo
       if (flip.lt.0) then
 C        Previous form, kept for reference:
@@ -59,6 +64,23 @@ C        receiver is below the source).
          mu(1:mb)=mu(mb:1:-1)
          xi(1:mb)=xi(mb:1:-1)
       endif
+C     hs used to be the total model thickness (hstot). It is now the
+C     source-receiver depth separation, as in fk.f: the layers between the
+C     receiver interface (rcv) and the source interface (src), after the
+C     flip so that rcv < src. subfk cuts the wavenumber integral at kc/hs,
+C     so the cut now grows when the receiver is close to the source depth.
+C     hs is kept >= hsmin (50 m) so that a receiver very close to the
+C     source depth does not make the cut unbounded. A receiver at the
+C     source depth (src = rcv, not allowed in fk.f) keeps the previous
+C     hs = hstot: there the kernels do not decay with k and no cut
+C     converges. The wavenumber step still uses xmax = max(hstot, x) as
+C     before, so dk does not change.
+      hs = 0.
+      do i = rcv, src-1
+         hs = hs + d(i)
+      enddo
+      if (hs.lt.hsmin) hs = hsmin
+      if (src.eq.rcv) hs = hstot
       vs = b(src)
 
 C       write(*,*)"source"
@@ -76,7 +98,9 @@ C       kc = 15.0
 
 c input distance ranges
 C       write(*,*)"dist"
-      xmax = hs
+C     Previous form, kept for reference:
+C     xmax = hs
+      xmax = hstot
       do ix=1,nx
         call subtrav(mb,a,d,src,rcv,x(ix),tt0)
         t0(ix)=tt0
