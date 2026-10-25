@@ -302,6 +302,14 @@ class _STFCache:
         return r
 
 
+class _AtDepth:
+    """Station stand-in at another depth for the Stage 2 FK calls (only ``x`` is read)."""
+    __slots__ = ("x",)
+
+    def __init__(self, station, z):
+        self.x = np.array([station.x[0], station.x[1], z], dtype=np.float64)
+
+
 def _conv3(cache, stf, z, e, n, dti, keep):
     """z, e, n convolved with stf, first 'keep' samples, as stf.convolve does it."""
     if keep <= 0:
@@ -2127,6 +2135,8 @@ class ShakerMaker:
             pair_to_slot = hfile["/pair_to_slot"][:]
             nsources_db  = int(hfile["/nsources"][()])
             nstations_db = int(hfile["/nstations"][()])
+            # receiver depth of each slot's representative pair (its tdata's depth)
+            zrec_slot    = hfile["/zrec_of_pairs"][:]
 
             if rank == 0:
                 print(f"  pair_to_slot: O(1) lookup "
@@ -2230,6 +2240,20 @@ class ShakerMaker:
                 aux.split_at_depth(z_rec)
                 _crust_cache_s2[key] = aux
             return aux
+
+        # Receiver depth that times a reused slot. The slot's tdata starts at the
+        # t0 of its representative's receiver depth, so every station that reuses
+        # it is timed with that depth (and its own source and distance). Timing it
+        # with the station's own depth is only right while both depths give the
+        # same split model: across the 10 m tolerance of split_at_depth/get_layer
+        # (0.009999999999999998 against 0.01 in a DRMBox) subtrav switches between
+        # the surface-receiver and the buried-receiver first arrival, and the
+        # station is shifted by their difference (0.05-0.9 s for sources 7-41 km away).
+        # SM_S2_T0=own keeps the previous timing (station's own depth).
+        _s2t0_own = os.environ.get("SM_S2_T0", "slot") == "own"
+
+        def _z_t0(k, z_rec):
+            return z_rec if _s2t0_own else float(zrec_slot[k])
         _dbg(f"entering main station loop (nstations={nstations})")
 
         # Split every station's sources over ALL ranks (the per-station loop
@@ -2253,7 +2277,8 @@ class ShakerMaker:
         if os.environ.get("SM_S2_GROUP", "0") == "1":
             self._stage2_grouped(hfile_gf['/tdata'], _nt_full, slot_matrix, source_list_cache,
                                  _crust_for, _stf_cache, dt, nfft, tb, tmin, tmax,
-                                 writer, writer_mode, c, perf_time_begin, showProgress)
+                                 writer, writer_mode, c, perf_time_begin, showProgress,
+                                 z_t0=_z_t0)
             _s2split = None
         if _s2split:
             for i_station in range(nstations):
@@ -2268,10 +2293,12 @@ class ShakerMaker:
                     # Output grid from source 0, the first source the per-station
                     # loop adds (its t_arr fixes the station's dt and grid).
                     ps0 = source_list_cache[0]
-                    tdata0 = _read_tdata(hfile_gf['/tdata'], int(slot_matrix[i_station][0]), _nt_full)
+                    k0 = int(slot_matrix[i_station][0])
+                    tdata0 = _read_tdata(hfile_gf['/tdata'], k0, _nt_full)
                     z0, e0, n0, t00 = self._call_core_fast(
                         tdata0, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax,
-                        dk, kc, taper, _crust_for(ps0.x[2], z_rec), ps0, station, verbose)
+                        dk, kc, taper, _crust_for(ps0.x[2], _z_t0(k0, z_rec)), ps0,
+                        _AtDepth(station, _z_t0(k0, z_rec)), verbose)
                     t_arr0 = np.arange(0, len(z0) * dt, dt) + ps0.tt + t00
                     t_out = np.arange(tmin, tmax, t_arr0[1] - t_arr0[0])
                     nout = len(t_out)
@@ -2282,13 +2309,14 @@ class ShakerMaker:
                         c['read'] += perf_counter() - t1
                         for i_psource, psource in slot_to_sources[k]:
                             t1 = perf_counter()
-                            aux_crust = _crust_for(psource.x[2], z_rec)
+                            aux_crust = _crust_for(psource.x[2], _z_t0(k, z_rec))
                             c['split'] += perf_counter() - t1
                             t1 = perf_counter()
                             z, e, n, t0 = self._call_core_fast(
                                 tdata, dt, nfft, tb, nx, sigma, smth,
                                 wc1, wc2, pmin, pmax, dk, kc,
-                                taper, aux_crust, psource, station, verbose)
+                                taper, aux_crust, psource, _AtDepth(station, _z_t0(k, z_rec)),
+                                verbose)
                             c['core'] += perf_counter() - t1
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
                             dti = t_arr[1] - t_arr[0]
@@ -2397,7 +2425,8 @@ class ShakerMaker:
                             # All sources sharing the same depth pair reuse the
                             # same pre-split CrustModel.
                             z_src = psource.x[2]
-                            aux_crust = _crust_for(z_src, z_rec)
+                            z_t0 = _z_t0(k, z_rec)
+                            aux_crust = _crust_for(z_src, z_t0)
 
                             if verbose:
                                 print(f"  rank={rank} sta={i_station} "
@@ -2407,7 +2436,7 @@ class ShakerMaker:
                             z, e, n, t0 = self._call_core_fast(
                                 tdata, dt, nfft, tb, nx, sigma, smth,
                                 wc1, wc2, pmin, pmax, dk, kc,
-                                taper, aux_crust, psource, station, verbose)
+                                taper, aux_crust, psource, _AtDepth(station, z_t0), verbose)
                             c['core'] += perf_counter() - t1
 
                             t1    = perf_counter()
@@ -2568,7 +2597,7 @@ class ShakerMaker:
 
     def _stage2_grouped(self, ds, nt_full, slot_matrix, srcs, crust_for, stf_cache,
                         dt, nfft, tb, tmin, tmax, writer, writer_mode, c, t_begin,
-                        showProgress):
+                        showProgress, z_t0=None):
         """Stage 2 by (source, slot, pair time step) groups (SM_S2_GROUP=1).
 
         For one source, subfocal combines the components of the slot's Green's
@@ -2658,15 +2687,20 @@ class ShakerMaker:
 
         trav = {}
 
-        def t0_of(ps, st):
-            """t0 of subgreen2 for this pair (same casts and flip)."""
-            key = (float(ps.x[2]), float(st.x[2]))
+        def t0_of(ps, st, k):
+            """t0 of subgreen2 for this pair (same casts and flip), slot k.
+
+            The receiver depth is z_t0(k, station depth): the depth of slot k's
+            representative unless SM_S2_T0=own (see run_fast).
+            """
+            zr = float(st.x[2]) if z_t0 is None else z_t0(k, float(st.x[2]))
+            key = (float(ps.x[2]), zr)
             args = trav.get(key)
             if args is None:
-                aux = crust_for(ps.x[2], st.x[2])
+                aux = crust_for(ps.x[2], zr)
                 mb = aux.nlayers
                 src = aux.get_layer(ps.x[2]) + 1
-                rcv = aux.get_layer(st.x[2]) + 1
+                rcv = aux.get_layer(zr) + 1
                 a = np.asarray(aux.a, dtype=np.float32); d = np.asarray(aux.d, dtype=np.float32)
                 if rcv > src:
                     src, rcv = mb - src + 2, mb - rcv + 2
@@ -2709,7 +2743,7 @@ class ShakerMaker:
             t1 = perf_counter()
             dt_sta = np.empty(len(ids)); nout = np.empty(len(ids), dtype=np.int64)
             for m, i in enumerate(ids):
-                dti, _, _, _ = window(srcs[0], t0_of(srcs[0], stations[i]), 0)
+                dti, _, _, _ = window(srcs[0], t0_of(srcs[0], stations[i], int(slot_matrix[i, 0])), 0)
                 dt_sta[m] = dti
                 nout[m] = len(np.arange(tmin, tmax, dti))
             c['core'] += perf_counter() - t1
@@ -2752,7 +2786,7 @@ class ShakerMaker:
                 groups = {}
                 for m, k in zip(mlist, klist):
                     st = stations[ids[m]]
-                    dti, nb, ns, nw = window(ps, t0_of(ps, st), int(nout[m]))
+                    dti, nb, ns, nw = window(ps, t0_of(ps, st, int(k)), int(nout[m]))
                     if nw <= 0:
                         continue
                     groups.setdefault((int(k), dti), []).append((int(m), nb, ns, nw))
