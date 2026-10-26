@@ -310,6 +310,29 @@ class _AtDepth:
         self.x = np.array([station.x[0], station.x[1], z], dtype=np.float64)
 
 
+def _subtrav_t0(crust_for, z_src, z_rec, x, tbdt, cache):
+    """t0 that subgreen / subgreen2 return for one pair (same float32 casts and flip).
+
+    crust_for(z_src, z_rec) gives the model split at both depths; cache keeps the
+    core arguments of each depth pair.
+    """
+    key = (float(z_src), float(z_rec))
+    args = cache.get(key)
+    if args is None:
+        aux = crust_for(z_src, z_rec)
+        mb = aux.nlayers
+        src = aux.get_layer(z_src) + 1
+        rcv = aux.get_layer(z_rec) + 1
+        a = np.asarray(aux.a, dtype=np.float32); d = np.asarray(aux.d, dtype=np.float32)
+        if rcv > src:
+            src, rcv = mb - src + 2, mb - rcv + 2
+            a, d = a[::-1].copy(), d[::-1].copy()
+        args = cache[key] = (mb, a, d, src, rcv)
+    mb, a, d, src, rcv = args
+    tt0 = core.subtrav(mb, a, d, src, rcv, np.float32(x))
+    return np.float32(np.float32(tt0) - tbdt)
+
+
 def _conv3(cache, stf, z, e, n, dti, keep):
     """z, e, n convolved with stf, first 'keep' samples, as stf.convolve does it."""
     if keep <= 0:
@@ -2254,6 +2277,23 @@ class ShakerMaker:
 
         def _z_t0(k, z_rec):
             return z_rec if _s2t0_own else float(zrec_slot[k])
+
+        # Stage 2 never reads /t0: it recomputes t0 with the core loaded now. A
+        # database made with another core (subtrav changed) or another depth
+        # tolerance would shift every pair by the difference, silently. Recompute
+        # the t0 of every slot's representative (its depths from the map) and
+        # compare with /t0. SM_S2_T0_CHECK=0 skips it, =strict stops on a mismatch.
+        _t0chk = os.environ.get("SM_S2_T0_CHECK", "1")
+        if _t0chk != "0":
+            nbad = 0
+            if rank == 0 and "t0" in hfile_gf:
+                nbad = self._check_slot_t0(hfile, hfile_gf, _crust_for, dt, tb)
+            if use_mpi and nprocs > 1:
+                nbad = comm.bcast(nbad, root=0)
+            if nbad and _t0chk == "strict":
+                raise RuntimeError(
+                    f"[Stage 2] {nbad} slots start at another t0 than in Stage 1: "
+                    "the database was made with another core or depth tolerance")
         _dbg(f"entering main station loop (nstations={nstations})")
 
         # Split every station's sources over ALL ranks (the per-station loop
@@ -2694,22 +2734,8 @@ class ShakerMaker:
             representative unless SM_S2_T0=own (see run_fast).
             """
             zr = float(st.x[2]) if z_t0 is None else z_t0(k, float(st.x[2]))
-            key = (float(ps.x[2]), zr)
-            args = trav.get(key)
-            if args is None:
-                aux = crust_for(ps.x[2], zr)
-                mb = aux.nlayers
-                src = aux.get_layer(ps.x[2]) + 1
-                rcv = aux.get_layer(zr) + 1
-                a = np.asarray(aux.a, dtype=np.float32); d = np.asarray(aux.d, dtype=np.float32)
-                if rcv > src:
-                    src, rcv = mb - src + 2, mb - rcv + 2
-                    a, d = a[::-1].copy(), d[::-1].copy()
-                args = trav[key] = (mb, a, d, src, rcv)
-            mb, a, d, src, rcv = args
             x = np.float32(np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2))
-            tt0 = core.subtrav(mb, a, d, src, rcv, x)
-            return np.float32(np.float32(tt0) - tbdt)
+            return _subtrav_t0(crust_for, ps.x[2], zr, x, tbdt, trav)
 
         def lpt_owner(cnt):
             """Owner rank of every slot, longest-processing-time first by pair count."""
@@ -3656,6 +3682,35 @@ class ShakerMaker:
             pmax, dk, kc, taper, xs, psource.angles[0], psource.angles[1],
             psource.angles[2], psource.x[0], psource.x[1], station.x[0], station.x[1])
         return tdata, t0
+
+    def _check_slot_t0(self, hfile, hfile_gf, crust_for, dt, tb):
+        """Compare the t0 of every slot's representative with /t0 of Stage 1.
+
+        Used by: run_fast() (Stage 2), on rank 0. The depths come from the map
+        (/zsrc_of_pairs, /zrec_of_pairs) and the distance from the model, so only
+        the core and the depth tolerance can make them differ. Prints a summary
+        and returns the number of slots off by more than dt/10.
+        """
+        pairs = hfile["/pairs_to_compute"][:]
+        zsrc = hfile["/zsrc_of_pairs"][:]
+        zrec = hfile["/zrec_of_pairs"][:]
+        t0_db = np.asarray(hfile_gf["/t0"][:], dtype=np.float64).reshape(len(pairs), -1)[:, 0]
+        tbdt = np.float32(np.float32(tb) * np.float32(dt))
+        cache = {}
+        diff = np.empty(len(pairs))
+        for k, (i_st, i_ps) in enumerate(pairs):
+            st = self._receivers.get_station_by_id(int(i_st)).x
+            ps = self._source.get_source_by_id(int(i_ps)).x
+            x = np.float32(np.sqrt((ps[0] - st[0])**2 + (ps[1] - st[1])**2))
+            diff[k] = float(_subtrav_t0(crust_for, zsrc[k], zrec[k], x, tbdt, cache)) - t0_db[k]
+        nbad = int(np.count_nonzero(np.abs(diff) > 0.1 * dt))
+        print(f"  t0 check : {len(pairs)} slots, max |t0 - /t0| = {np.abs(diff).max():.3g} s, "
+              f"{nbad} above dt/10")
+        if nbad:
+            print(f"  WARNING  : {nbad} slots start at another t0 than in Stage 1 (median "
+                  f"{np.median(diff[np.abs(diff) > 0.1 * dt]):+.3f} s): the database was made with "
+                  "another core or depth tolerance, every pair of them will be shifted")
+        return nbad
 
     def _call_core_fast(self, tdata, dt, nfft, tb, nx, sigma, smth, wc1, wc2,
                         pmin, pmax, dk, kc, taper, crust, psource, station,
