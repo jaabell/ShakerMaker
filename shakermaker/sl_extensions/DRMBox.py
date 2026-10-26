@@ -122,7 +122,10 @@ class DRMBox(StationList):
 
         for i, j in product(np.arange(xi.size), np.arange(eta.size)):
             xi_, eta_ = xi[i], eta[j]
-            p = v0 + xi_*v1 + eta_*v2
+            # Rounded to 1e-9 km: linspace x length gives the same level as
+            # 0.009999999999999998 on one face and 0.01 on the other, which fall on
+            # different sides of the CrustModel depth tolerance.
+            p = np.round(v0 + xi_*v1 + eta_*v2, 9)
             new_station = self._new_station(p, internal, '.{}.{}.{}'.format(i, j, self.nplanes - 1))
             new_plane.set_station_id(i, j, new_station.metadata['id'])
 
