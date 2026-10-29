@@ -2,11 +2,13 @@
 #
 # In the FK integral the kernels decay with wavenumber like exp(-k * dz), with dz the
 # source-receiver depth separation, so receivers close to the source depth need a high
-# kmax. subfk.f cuts the integral at kmax = kc / hs, where subgreen passes hs = the total
-# thickness of the layered model, not the source-receiver separation used by fk.f. With the
-# default kc = 15 the cut is short for dz = 0.5 km near the epicentre.
+# kmax. subfk.f cuts the integral at kmax = kc / hs; subgreen passes hs = the source-receiver
+# separation, as fk.f does (it used to pass the total thickness of the layered model, and then
+# the vertical component 0.5 km below the source near the epicentre had a peak ratio of 1.36
+# with kc = 15 and needed kc >= 30).
 # This script reruns the three receivers at dz = 0.5 km with kc = 15, 30, 60 and 150 and
-# compares them with SW4 (same band, window and amplitude factor as compare.py).
+# compares them with SW4 (same band, window and amplitude factor as compare.py): the results
+# must not depend on kc.
 #
 #   python kc_check.py       # writes _output/kc_check.csv
 
