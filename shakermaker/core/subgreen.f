@@ -37,14 +37,27 @@ c input velocity model
          hs    = hs + d(i)
       enddo
       if (flip.lt.0) then
-         d=d(mb:1:-1)
-         a=a(mb:1:-1)
-         b=b(mb:1:-1)
-         qa=qa(mb:1:-1)
-         qb=qb(mb:1:-1)
-         rho=rho(mb:1:-1)
-         mu=mu(mb:1:-1)
-         xi=xi(mb:1:-1)
+C        Previous form, kept for reference:
+C        d=d(mb:1:-1)
+C        a=a(mb:1:-1)
+C        b=b(mb:1:-1)
+C        qa=qa(mb:1:-1)
+C        qb=qb(mb:1:-1)
+C        rho=rho(mb:1:-1)
+C        mu=mu(mb:1:-1)
+C        xi=xi(mb:1:-1)
+C        Reverse only the first mb layers. d, rho, mu and xi are
+C        declared with nlay elements in model.h, so the whole-array
+C        assignment wrote past the end of the model (segfault when the
+C        receiver is below the source).
+         d(1:mb)=d(mb:1:-1)
+         a(1:mb)=a(mb:1:-1)
+         b(1:mb)=b(mb:1:-1)
+         qa(1:mb)=qa(mb:1:-1)
+         qb(1:mb)=qb(mb:1:-1)
+         rho(1:mb)=rho(mb:1:-1)
+         mu(1:mb)=mu(mb:1:-1)
+         xi(1:mb)=xi(mb:1:-1)
       endif
       vs = b(src)
 

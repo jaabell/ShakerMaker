@@ -1,0 +1,20 @@
+# LOH.1 (SCEC) in SW4 with receivers above and below the source, for comparison with ShakerMaker.
+# Domain 24 x 24 x 12 km (smaller than the 30 x 30 x 17 km benchmark; the receivers are within 10.8 km
+# of the source and the supergrid layers absorb the rest). h = 100 m, refined to 50 m in the 1 km layer.
+fileio path=sw4_out
+grid h=100 x=24000 y=24000 z=12000 extrapolate=1
+time t=9
+refinement zmax=1000
+block vp=6000 vs=3464 rho=2700
+block vp=4000 vs=2000 rho=2600 z2=1000
+source x=12000 y=12000 z=2000 mxy=1e18 t0=0.36 freq=16.6667 type=Gaussian
+rec x=18000 y=20000 z=0 file=o6_z0000 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=18000 y=20000 z=1500 file=o6_z1500 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=18000 y=20000 z=2500 file=o6_z2500 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=18000 y=20000 z=3000 file=o6_z3000 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=18000 y=20000 z=4000 file=o6_z4000 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=18000 y=20000 z=6000 file=o6_z6000 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=12600 y=12800 z=0 file=o06_z0000 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=12600 y=12800 z=1500 file=o06_z1500 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=12600 y=12800 z=2500 file=o06_z2500 usgsformat=1 sacformat=0 variables=velocity nsew=0
+rec x=12600 y=12800 z=4000 file=o06_z4000 usgsformat=1 sacformat=0 variables=velocity nsew=0
