@@ -21,6 +21,13 @@ class CrustModel:
 
     """
 
+    #: Depth tolerance in km used by split_at_depth and get_layer when they are called
+    #: without ``tol``: a depth closer than this to an existing interface is taken at
+    #: the interface. The default keeps the previous fixed value (10 m); set it once,
+    #: e.g. ``CrustModel.depth_tol = 1e-4``, to place sources and receivers that close
+    #: to an interface (thin site layers) at their real depth.
+    depth_tol = 0.01
+
     def __init__(self, nlayers):
 
         self._d = np.zeros(nlayers)
@@ -152,15 +159,20 @@ class CrustModel:
 
         return a, b, rho, qa, qb
 
-    def split_at_depth(self, z, tol=0.01):
+    # def split_at_depth(self, z, tol=0.01):
+    # tol now defaults to None, which means CrustModel.depth_tol (same 0.01 km unless changed)
+    def split_at_depth(self, z, tol=None):
         """ Split the layer at depth ``z``. 
 
         :param z: Depth at which to split.    
         :type z: double
         :param tol: Split tolerance. Will not split if there is a layer interface within ``z-tol < z < z + tol``.
+            ``None`` uses ``CrustModel.depth_tol``.
         :type tol: double
 
         """
+        if tol is None:
+            tol = self.depth_tol
         d = np.zeros(self.nlayers+1)
         a = np.zeros(self.nlayers+1)
         b = np.zeros(self.nlayers+1)
@@ -214,18 +226,22 @@ class CrustModel:
             self._qb = qb
             self._nlayers += 1
 
-    def get_layer(self, z, tol=0.01):
+    # def get_layer(self, z, tol=0.01):
+    # tol now defaults to None, which means CrustModel.depth_tol (same 0.01 km unless changed)
+    def get_layer(self, z, tol=None):
         """ Return the index of the layer interface located at depth ``z``.
 
         :param z: Depth for which layer number is needed
         :type z: double
-        :param tol: Tolerance for detection
+        :param tol: Tolerance for detection. ``None`` uses ``CrustModel.depth_tol``.
         :type tol: double
 
         :returns: Index of layer
         :rtype: int
 
         """
+        if tol is None:
+            tol = self.depth_tol
         current_z = 0.
         for i in range(self.nlayers):
             if abs(z-current_z) < tol:
