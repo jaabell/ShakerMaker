@@ -235,8 +235,8 @@ the default because `-march` is machine specific; use `-march=native` with
 worked. Two changes:
 
 - **sources split over all ranks** when there are fewer stations than ranks:
-  each rank sums its share on the output grid with the same integer shift as
-  `Station.add_to_response`, and an MPI Reduce adds the parts on rank 0. With
+  each rank sums its share on the output grid with the same placement as
+  `Station.add_to_response` (now at the real time, fraction of a sample included), and an MPI Reduce adds the parts on rank 0. With
   more stations than ranks (a DRM box) the one-rank-per-station loop is kept,
   since it already uses every rank and the split would add one Reduce per
   station (2067-node DRM box: 4.7 s with one rank per station, 12.9 s split).
@@ -390,7 +390,25 @@ With the case's own Q (Qs 118-196) ShakerMaker came out at 0.5-0.9 of SW4,
 decreasing with distance; with Q = 1000 it is at 0.85-1.05. Compare against
 an elastic SW4 run with Q = 1000 in ShakerMaker.
 
-## 8. Open items
+## 8. `run_inter`: interpolated Green's functions
+
+`run_inter(scheme='tensor')` ([guide](run_inter.md),
+[method](../background/gf_interpolation.md)) adds its own performance pieces:
+
+| Piece | What it does | Measured |
+|---|---|---|
+| frequency cut (`freq_cut`) | the FK frequency loop stops at 1.4 × `freq_cut` | core 33 / 57 / 122 / 292 times faster for 20 / 15 / 10 / 5 Hz bands (`nfft` 65 536, `dt` 0.0025 s) |
+| candidates in one call | a level computes all its candidate distances in calls that share the wavenumber kernel | each extra distance ~5 % of a call |
+| streamed Stage 1 | a level is selected and written as soon as its calls are back | memory constant (~7 GB with 8 processes for 1 792 levels; the first version needed ~650 GB on rank 0) |
+| reduced database | samples up to `tmax`, ZFP 20 bits, one sample every *q* with `freq_cut` | ~118 KB per Green's function instead of 2.4 MB (`nfft` 65 536) |
+| Stage 2 kernel | per receiver, the 4 distance nodes are combined and projected first, then placed with 4 time taps | Stage 2 150 → 72.6 s on 787 000 pairs (1 process), same output to 1.8e-9 |
+
+A DRM box of 8 179 nodes and 32 768 point sources (1 792 levels, `dt` 0.005 s,
+10 Hz band, 64 processes): Stage 1 34 min, Stage 2 38 min. In Stage 2 the
+next cost is reading and rebuilding the decimated traces that are not in the
+per-rank cache.
+
+## 9. Open items
 
 - With the fixed core, the station at Rrup 6.7 km shows a small pulse at
   1.0-1.7 s (5-10 % of the PGV) that neither SW4 nor the old core has. It is
