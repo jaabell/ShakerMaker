@@ -46,6 +46,7 @@ ShakerMaker also bundles a convenience reader for the [**CRUST 1.0**](https://ig
 - **Source time functions**, Brune, Gaussian, Dirac, Discrete, SRF2
 - **Pre-packaged crustal models**, LOH.1 (SCEC), Southern California, AbellThesis; extendable
 - **Multiple receiver geometries**, stations, surface grids, DRM boxes, point clouds
+- **Interpolated Green's functions (`run_inter`)**, coherent DRM boxes from finite faults: exact depths, cubic interpolation in distance, streamed database, frequency cut
 - **MPI parallelism**, `mpi4py` over source–receiver pairs
 - **Filtering and plotting**, low/high-pass filters, `ZENTPlot`, `StationPlot`, `SourcePlot`
 
