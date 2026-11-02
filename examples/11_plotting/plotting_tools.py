@@ -19,10 +19,11 @@ fault = FaultSource([ps1, ps2], metadata={"name": "two_sources"})
 
 assert fault.nsources == 2
 
-here = os.path.dirname(os.path.abspath(__file__))
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_output")
+os.makedirs(out, exist_ok=True)
 fig = SourcePlot(fault, show=False)
-fig.savefig(os.path.join(here, "sources_plot.png"), dpi=150, bbox_inches="tight")
+fig.savefig(os.path.join(out, "sources_plot.png"), dpi=150, bbox_inches="tight")
 
-assert os.path.exists(os.path.join(here, "sources_plot.png"))
+assert os.path.exists(os.path.join(out, "sources_plot.png"))
 print("Saved sources_plot.png | nsources:", fault.nsources)
 print("PASS")
