@@ -28,6 +28,9 @@ mpirun -n 4 python drm_coherence.py     # ~3 min
 ```
 
 Writes `run_inter_drm_coherence.png` and prints PASS when `run_inter` stays
-below 5 % and reuse above it. `run_inter` alone takes a few seconds; the
+below 5 % and reuse above it. `notebooks/run_inter_drm_coherence.ipynb` runs the
+same three engines (~10 min) and shows the model and the box, the error of the
+layer difference per band, the traces of one pair of nodes and the spectrum of
+the error. `run_inter` alone takes a few seconds; the
 method is described in `docs/web/background/gf_interpolation.md` and its use
 in `docs/web/guides/run_inter.md`.
