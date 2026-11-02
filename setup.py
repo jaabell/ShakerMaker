@@ -91,7 +91,17 @@ def _f2py_backend_args():
     """
     import numpy
     major, minor = (int(x) for x in numpy.__version__.split(".")[:2])
-    return ["--backend", "meson"] if (major, minor) >= (1, 26) else []
+    if major >= 2:
+        return ["--backend", "meson"]
+    # NumPy 1.26 has both backends: meson when it is installed, distutils otherwise.
+    if (major, minor) >= (1, 26) and _which_meson():
+        return ["--backend", "meson"]
+    return []
+
+
+def _which_meson():
+    """meson on PATH or next to the running interpreter (a venv called by its full path)."""
+    return shutil.which("meson") or shutil.which("meson", path=os.path.dirname(sys.executable))
 
 
 def compile_ffsp():
@@ -126,6 +136,7 @@ def _compile_ffsp_linux(ffsp_dir):
     # The meson backend ignores --f77flags; without -std=legacy recent gfortran (>= 10) rejects
     # the argument type mismatches of ffsp_tool.f. FFLAGS reaches every Fortran source.
     env = dict(os.environ)
+    env["PATH"] = os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", "")
     if _f2py_backend_args():
         env["FFLAGS"] = (env.get("FFLAGS", "") + " -O3 -fPIC -std=legacy").strip()
     print("[ffsp] compiling on Linux/macOS...")
