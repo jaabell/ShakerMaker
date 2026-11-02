@@ -362,6 +362,8 @@ def stage01_tensor(model, h5_database_name, fk, tmax, delta_v_rec=1e-5, dz_src0=
     gf_file = h5_database_name.replace('.h5', '') + '_gf.h5'
     map_file = h5_database_name.replace('.h5', '') + '_map.h5'
     tmp_file = gf_file + ".levels.tmp"
+    if os.path.dirname(gf_file):
+        os.makedirs(os.path.dirname(gf_file), exist_ok=True)
     htmp = h5py.File(tmp_file, "w", locking=False)
     grids = []
     zs_all = sx[:, 2]
@@ -604,6 +606,8 @@ def _stage01_exact_streamed(model, h5_database_name, sx, rx, zr_lev, r_lev, core
         kw.update(**hdf5plugin.Zfp(precision=int(o["store"][3:])))
     gf_file = h5_database_name.replace('.h5', '') + '_gf.h5'
     map_file = h5_database_name.replace('.h5', '') + '_map.h5'
+    if os.path.dirname(gf_file):
+        os.makedirs(os.path.dirname(gf_file), exist_ok=True)
     hg = h5py.File(gf_file, "w", locking=False)
     hm = h5py.File(map_file, "w", locking=False)
     ds = hg.create_dataset("tdata", shape=(0, 9, nsamp), **kw)
