@@ -1,7 +1,7 @@
 # Run every example .py as a smoke test and report PASS / SKIP / FAIL.
 #
-#   python run_all_smoke.py                 # examples, without 12_validation
-#   python run_all_smoke.py --full          # also 12_validation and 13_shakermaker_sw4 (slow)
+#   python run_all_smoke.py                 # examples, without 13_shakermaker_sw4
+#   python run_all_smoke.py --full          # also 13_shakermaker_sw4 (slow)
 #   python run_all_smoke.py --pytest        # also the unit tests in tests/
 #   python run_all_smoke.py --mpi 4         # also the MPI contracts in tests/*/mpi_*_contract.py
 #   python run_all_smoke.py --timeout 1800  # per-script limit in seconds (default 1800)
@@ -19,9 +19,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 SKIP_DIRS = {"legacy_examples", "notebooks", "14_SFSI"}
-# Long runs, only with --full: 12_validation (LOH.1, LOH.3) and 13_shakermaker_sw4
-# (nfft 32768, ~1.5 h on one process; give it --timeout 7200 or run it under MPI).
-SLOW_DIRS = {"12_validation", "13_shakermaker_sw4"}
+# Long runs, only with --full: 13_shakermaker_sw4 (nfft 32768, ~1.5 h on one process; give it
+# --timeout 7200 or run it under MPI). 12_validation (LOH.1, LOH.3, ~30 s) and 17_sw4_reference
+# (stored SW4 solutions, ~30 s) run by default: they compare against independent solutions.
+SLOW_DIRS = {"13_shakermaker_sw4"}
 
 
 def collect(full):
