@@ -25,9 +25,13 @@ What it prints (0.1-2 Hz):
 - against SW4, median correlation (best lag within 0.1 s) 1.000 for every engine in LOH.1, 0.997-0.998
   (deep point), 0.980-0.981 (shallow point) and 0.991 (fault) in the layered crust; peak ratios 0.98-1.01;
 - each engine against `run`;
-- the difference between the two layers of the DRM box faces against `run`: `nearest` 28-77 % (median
-  normalised RMS), `inter_tensor` 1-3 %, `inter_grid` below 1.4 %: reuse breaks the coherence of the box,
-  interpolation keeps it.
+- the difference between the two layers of the DRM box faces against `run` (or `exact` in the fault cases):
+  `nearest` 28-77 % (median normalised RMS), `inter_tensor` 0.5-3.3 %, `inter_grid` below 1.4 %: reuse breaks
+  the coherence of the box, interpolation keeps it.
 
-The layered 256-subfault case has no `inter_grid` or `inter_tensor` result yet; `compare.py` skips missing
-results.
+Receivers at or a few metres from a source depth (the point-source depths, and rows of subfaults 6-8 m from
+the receivers at 0.4 and 3.0 km in the fault cases) depart from SW4 and from the exact engine with every engine;
+it is an open finding of the FK integration, described in `../17_sw4_reference/README.md`.
+
+`notebooks/sw4_engines.ipynb` runs `compare.py` and plots it: agreement with SW4 per case and engine, traces at
+a surface receiver, the DRM layer difference, agreement against depth and the cost of each engine.
