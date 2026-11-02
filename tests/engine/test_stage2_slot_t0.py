@@ -46,6 +46,10 @@ class _Capture(StationListWriter):
 
 @pytest.fixture(scope="module")
 def model_and_db(tmp_path_factory):
+    # The 10 m depth tolerance (the previous default) is what puts the receivers above
+    # 10 m on the surface branch of subtrav; pinned here for the whole module.
+    old_tol = CrustModel.depth_tol
+    CrustModel.depth_tol = 0.01
     crust = CrustModel(4)
     crust.add_layer(0.2, 1.32, 0.75, 2.4, 1000.0, 1000.0)
     crust.add_layer(0.8, 2.75, 1.57, 2.5, 1000.0, 1000.0)
@@ -63,7 +67,8 @@ def model_and_db(tmp_path_factory):
     model.run_nearest(stage=0, h5_database_name=db, delta_h=0.04, delta_v_rec=0.005,
                       delta_v_src=0.2, showProgress=False, tmin=0.0, tmax=TMAX, **FK)
     model.run_nearest(stage=1, h5_database_name=db, showProgress=False, tmin=0.0, tmax=TMAX, **FK)
-    return model, box, db
+    yield model, box, db
+    CrustModel.depth_tol = old_tol
 
 
 def _run(model, db, monkeypatch, **env):
