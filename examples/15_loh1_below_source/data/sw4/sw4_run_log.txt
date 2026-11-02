@@ -6,8 +6,6 @@
  it under certain conditions, see LICENSE.txt for more details  
 ----------------------------------------------------------------
   Compiled on: 260428
-  By user:     pxpalacios
-  Machine:     luisalane
   Compiler:    /usr/bin/c++
   3rd party include dir: NA, and library dir: NA
 ----------------------------------------------------------------
