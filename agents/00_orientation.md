@@ -70,7 +70,7 @@ shakermaker/
   North, down); positions (`xyz`) → (North, East, depth). Full table, the
   reason, and the OpenSees matrix `T` in `12_coordinates_and_conventions.md`.
 
-## The three "run tiers" (pick one before doing anything else)
+## The four "run tiers" (pick one before doing anything else)
 
 1. **Legacy / direct** — `ShakerMaker.run(...)`: every (source, receiver)
    pair is computed independently, no reuse. Simple, correct, but O(pairs)
@@ -82,7 +82,13 @@ shakermaker/
    (source, receiver) pairs so each unique Green's Function is computed
    once and reused — this is what makes large DRM/SurfaceGrid campaigns
    (hundreds to millions of receivers) tractable. See `06_engine_run_modes.md`.
-3. **Raw kernel** — `shakermaker.core.subgreen(...)` directly, bypassing
+3. **Interpolated Green's functions** — `run_inter(scheme='tensor')`:
+   receiver and source depths exact, horizontal distance interpolated with
+   4-point Lagrange weights in reduced time. **Use it for DRM boxes** and any
+   dense receiver set whose neighbour differences matter: reuse by slot
+   (tier 2) leaves a staircase across a DRM box that becomes spurious
+   high-frequency input. See `13_run_inter.md`.
+4. **Raw kernel** — `shakermaker.core.subgreen(...)` directly, bypassing
    the whole object model. Only for exploring the FK kernel itself
    (`examples/05_engine_direct/core_subgreen.py`,
    `examples/legacy_examples/example5-exploregreen.py`). Not documented
