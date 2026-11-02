@@ -25,6 +25,7 @@ Finally, computation of motion traces is done by pairing all sources and all rec
 - **Source time functions** — Brune pulse, Gaussian pulse, Dirac delta, discrete arbitrary functions, and SRF2 format
 - **Pre-packaged crustal models** — LOH.1 (SCEC), Southern California (low-frequency), and AbellThesis; extendable with custom 1D layered models
 - **Multiple receiver geometries** — individual stations, surface grids, DRM boxes, and point clouds
+- **Interpolated Green's functions (`run_inter`)** — coherent DRM boxes driven by finite faults: source and receiver depths exact, horizontal distance interpolated with 4-point Lagrange weights in reduced time, nodes chosen by bisection, streamed Stage 1, compressed and decimated database, optional frequency cut in the FK core
 - **MPI parallelism** — `mpi4py`-based parallelization over source–receiver pairs
 - **Filtering and plotting** — low-pass/high-pass filtering, ZENT three-component seismogram plots, station and source geometry plots
 
