@@ -166,6 +166,19 @@ with its Fortran source line.
   (`tb_max`, don't push the coda out of a fixed-length record) — increasing
   `tb` blindly to "be safe" can itself fail the check if it exceeds `tb_max`.
 
+## Parameters `check_parameters` does not cover (`run_inter`)
+
+`run_inter` adds its own numerical choices; `check_parameters` does not
+evaluate them:
+- `freq_cut` (recommended 1.25 × band): the output is tapered above it and
+  zero above 1.4 × `freq_cut`; never use it above the band.
+- `dh_min` (0.020 × 20 / band km by default): in the near field it must be
+  smaller, `f_max * Δp * dh_min ≲ 0.1` with Δp ≈ 1/Vs − 1/Vp of the source
+  layer; Stage 1 warns with the largest error when it is too coarse.
+- `dt` remains the output step: 0.005 s is enough for a 20 Hz band in the FK
+  solution; match the consumer's step if it interpolates linearly.
+See `13_run_inter.md`.
+
 ## Combines with
 
 - `06_engine_run_modes.md` — call `check_parameters` with the exact same
