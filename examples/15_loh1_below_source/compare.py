@@ -6,6 +6,8 @@
 # 9 s that SW4 simulates.
 # One amplitude factor (ShakerMaker LOH.1 units -> SW4 units) is fitted at the surface receiver
 # o6_z0000 and applied to every receiver, so the amplitudes below the source are checked too.
+# The script fails if that factor leaves 0.95-1.05 (a unit or moment error would show there) or if
+# any receiver leaves the correlation and peak-ratio limits below.
 #
 #   python compare.py [SW4_DIR] [SM_DIR]     (defaults: data/sw4, data/sm)
 # Writes comparison.csv and loh1_below_source.png to _output/.
@@ -21,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SW4_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "data", "sw4")
 SM_DIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "data", "sm")
 FMIN, FMAX, TMAX, DT = 0.1, 1.2, 9.0, 0.01
+SCALE_RANGE, CC_MIN, PEAK_RANGE = (0.95, 1.05), 0.94, (0.90, 1.10)
 
 rows = [l.split() for l in open(os.path.join(HERE, "receivers.txt")) if l.strip() and not l.startswith("#")]
 t_common = np.arange(0.0, TMAX, DT)
@@ -90,8 +93,8 @@ fig, axes = plt.subplots(len(rows), 3, figsize=(12, 1.5 * len(rows)), sharex=Tru
 for i, (name, north, east, depth) in enumerate(rows):
     for j, k in enumerate("ZEN"):
         ax = axes[i, j]
-        ax.plot(t_common, sw4[name][k], "k", lw=1.0, label="SW4")
-        ax.plot(t_common, scale * sm[name][k], "r--", lw=0.9, label="ShakerMaker")
+        ax.plot(t_common, sw4[name][k], "--", color="#7f9fc6", lw=1.2, label="SW4")
+        ax.plot(t_common, scale * sm[name][k], color="#c0392b", lw=0.9, label="ShakerMaker")
         ax.text(0.99, 0.85, f"cc {table[i][f'cc_{k}']:.3f}", transform=ax.transAxes, ha="right", fontsize=7)
         if i == 0:
             ax.set_title(k)
@@ -103,4 +106,9 @@ for ax in axes[-1]:
 fig.suptitle(f"LOH.1, receivers above and below the 2 km source: velocity {FMIN}-{FMAX} Hz", fontsize=10)
 fig.tight_layout()
 fig.savefig(os.path.join(OUT, "loh1_below_source.png"), dpi=120)
+
+assert SCALE_RANGE[0] <= scale <= SCALE_RANGE[1], f"amplitude factor {scale:.4f} outside {SCALE_RANGE}"
+bad = [f"{r['receiver']} {k}: cc {r[f'cc_{k}']:.3f}, peak {r[f'peak_{k}']:.2f}" for r in table for k in "ZEN"
+       if r[f"cc_{k}"] < CC_MIN or not PEAK_RANGE[0] <= r[f"peak_{k}"] <= PEAK_RANGE[1]]
+assert not bad, "ShakerMaker no longer matches SW4: " + "; ".join(bad)
 print("PASS")
