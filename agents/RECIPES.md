@@ -29,9 +29,9 @@ recipe (`05_check_parameters.md`) — omitted below only for brevity.
 | Receiver | Legacy `run()` | OP pipeline | Best writer | Notes |
 |---|---|---|---|---|
 | `Station`/`StationList` | ✅ common | ✅ common (many stations) | `HDF5StationListWriter` or none | Simplest case |
-| `DRMBox` | ✅ debug/small only | ✅ **recommended** for real size | `DRMHDF5StationListWriter` | See `08_drm_workflow.md` |
+| `DRMBox` | ✅ debug/small only | ✅ real size; **`run_inter` recommended** for the motion that drives the FE model | `DRMHDF5StationListWriter` | See `08_drm_workflow.md`, `13_run_inter.md` |
 | `SurfaceGrid` (`plane`/`filled`/`hollow`) | ✅ small | ✅ **recommended** for real size | `HDF5StationListWriter` (generic array) or `DRMHDF5StationListWriter` (if feeding a DRM-shaped consumer) | `'hollow'` is closest to a real DRM shell; `'plane'`+DRM-writer is a format-convenience pattern, not a real DRM boundary — see `08_drm_workflow.md` gotchas |
-| `PointCloudDRMReceiver` | ⚠️ only for tiny meshes | ✅ **required** in practice (meshes are large) | `DRMHDF5StationListWriter` | Needs MPI at real scale — see `11_mpi_and_hpc.md` |
+| `PointCloudDRMReceiver` | ⚠️ only for tiny meshes | ✅ **required** in practice (meshes are large); `run_inter` for DRM motion | `DRMHDF5StationListWriter` | Needs MPI at real scale — see `11_mpi_and_hpc.md`, `13_run_inter.md` |
 
 | Source | Compatible with | Notes |
 |---|---|---|
@@ -259,6 +259,37 @@ gfs = sta.get_greens_functions()   # dict keyed by subfault id
 `save_gf` is a `Station`-level, legacy-`run()`-only opt-in (see
 `04_receivers.md`) — it stores every subfault's raw `tdata` tensor in
 memory, so only use it on small models.
+
+## Recipe 11 — DRM box with interpolated Green's functions, many ruptures (`run_inter`)
+
+**When**: a production DRM box driven by finite faults (one or many
+ruptures with the same subfault positions). Stage 1 (the database) once,
+Stage 2 per rupture. See `13_run_inter.md`.
+
+```python
+from shakermaker.shakermaker import ShakerMaker
+from shakermaker.sl_extensions import DRMBox
+from shakermaker.slw_extensions import DRMHDF5StationListWriter
+
+band = 20.0
+params = dict(scheme='tensor', f_err=band, freq_cut=1.25 * band, dh_min=0.020 * 20.0 / band,
+              dt=0.0025, nfft=65536, tb=800, dk=0.1, kc=30, sigma=2, taper=0.9, pmax=1,
+              tmin=0.0, tmax=65.5)
+box = DRMBox([x0, y0, 0.0], [42, 42, 12], [0.0025] * 3, metadata={"name": "box"})
+
+ShakerMaker(crust, ruptures[0], box).run_inter(stage=1, h5_database_name=db, **params)
+for name, fault in ruptures.items():
+    ShakerMaker(crust, fault, box).run_inter(
+        stage=2, h5_database_name=db, writer=DRMHDF5StationListWriter(f"{name}.h5drm"),
+        writer_mode='progressive', **params)
+```
+
+```bash
+mpiexec -n 64 python drm_campaign.py
+```
+
+Watch Stage 1 for `WARNING: n distance cells miss eps_v ...`: a largest
+error of tens of percent means the near field needs a smaller `dh_min`.
 
 ## How to generate a combination not listed here
 
