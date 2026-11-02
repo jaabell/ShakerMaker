@@ -1,0 +1,143 @@
+----------------------------------------------------------------
+            sw4 version 3.0
+
+ This program comes with ABSOLUTELY NO WARRANTY; released under GPL.
+ This is free software, and you are welcome to redistribute     
+ it under certain conditions, see LICENSE.txt for more details  
+----------------------------------------------------------------
+  Compiled on: 261009
+  By user:     pxpalacios
+  Machine:     esmeralda-build
+  Compiler:    /usr/bin/c++
+  3rd party include dir: NA, and library dir: NA
+----------------------------------------------------------------
+
+Input file: loh1_p1.in
+
+* Processing the grid command...
+* Setting nx to 241 to be consistent with h=1.00000000e+02
+* Setting ny to 241 to be consistent with h=1.00000000e+02
+* Setting nz to 121 to be consistent with h=1.00000000e+02
+cleanupRefinementLevels: topo_zmax = 0.00000000e+00
+ Cartesian refinement levels (z=):
+1.00000000e+03
+0.00000000e+00
+ Grid distributed on 16 processors 
+ Finest grid size    487 x 487
+ Processor array     4 x 4
+ Number of curvilinear grids = 0
+ Number of Cartesian grids = 2
+ Total number of grids = 2
+Extent of the computational domain xmax=2.40000000e+04 ymax=2.40000000e+04 zmax=1.20000000e+04
+Cartesian refinement levels after correction: 
+Grid=0 z-min=1.00000000e+03
+Grid=1 z-min=0.00000000e+00
+Corrected global_zmax = 1.20000000e+04
+
+Rank=0, Grid #1 (Cartesian), iInterior=[1,121], jInterior=[1,121], kInterior=[1,21]
+Rank=0, Grid #0 (Cartesian), iInterior=[1,61], jInterior=[1,61], kInterior=[1,111]
+
+*** No topography command found in input file. Using z=0 as free surface boundary ***
+
+
+Global grid sizes (without ghost points)
+Grid         h        Nx        Ny        Nz       Points      Type
+   0       100       241       241       111      6446991     Cartesian
+   1        50       481       481        21      4858581     Cartesian
+Total number of grid points (without ghost points): 1.13056e+07
+
+
+Read station input, took 5.74938000e-04seconds.
+
+   Execution time, reading input file 1.95486500e-02 seconds 
+Assuming a SERIAL file system.
+Detected at least one boundary with supergrid conditions
+----------------------------------------------------
+ Making Directory: out/
+		
+... Done!
+----------------------------------------------------
+Geographic and Cartesian coordinates of the corners of the computational grid:
+0: Lon= -1.180000e+02, Lat=3.700000e+01, x=0.000000e+00, y=0.000000e+00
+1: Lon= -1.180000e+02, Lat=3.721560e+01, x=2.400000e+04, y=0.000000e+00
+2: Lon= -1.177293e+02, Lat=3.721560e+01, x=2.400000e+04, y=2.400000e+04
+3: Lon= -1.177300e+02, Lat=3.700000e+01, x=0.000000e+00, y=2.400000e+04
+
+Considering all material blocks
+block command: outside = 0, material = 13042224
+block command: outside = 7257236, material = 5784988
+
+       ----------- Material properties ranges ---------------
+       2.60000000e+03 kg/m^3 <=  Density <= 2.70000000e+03 kg/m^3
+       4.00000000e+03 m/s    <=  Vp      <= 6.00000000e+03 m/s
+       2.00000000e+03 m/s    <=  Vs      <= 3.46400000e+03 m/s
+       1.73210162e+00        <=  Vp/Vs   <= 2.00000000e+00
+       1.04000000e+10 Pa     <=  mu      <= 3.23980992e+10 Pa
+       2.08000000e+10 Pa     <=  lambda  <= 3.24038016e+10 Pa
+       ------------------------------------------------------
+
+***** PPW = minVs/h/maxFrequency ********
+g=0, h=1.000000e+02, minVs/h=34.64 (Cartesian)
+g=1, h=5.000000e+01, minVs/h=40 (Cartesian)
+
+  Assigned material properties
+*** computing the time step ***
+TIME accuracy order=4 CFL=1.30000000e+00 prel. time step=1.32680694e-02
+  time step = 1.32743363e-02
+*** Initialized Images
+ Min source z-level: 2.000000e+03, max source z-level: 2.000000e+03
+
+   Execution time, start up phase 1.28870083e-01 seconds 
+Running sw4 on 16 processors...
+Writing output to directory: out/
+
+***  Starting solve ***
+============================================================
+ Running program on 16 MPI tasks using the following data: 
+
+ Start Time = 0 Goal Time = 12
+ Number of time steps = 904 dt: 0.0132743
+
+============================================================
+ Global boundary conditions 
+      x=0    supergrid
+      x=xMax supergrid
+      y=0    supergrid
+      y=yMax supergrid
+      z=topo free surface
+      z=zMax supergrid
+
+
+-----------------------------------------------------------------------
+  Total seismic moment (M0): 1e+16 Nm 
+  Moment magnitude     (Mw): 4.6
+  Number of moment sources 1
+-----------------------------------------------------------------------
+  Initial data has been assigned
+
+Reporting SW4 internal flags and settings:
+m_testing=no, twilight=no, point_source=no, moment_test=no, energy_test=no, lamb_test=no, rayleigh_test=no
+m_use_supergrid=yes
+End report of internal flags and settings
+
+
+   Execution time, initial data phase 8.70925550e-02 seconds 
+
+  Begin time stepping...
+Time step       1  t =   1.3274336e-02
+Time step     101  t =   1.3407080e+00
+Time step     201  t =   2.6681416e+00
+Time step     301  t =   3.9955752e+00
+Time step     401  t =   5.3230088e+00
+Time step     501  t =   6.6504425e+00
+Time step     601  t =   7.9778761e+00
+Time step     701  t =   9.3053097e+00
+Time step     801  t =   1.0632743e+01
+Time step     901  t =   1.1960177e+01
+Time step     904  t =   1.2000000e+01
+  Time stepping finished...
+
+   Execution time, time stepping phase 7 minutes 3.49685185e+01 seconds 
+============================================================
+ program sw4 finished! 
+============================================================

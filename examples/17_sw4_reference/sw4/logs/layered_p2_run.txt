@@ -1,0 +1,157 @@
+----------------------------------------------------------------
+            sw4 version 3.0
+
+ This program comes with ABSOLUTELY NO WARRANTY; released under GPL.
+ This is free software, and you are welcome to redistribute     
+ it under certain conditions, see LICENSE.txt for more details  
+----------------------------------------------------------------
+  Compiled on: 261009
+  By user:     pxpalacios
+  Machine:     esmeralda-build
+  Compiler:    /usr/bin/c++
+  3rd party include dir: NA, and library dir: NA
+----------------------------------------------------------------
+
+Input file: stg_p2.in
+
+* Processing the grid command...
+* Setting nx to 241 to be consistent with h=1.00000000e+02
+* Setting ny to 241 to be consistent with h=1.00000000e+02
+* Setting nz to 201 to be consistent with h=1.00000000e+02
+cleanupRefinementLevels: topo_zmax = 0.00000000e+00
+ Cartesian refinement levels (z=):
+1.00000000e+03
+3.00000000e+02
+0.00000000e+00
+ Grid distributed on 16 processors 
+ Finest grid size    967 x 967
+ Processor array     4 x 4
+ Number of curvilinear grids = 0
+ Number of Cartesian grids = 3
+ Total number of grids = 3
+Extent of the computational domain xmax=2.40000000e+04 ymax=2.40000000e+04 zmax=2.00000000e+04
+Cartesian refinement levels after correction: 
+Grid=0 z-min=1.00000000e+03
+Grid=1 z-min=3.00000000e+02
+Grid=2 z-min=0.00000000e+00
+Corrected global_zmax = 2.00000000e+04
+
+Rank=0, Grid #2 (Cartesian), iInterior=[1,241], jInterior=[1,241], kInterior=[1,13]
+Rank=0, Grid #1 (Cartesian), iInterior=[1,121], jInterior=[1,121], kInterior=[1,15]
+Rank=0, Grid #0 (Cartesian), iInterior=[1,61], jInterior=[1,61], kInterior=[1,191]
+
+*** No topography command found in input file. Using z=0 as free surface boundary ***
+
+
+Global grid sizes (without ghost points)
+Grid         h        Nx        Ny        Nz       Points      Type
+   0       100       241       241       191     11093471     Cartesian
+   1        50       481       481        15      3470415     Cartesian
+   2        25       961       961        13     12005773     Cartesian
+Total number of grid points (without ghost points): 2.65697e+07
+
+
+Read station input, took 5.04763000e-04seconds.
+
+   Execution time, reading input file 5.03743080e-02 seconds 
+Assuming a SERIAL file system.
+Detected at least one boundary with supergrid conditions
+----------------------------------------------------
+ Making Directory: out/
+		
+... Done!
+----------------------------------------------------
+Geographic and Cartesian coordinates of the corners of the computational grid:
+0: Lon= -1.180000e+02, Lat=3.700000e+01, x=0.000000e+00, y=0.000000e+00
+1: Lon= -1.180000e+02, Lat=3.721560e+01, x=2.400000e+04, y=0.000000e+00
+2: Lon= -1.177293e+02, Lat=3.721560e+01, x=2.400000e+04, y=2.400000e+04
+3: Lon= -1.177300e+02, Lat=3.700000e+01, x=0.000000e+00, y=2.400000e+04
+
+Considering all material blocks
+block command: outside = 0, material = 33847437
+block command: outside = 2787888, material = 31059549
+block command: outside = 11903716, material = 21943721
+block command: outside = 22302463, material = 11544974
+
+       ----------- Material properties ranges ---------------
+       2.40000000e+03 kg/m^3 <=  Density <= 2.67000000e+03 kg/m^3
+       1.32000000e+03 m/s    <=  Vp      <= 7.00000000e+03 m/s
+       7.50000000e+02 m/s    <=  Vs      <= 4.00000000e+03 m/s
+       1.75000000e+00        <=  Vp/Vs   <= 1.76000000e+00
+       1.35000000e+09 Pa     <=  mu      <= 4.27200000e+10 Pa
+       1.48176000e+09 Pa     <=  lambda  <= 4.53900000e+10 Pa
+       ------------------------------------------------------
+
+***** PPW = minVs/h/maxFrequency ********
+g=0, h=1.000000e+02, minVs/h=31.4 (Cartesian)
+g=1, h=5.000000e+01, minVs/h=31.4 (Cartesian)
+g=2, h=2.500000e+01, minVs/h=30 (Cartesian)
+
+  Assigned material properties
+*** computing the time step ***
+TIME accuracy order=4 CFL=1.30000000e+00 prel. time step=9.19522072e-03
+  time step = 9.19681177e-03
+*** Initialized Images
+ Min source z-level: 5.000000e+02, max source z-level: 5.000000e+02
+
+   Execution time, start up phase 4.41013503e-01 seconds 
+Running sw4 on 16 processors...
+Writing output to directory: out/
+
+***  Starting solve ***
+============================================================
+ Running program on 16 MPI tasks using the following data: 
+
+ Start Time = 0 Goal Time = 15
+ Number of time steps = 1631 dt: 0.00919681
+
+============================================================
+ Global boundary conditions 
+      x=0    supergrid
+      x=xMax supergrid
+      y=0    supergrid
+      y=yMax supergrid
+      z=topo free surface
+      z=zMax supergrid
+
+
+-----------------------------------------------------------------------
+  Total seismic moment (M0): 1e+16 Nm 
+  Moment magnitude     (Mw): 4.6
+  Number of moment sources 1
+-----------------------------------------------------------------------
+  Initial data has been assigned
+
+Reporting SW4 internal flags and settings:
+m_testing=no, twilight=no, point_source=no, moment_test=no, energy_test=no, lamb_test=no, rayleigh_test=no
+m_use_supergrid=yes
+End report of internal flags and settings
+
+
+   Execution time, initial data phase 2.15258568e-01 seconds 
+
+  Begin time stepping...
+Time step       1  t =   9.1968118e-03
+Time step     101  t =   9.2887799e-01
+Time step     201  t =   1.8485592e+00
+Time step     301  t =   2.7682403e+00
+Time step     401  t =   3.6879215e+00
+Time step     501  t =   4.6076027e+00
+Time step     601  t =   5.5272839e+00
+Time step     701  t =   6.4469651e+00
+Time step     801  t =   7.3666462e+00
+Time step     901  t =   8.2863274e+00
+Time step    1001  t =   9.2060086e+00
+Time step    1101  t =   1.0125690e+01
+Time step    1201  t =   1.1045371e+01
+Time step    1301  t =   1.1965052e+01
+Time step    1401  t =   1.2884733e+01
+Time step    1501  t =   1.3804414e+01
+Time step    1601  t =   1.4724096e+01
+Time step    1631  t =   1.5000000e+01
+  Time stepping finished...
+
+   Execution time, time stepping phase 46 minutes 3.36508887e+01 seconds 
+============================================================
+ program sw4 finished! 
+============================================================
