@@ -11,6 +11,7 @@ import shutil
 import subprocess
 
 from setuptools.command.install import install as _install
+from numpy.distutils.command.build_ext import build_ext as _build_ext
 
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
@@ -108,8 +109,9 @@ def _compile_ffsp_linux(ffsp_dir):
         "ffsp_wrapper.f90", "ffsp_comm.f90", "spfield_n.f90",
         "dcf_subs_1.f90", "slip_rate.f90", "ffsp_tool.f",
     ]
+    # Only this platform's binary: the Windows .pyd can share the folder (synced checkouts).
     for f in os.listdir(ffsp_dir):
-        if f.startswith('ffsp_core') and (f.endswith('.so') or f.endswith('.pyd')):
+        if f.startswith('ffsp_core') and f.endswith('.so'):
             os.remove(os.path.join(ffsp_dir, f))
 
     cmd = [
@@ -121,11 +123,17 @@ def _compile_ffsp_linux(ffsp_dir):
         "--f77flags=-O3 -std=legacy -fPIC",
         "-m", "ffsp_core",
     ]
+    # The meson backend ignores --f77flags; without -std=legacy recent gfortran (>= 10) rejects
+    # the argument type mismatches of ffsp_tool.f. FFLAGS reaches every Fortran source.
+    env = dict(os.environ)
+    if _f2py_backend_args():
+        env["FFLAGS"] = (env.get("FFLAGS", "") + " -O3 -fPIC -std=legacy").strip()
     print("[ffsp] compiling on Linux/macOS...")
-    result = subprocess.run(cmd, cwd=ffsp_dir, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=ffsp_dir, capture_output=True, text=True, env=env)
     if result.returncode != 0:
-        print(result.stdout[-3000:])
-        print(result.stderr[-3000:])
+        out = result.stdout + result.stderr
+        print("\n".join(l for l in out.splitlines() if "Error" in l or "FAILED" in l))
+        print(out[-3000:])
         raise RuntimeError("[ffsp] compilation failed -- see output above")
 
     so_files = [f for f in os.listdir(ffsp_dir)
@@ -145,8 +153,9 @@ def _compile_ffsp_windows(ffsp_dir):
         "ffsp_wrapper.f90", "ffsp_comm.f90", "spfield_n.f90",
         "dcf_subs_1.f90", "slip_rate.f90", "ffsp_tool.f",
     ]
+    # Only this platform's binary: the Linux .so can share the folder (synced checkouts).
     for f in os.listdir(ffsp_dir):
-        if f.startswith('ffsp_core') and (f.endswith('.pyd') or f.endswith('.so')):
+        if f.startswith('ffsp_core') and f.endswith('.pyd'):
             os.remove(os.path.join(ffsp_dir, f))
 
     cmd = [
@@ -199,10 +208,19 @@ class PostInstallCommand(_install):
         _install_ffsp_binary(ffsp_dir)
 
 
+class InplaceBuildExt(_build_ext):
+    """build_ext that also compiles FFSP when building in place (setup.py build_ext --inplace)."""
+
+    def run(self):
+        _build_ext.run(self)
+        if self.inplace and not on_rtd:
+            compile_ffsp()
+
+
 # =============================================================================
 
 found_sphinx    = importlib.util.find_spec('sphinx') is not None
-cmdclass        = {'install': PostInstallCommand}
+cmdclass        = {'install': PostInstallCommand, 'build_ext': InplaceBuildExt}
 command_options = {}
 
 np_setup(
