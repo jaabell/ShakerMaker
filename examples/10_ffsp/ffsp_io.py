@@ -7,6 +7,13 @@ except Exception:
     print("SKIP: h5py not available")
     raise SystemExit(0)
 
+import os
+
+# The FFSP kernel writes its work files in the current folder: run inside _output/ (ignored by git).
+_out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_output")
+os.makedirs(_out, exist_ok=True)
+os.chdir(_out)
+
 import numpy as np
 from shakermaker.crustmodel import CrustModel
 from shakermaker.ffspsource import FFSPSource
