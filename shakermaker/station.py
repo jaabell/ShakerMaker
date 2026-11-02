@@ -9,6 +9,46 @@ def interpolator(told, yold, tnew):
     return interp1d(told, yold, bounds_error=False, fill_value=(yold[0], yold[-1]))(tnew)
 
 
+# Fraction of a sample below which a placement is taken as integer, so that traces
+# that fall on the output grid are added exactly as before.
+_FRAC_EPS = 1e-6
+
+
+def lagrange4_taps(mu):
+    """Integer offset and taps that place a trace at a real sample offset mu.
+
+    A trace x whose sample k falls at output index mu + k is placed as
+    z = np.convolve(x, h) added from output index m0: output n gets
+    sum_j w_j x[n-m-2+j], the 4-point (cubic) Lagrange interpolation of x at the
+    real index n - mu. Returns (m0, h); h is None when mu is an integer within
+    _FRAC_EPS, and then x itself is added from m0 = round(mu).
+    """
+    m = int(np.floor(mu))
+    d = mu - m
+    if d < _FRAC_EPS:
+        return m, None
+    if d > 1.0 - _FRAC_EPS:
+        return m + 1, None
+    f = 1.0 - d
+    w = np.array([-f * (f - 1.0) * (f - 2.0) / 6.0,
+                  (f + 1.0) * (f - 1.0) * (f - 2.0) / 2.0,
+                  -(f + 1.0) * f * (f - 2.0) / 2.0,
+                  (f + 1.0) * f * (f - 1.0) / 6.0])
+    return m - 1, w[::-1].copy()
+
+
+def add_shifted(buf, x, mu):
+    """buf[n] += x at the real index n - mu (mu in samples), clipped to buf."""
+    m0, h = lagrange4_taps(mu)
+    if h is not None:
+        x = np.convolve(x, h)
+    k0 = max(0, -m0)
+    j0 = m0 + k0
+    nw = min(len(x) - k0, len(buf) - j0)
+    if nw > 0:
+        buf[j0:j0 + nw] += x[k0:k0 + nw]
+
+
 class StationObserver(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def station_change(self, station, t):
@@ -77,7 +117,33 @@ class Station:
     #             self._e[nskip:(nskip + nwrite)] += e[:nwrite]
     #             self._n[nskip:(nskip + nwrite)] += n[:nwrite]
     #     self._notify(t)
+    # Placement by whole samples (int(t[0]/dt)): it dropped the fraction of a sample
+    # of every trace (0 to 1 dt, different per station) and ignored tmin. Kept
+    # below for reference.
     def add_to_response(self, z, e, n, t, tmin=0, tmax=100.):
+        """Add a trace whose first sample is at time t[0] to the station response.
+
+        The trace is placed at its real time, fraction of a sample included, with the
+        4-point Lagrange interpolator of add_shifted; a trace on the output grid
+        (t[0] - tmin a whole number of samples) is added exactly.
+        """
+        dt = t[1] - t[0]
+        if not self._initialized:
+            self._t = np.arange(tmin, tmax, dt)
+            self._z = 0 * self._t
+            self._e = 0 * self._t
+            self._n = 0 * self._t
+            self._dt = dt
+            self._tmin = t.min()
+            self._tmax = t.max()
+            self._initialized = True
+        mu = (t[0] - self._t[0]) / dt
+        add_shifted(self._z, np.asarray(z, dtype=np.float64), mu)
+        add_shifted(self._e, np.asarray(e, dtype=np.float64), mu)
+        add_shifted(self._n, np.asarray(n, dtype=np.float64), mu)
+        self._notify(t)
+
+    def _add_to_response_whole_samples(self, z, e, n, t, tmin=0, tmax=100.):
         if not self._initialized:
             dt = t[1] - t[0]
             self._t = np.arange(tmin, tmax, dt)
