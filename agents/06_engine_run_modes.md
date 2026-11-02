@@ -154,6 +154,34 @@ Produces `sim_001_map.h5` + `sim_001_gf.h5` — pass the **root**, not either
 suffixed filename. Launch with `mpiexec -n N python script.py` for
 Stage 1-2 to actually parallelize (see `11_mpi_and_hpc.md`).
 
+## 2b. Interpolated Green's functions — `run_inter(scheme='tensor')`
+
+The OP pipeline reuses one Green's function per slot. That is fine for
+sparse stations but not for a **DRM box**: neighbouring nodes in one slot get
+identical traces and the trace jumps at slot edges, and the DRM turns the
+difference between its two layers into effective forces (spurious
+high-frequency input). `run_inter` keeps the three-stage idea but computes
+receiver and source depths exactly and interpolates the horizontal distance
+(4-point Lagrange weights in reduced time, nodes chosen by bisection), with a
+streamed Stage 1, a compressed and decimated database, an optional frequency
+cut in the FK core (`freq_cut`) and a per-receiver Stage 2 kernel.
+
+```python
+model.run_inter(stage='all', h5_database_name=db, scheme='tensor',
+                f_err=20.0, freq_cut=25.0, dh_min=0.020,
+                dt=0.0025, nfft=65536, tb=800, dk=0.1, kc=30, tmin=0.0, tmax=65.5,
+                writer=DRMHDF5StationListWriter("box.h5drm"), writer_mode='progressive')
+```
+
+Full reference, parameters by band, the near-field limit and the Stage 1
+warning: `13_run_inter.md`.
+
+**Placement changed in every Stage 2 path.** `run_fast`/`run_nearest`
+Stage 2 and `run_inter` add each contribution at its real time, fraction of
+a sample included (`station.add_shifted`, 4 Lagrange taps); a contribution
+on the output grid is added exactly as before. Results are not bit-identical
+with runs made before this change.
+
 ## 3. Migrating an old-format database — `build_pair_to_slot_from_legacy_h5`
 
 ```python
