@@ -34,7 +34,7 @@ run without running SW4.
 
 `data/sw4/<case>.npz`: `t`, `names`, `vel` (receivers, 3, samples) in m/s, components north, east, down.
 `data/sm/<case>_<engine>.npz`: `t`, `names`, `zen` (receivers, 3, samples) in ShakerMaker units, engines `exact`,
-`nearest` and `inter_tensor` (`layered_f1` has no `inter_tensor`).
+`nearest` and `inter_tensor` (error band `f_err` 2 Hz, `freq_cut` 2.5 Hz).
 
 ## Conventions
 
@@ -53,12 +53,15 @@ SW4: amplitudes are compared without any fitted factor.
 
 | Engine against the exact reference (low-pass 2 Hz) | Traces | DRM layer difference |
 |---|---|---|
-| `nearest` | 0-3 % | 42-79 % |
-| `run_inter(scheme='tensor')` | 0.5-1.7 % | 1.1-3.0 % |
+| `nearest` | 0-3 % | 28-77 % |
+| `run_inter(scheme='tensor')` | 0.2-1.7 % | 0.5-3.3 % |
 
 Two open findings, shown in the notebook:
 
-1. **Receivers at the source depth** (vertical separation zero) depart from SW4 with every engine (correlation
-   0.2-0.7), while the same vertical 0.9 km above and 1 km below matches it.
+1. **Receivers at or a few metres from a source depth** depart from SW4 with every engine (correlation 0.2-0.7
+   at zero separation), while the same vertical 0.9 km above and 1 km below matches it. In the fault cases a row
+   of subfaults 6-8 m from a receiver depth (receivers at 0.4 and 3.0 km) does the same: those few receivers
+   differ from the exact engine by tens of percent or more with every engine, and Stage 1 of `run_inter` warns
+   about cells it cannot resolve there.
 2. **Shallow source under the thin soft layer, 1-2 Hz**: ShakerMaker lags SW4 by a time that grows with distance,
    attributed to the effective interface of SW4, half a cell deeper than the nominal one.
