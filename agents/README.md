@@ -45,6 +45,7 @@ it's grounded in; re-verify against that when in doubt.
 | [`10_plotting.md`](10_plotting.md) | `ZENTPlot`, `StationPlot`, `SourcePlot` |
 | [`11_mpi_and_hpc.md`](11_mpi_and_hpc.md) | MPI parallelism, SLURM patterns, known hangs (one fixed, one still partially open — documented in the source itself) |
 | [`12_coordinates_and_conventions.md`](12_coordinates_and_conventions.md) | Positions vs motion, component order and signs of every output, SW4 frame, the OpenSees `H5DRMLoadPattern` matrix `T` |
+| [`13_run_inter.md`](13_run_inter.md) | `run_inter`: Green's functions interpolated in distance for coherent DRM boxes — parameters by band, near-field limit and warning, one database for many ruptures |
 | [`RECIPES.md`](RECIPES.md) | Compatibility matrix + worked combination templates — the generative layer |
 
 Every file follows the same shape: **What this is → Source of truth →
