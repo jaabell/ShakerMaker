@@ -10,7 +10,8 @@
 #                       the 256-subfault cases where run() takes hours
 #         nearest       run_nearest with the production tolerances (40 m, 5 m, 200 m) and the default depth_tol
 #         inter_grid    run_inter, scheme='grid', 40 m distance grid, cubic interpolation in reduced time
-#         inter_tensor  run_inter, scheme='tensor', the production configuration (freq_cut, zfp20, decimated)
+#         inter_tensor  run_inter, scheme='tensor', the production configuration (error band 2 Hz, freq_cut, zfp20,
+#                       decimated)
 #
 # Same receivers (data/receivers_<medium>.csv, already on SW4 grid nodes), same sources (data/fault_<medium>.csv
 # for f1) and same Gaussian as SW4. Writes <out_dir>/<case>_<engine>.npz (default data/sm/) with t, names and
@@ -109,7 +110,7 @@ elif engine == "nearest":
 elif engine == "inter_grid":
     model.run_inter(stage="all", h5_database_name=db, scheme="grid", dh_grid=0.04, order=3, **common)
 elif engine == "inter_tensor":
-    model.run_inter(stage="all", h5_database_name=db, scheme="tensor", freq_cut=2.5, dh_min=0.02,
+    model.run_inter(stage="all", h5_database_name=db, scheme="tensor", f_err=2.0, freq_cut=2.5, dh_min=0.02,
                     eps_v=0.01, eps_s=0.05, store="zfp20", decimate=True, **common)
 else:
     raise SystemExit(f"unknown engine {engine}")
