@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -644,6 +674,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -1054,6 +1088,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#interpolated-greens-functions-run_inter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpolated Green's functions (run_inter)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diagnostic-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1127,6 +1172,34 @@
     
   
     Domain Reduction Method
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
   
 
     
@@ -1239,6 +1312,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2255,6 +2356,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#interpolated-greens-functions-run_inter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpolated Green's functions (run_inter)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diagnostic-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2298,9 +2410,11 @@
 
 <h1 id="running-a-simulation">Running a simulation<a class="headerlink" href="#running-a-simulation" title="Permanent link">&para;</a></h1>
 <p><code>ShakerMaker(crust, source, receivers)</code> pairs every source with every
-receiver and computes the motion. Two ways to run it: a single <code>run()</code> call
-for small problems, or the optimised MPI pipeline <code>run_nearest()</code> for large
-receiver sets and finite faults.</p>
+receiver and computes the motion. Three ways to run it: a single <code>run()</code> call
+for small problems, the optimised MPI pipeline <code>run_nearest()</code> for large
+receiver sets and finite faults, and <code>run_inter()</code> (Green's functions
+interpolated in distance) for DRM boxes and other dense receiver sets whose
+neighbouring receivers must stay coherent.</p>
 <h2 id="input-run">Input: <code>run()</code><a class="headerlink" href="#input-run" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">shakermaker.shakermaker</span><span class="w"> </span><span class="kn">import</span> <span class="n">ShakerMaker</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2556,6 +2670,28 @@ walked through in
 <a href="../../exercises/07_receivers_pipeline/">Exercise 7</a>.</p>
 <p>MPI helpers: <code>enable_mpi(rank, nprocs)</code>, <code>mpi_is_master_process()</code>,
 <code>mpi_rank()</code>, <code>mpi_nprocs()</code>.</p>
+<h2 id="interpolated-greens-functions-run_inter">Interpolated Green's functions (<code>run_inter</code>)<a class="headerlink" href="#interpolated-greens-functions-run_inter" title="Permanent link">&para;</a></h2>
+<p>Reuse is exact only for pairs that fall on the same slot. Inside a DRM box two
+nodes one element apart often fall in different slots, or in the same slot
+while their true waveforms differ, and the DRM turns that difference into
+spurious forces. <code>run_inter(scheme='tensor')</code> computes the receiver and source
+depths exactly and interpolates the horizontal distance with 4-point Lagrange
+weights in reduced time, from nodes chosen by bisection; Stage 1 is streamed
+(constant memory) and the database is compressed and decimated.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">model</span><span class="o">.</span><span class="n">run_inter</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="s2">"all"</span><span class="p">,</span> <span class="n">h5_database_name</span><span class="o">=</span><span class="s2">"./gf/gf"</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="s2">"tensor"</span><span class="p">,</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                <span class="n">f_err</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">freq_cut</span><span class="o">=</span><span class="mf">25.0</span><span class="p">,</span> <span class="n">dh_min</span><span class="o">=</span><span class="mf">0.020</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>                <span class="n">dt</span><span class="o">=</span><span class="mf">0.0025</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">65536</span><span class="p">,</span> <span class="n">tb</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">dk</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">kc</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">tmin</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">65.5</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>                <span class="n">writer</span><span class="o">=</span><span class="n">writer</span><span class="p">,</span> <span class="n">writer_mode</span><span class="o">=</span><span class="s2">"progressive"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>How to use it and how not to: <a href="../run_inter/">run_inter guide</a>. The method and
+its validation: <a href="../../background/gf_interpolation/">Interpolated Green's functions</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Placement with a fraction of a sample</p>
+<p>Every Stage 2 path (<code>run_nearest</code> included) now adds each contribution at
+its real time, fraction of a sample included (4-point Lagrange taps); a
+contribution on the output grid is added exactly as before. Results are
+not bit-identical with runs made before this change.</p>
+</div>
 <h2 id="diagnostic-checklist">Diagnostic checklist<a class="headerlink" href="#diagnostic-checklist" title="Permanent link">&para;</a></h2>
 <p>When the seismogram disagrees with expectation, the symptom points to the
 parameter:</p>
@@ -2667,10 +2803,10 @@ parameter:</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

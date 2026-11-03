@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -644,6 +674,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -978,6 +1012,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../ffsp/" class="md-nav__link">
         
   
@@ -1211,6 +1273,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2281,7 +2371,9 @@ in-memory array to a coupling-ready HDF5 file an external solver reads.</p>
 vector:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">z</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">sta</span><span class="o">.</span><span class="n">get_response</span><span class="p">()</span>      <span class="c1"># NumPy arrays, length nfft (× smth)</span>
 </span></code></pre></div>
-<p>The components are <strong>Z (vertical), E (East), N (North)</strong>. The natural FK output
+<p>The components are <strong>Z (vertical, positive down), E (East), N (North)</strong>, in that
+order (see <a href="../../background/conventions/#motion-the-order-depends-on-the-output">Coordinates &amp; conventions</a>
+for every output's order). The natural FK output
 is <strong>velocity</strong>, and its units follow the units in which the STF source was
 defined — the Green's functions are scaled by the source, so the output carries
 whatever moment/amplitude units you used for the STF. Integrate once for
@@ -2345,8 +2437,11 @@ results stream to a <strong>single file</strong> as they are computed:</p>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    …                                    any metadata you passed to the writer
 </span></code></pre></div>
 <p>Each station occupies <strong>three consecutive rows</strong> in the signal datasets,
-ordered <strong>E, N, Z</strong> — station <code>i</code> starts at row <code>3·i</code> (that is exactly what
-<code>data_location[i]</code> records). Velocity is computed by the FK engine;
+ordered <strong>E, N, Z</strong> (East, North, vertical positive down) — station <code>i</code> starts
+at row <code>3·i</code> (that is exactly what <code>data_location[i]</code> records). The positions in
+<code>xyz</code> keep ShakerMaker's order (North, East, depth): positions and motion are
+stored in different orders on purpose, see
+<a href="../../background/conventions/#why-the-h5-and-h5drm-reorder-the-motion">Coordinates &amp; conventions</a>. Velocity is computed by the FK engine;
 acceleration and displacement are differentiated/integrated <strong>at write time</strong>,
 so the file carries all three ready to use.</p>
 <p><code>DRMHDF5StationListWriter</code> uses the same idea with DRM-specific groups:</p>
@@ -2357,7 +2452,9 @@ so the file carries all three ready to use.</p>
 <p>The <strong>QA station</strong> (the one whose metadata <code>name == "QA"</code>, added automatically
 by <code>DRMBox</code> / <code>PointCloudDRMReceiver</code> at the box centre) is split off into
 <code>/DRM_QA_Data</code>; every boundary node goes to <code>/DRM_Data</code>. This is the file
-OpenSees <code>H5DRMLoadPattern</code> reads directly — see the <a href="../drm/">DRM guide</a>.</p>
+OpenSees <code>H5DRMLoadPattern</code> reads directly — see the <a href="../drm/">DRM guide</a>, and
+<a href="../drm/#using-the-h5drm-in-opensees">Using the .h5drm in OpenSees</a> for the
+transformation matrix.</p>
 <p>To peek inside any <code>.h5</code> / <code>.h5drm</code> and list its groups and shapes, use
 <a href="../../examples/#07-writers-io"><code>examples/07_writers/explore_h5_output.py</code></a>.</p>
 <h3 id="writer-modes-legacy-vs-progressive">Writer modes: <code>legacy</code> vs <code>progressive</code><a class="headerlink" href="#writer-modes-legacy-vs-progressive" title="Permanent link">&para;</a></h3>
@@ -2524,10 +2621,10 @@ Full details in the <a href="../sw4_export/">SW4 export guide</a>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://jaabell.github.io/ShakerMaker/guides/installation/">
       
       
-        <link rel="prev" href="../../background/finite_fault/">
+        <link rel="prev" href="../../background/gf_interpolation/">
       
       
         <link rel="next" href="../first_steps/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -644,6 +674,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -1268,6 +1302,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../ffsp/" class="md-nav__link">
         
   
@@ -1360,6 +1422,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2589,6 +2679,15 @@ needed even for a minimal install:</p>
 (later setuptools shadows the stdlib <code>distutils</code> and breaks it). No prebuilt
 <code>.so</code>/<code>.pyd</code> files ship in the repository — they're build artifacts and are
 gitignored.</p>
+<div class="admonition info">
+<p class="admonition-title">Optional: compressed Green's-function databases (<code>run_inter</code>)</p>
+<p><code>ShakerMaker.run_inter(scheme='tensor')</code>'s default (<code>store='zfp20'</code>) and
+<code>store='zstd'</code> need the optional <code>hdf5plugin</code> package to read/write their
+compressed database: <code>pip install hdf5plugin</code>. Without it, <code>run_inter</code>
+raises a clear <code>ImportError</code> up front rather than hanging under MPI or
+failing obscurely later; pass <code>store='f32'</code> to avoid the dependency
+entirely. <code>run()</code> and <code>run_nearest()</code> never need it.</p>
+</div>
 <h3 id="4-build-install">4. Build &amp; install<a class="headerlink" href="#4-build-install" title="Permanent link">&para;</a></h3>
 <p>From the repository root:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/ShakerMaker
@@ -2640,7 +2739,7 @@ internal build log; the order matters.</p>
 <p class="admonition-title">Read these first, they cause most failures</p>
 <ul>
 <li><strong>Paths with spaces break the build.</strong> If the repo lives under
-  <code>C:\Dropbox\…</code> (a space in <code>01. Brain</code>), create a junction to a
+  a folder whose name has a space (for example <code>C:\Users\you\My Projects\…</code>), create a junction to a
   space-free path and build from there.</li>
 <li><strong>Use CMD, not PowerShell, for build steps.</strong> PowerShell quoting breaks
   the compiler invocations.</li>
@@ -2689,7 +2788,7 @@ internal build log; the order matters.</p>
 <h3 id="1-junction-around-the-space-in-path-problem">1. Junction around the space-in-path problem<a class="headerlink" href="#1-junction-around-the-space-in-path-problem" title="Permanent link">&para;</a></h3>
 <p>In an <strong>Administrator CMD</strong>:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>mkdir C:\shakermaker_compiler
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>mklink /J "C:\shakermaker_compiler\ShakerMaker" "C:\Dropbox\01. Brain\11. GitHub\ShakerMaker"
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>mklink /J "C:\shakermaker_compiler\ShakerMaker" "C:\Users\you\My Projects\ShakerMaker"
 </span></code></pre></div>
 <p>All build commands then run from <code>C:\shakermaker_compiler\ShakerMaker</code>.</p>
 <h3 id="2-environment-venv-fresh-cmd-every-time">2. Environment + venv (fresh CMD every time)<a class="headerlink" href="#2-environment-venv-fresh-cmd-every-time" title="Permanent link">&para;</a></h3>
@@ -2886,10 +2985,10 @@ MPI scaling is cleaner. Windows is convenient for desktop exploration.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

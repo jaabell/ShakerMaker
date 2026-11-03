@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -644,6 +674,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -978,6 +1012,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../ffsp/" class="md-nav__link">
         
   
@@ -1144,6 +1206,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vertical-mesh-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vertical mesh refinement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#receiver-families" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1211,6 +1284,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2177,6 +2278,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vertical-mesh-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vertical mesh refinement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#receiver-families" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2319,6 +2431,16 @@ this in mind if you supply your own topography.</p>
 <td>moment scaling applied to the SW4 sources</td>
 </tr>
 <tr>
+<td><code>refine_fmax</code></td>
+<td>Hz</td>
+<td>max frequency of interest; when set, adds <code>refinement zmax=...</code> lines so shallow soft layers get a finer grid than <code>h</code> instead of forcing <code>h</code> everywhere (see below)</td>
+</tr>
+<tr>
+<td><code>refine_n_per_wavelength</code></td>
+<td>–</td>
+<td>grid points per shortest resolved wavelength, used with <code>refine_fmax</code>; default <code>10</code></td>
+</tr>
+<tr>
 <td><code>supergrid_gp</code></td>
 <td>grid pts</td>
 <td>width of the absorbing super-grid layer</td>
@@ -2363,6 +2485,31 @@ this in mind if you supply your own topography.</p>
 <p>The two-step design (bundle → unpack) keeps the transport portable: you move
 one <code>.h5</code> to the cluster, unpack it there, and run SW4, the unpacker has no
 ShakerMaker dependency.</p>
+<h2 id="vertical-mesh-refinement">Vertical mesh refinement<a class="headerlink" href="#vertical-mesh-refinement" title="Permanent link">&para;</a></h2>
+<p>A single <code>h</code> fine enough for the softest (usually shallowest) crust layer
+over-resolves the deeper, faster ones. Setting <code>refine_fmax</code> derives SW4
+<a href="https://github.com/geodynamics/sw4/blob/master/doc/SW4-UsersGuide.pdf"><code>refinement zmax=...</code></a>
+lines from the crust layering instead: each layer needs a grid fine enough
+to put <code>refine_n_per_wavelength</code> points across its shortest resolved
+wavelength (<code>Vs / refine_fmax</code>), and the exporter works out how many times
+<code>h</code> must be halved above each layer boundary to meet that, snapping each
+<code>zmax</code> to a node of the coarser grid below it (SW4 requires the boundaries
+to align).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">model</span><span class="o">.</span><span class="n">export_sw4</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">"/run/dir"</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">h</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                       <span class="c1"># base grid, resolves the deepest/fastest layer</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">refine_fmax</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>           <span class="c1"># Hz, max frequency of engineering interest</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">refine_n_per_wavelength</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>This prints a per-layer table (required vs. assigned <code>h</code>) and the resulting
+<code>refinement</code> lines before writing the package, and inserts them right after
+the <code>grid ...</code> line in <code>shakermaker2sw4.in</code>. Leaving <code>refine_fmax=None</code>
+(the default) keeps the previous behaviour: a single <code>h</code> everywhere, no
+<code>refinement</code> lines. The table and lines are also stored on
+<code>model.sw4_export_refinement</code> after the export for later inspection. See
+<code>shakermaker.sw4_exporter.refinement.compute_layer_refinement</code> to compute
+the table standalone, before deciding on a base <code>h</code>.</p>
 <h2 id="receiver-families">Receiver families<a class="headerlink" href="#receiver-families" title="Permanent link">&para;</a></h2>
 <p>The exporter tags each receiver record by <code>kind</code>, so SW4 records the right
 quantity at the right place:</p>
@@ -2400,9 +2547,15 @@ quantity at the right place:</p>
 <h2 id="the-round-trip-sw4-h5drm">The round trip: SW4 → H5DRM<a class="headerlink" href="#the-round-trip-sw4-h5drm" title="Permanent link">&para;</a></h2>
 <p>The reverse direction closes the loop with <a href="../drm/">DRM</a>: after an SW4 run, the
 motions on a box can be turned back into an <code>.h5drm</code> for a local OpenSees
-model. The helper is <code>examples/09_sw4_export/build_h5drm_from_sw4_case.py</code>
-(<code>build_h5drm_from_sw4_case(...)</code>), which handles the SW4-local-m ↔
-ShakerMaker/UTM-km conversion.</p>
+model. <code>SW4Exporter.write()</code> generates <code>build_h5drm_from_sw4.py</code> automatically
+inside <code>shakermakerexports/</code>, right next to <code>unpack_sw4_package.py</code> — no
+ShakerMaker installation needed to run it (only <code>h5py</code>/<code>numpy</code>, plus <code>obspy</code>
+if you pass <code>--use-filter</code>). Once SW4 has produced its result <code>.txt</code> files,
+run it in place (no arguments needed) or point it at a case with
+<code>case_path</code>. The same logic is importable as
+<code>shakermaker.sw4_exporter.build_h5drm_from_sw4_case(...)</code>; it handles the
+SW4-local-m ↔ ShakerMaker/UTM-km conversion. A reference copy also lives at
+<code>examples/09_sw4_export/build_h5drm_from_sw4_case.py</code>.</p>
 <h2 id="public-api-shakermakersw4_exporter">Public API (<code>shakermaker.sw4_exporter</code>)<a class="headerlink" href="#public-api-shakermakersw4_exporter" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2423,6 +2576,10 @@ ShakerMaker/UTM-km conversion.</p>
 <tr>
 <td><code>unpack_sw4_package_h5(package, output_dir)</code></td>
 <td>explode the bundle into the SW4 tree</td>
+</tr>
+<tr>
+<td><code>build_h5drm_from_sw4_case(case_path, ...)</code></td>
+<td>rebuild <code>.h5drm</code> motions from an SW4 case's result files</td>
 </tr>
 </tbody>
 </table>
@@ -2484,10 +2641,10 @@ ShakerMaker/UTM-km conversion.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

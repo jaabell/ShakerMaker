@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -644,6 +674,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -1149,6 +1183,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frequency-cut-freq_cut-run_inter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frequency cut (freq_cut, run_inter)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#full-parameter-map" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1205,6 +1250,34 @@
     
   
     Domain Reduction Method
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
   
 
     
@@ -1317,6 +1390,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2400,6 +2501,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frequency-cut-freq_cut-run_inter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frequency cut (freq_cut, run_inter)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#full-parameter-map" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2823,6 +2935,17 @@ proceeding. The fix is either to lower <code>tmax</code> to <span class="arithma
 and <code>coda</code> (fixed coda margin in seconds, internal — not an FK parameter).</p>
 </div>
 <hr />
+<h2 id="frequency-cut-freq_cut-run_inter">Frequency cut (<code>freq_cut</code>, <code>run_inter</code>)<a class="headerlink" href="#frequency-cut-freq_cut-run_inter" title="Permanent link">&para;</a></h2>
+<p><code>dt</code> sets the Nyquist frequency of the output (200 Hz at 0.0025 s), but the
+band of use is usually much lower. With <code>freq_cut</code> (Hz) the FK core stops its
+frequency loop at 1.4 × <code>freq_cut</code>, with a cosine taper from <code>freq_cut</code>; every
+frequency is integrated on its own, so nothing changes below <code>freq_cut</code>.
+Recommended: 1.25 × the band of use. Measured with <code>nfft</code> 65 536 and <code>dt</code>
+0.0025 s: the core is 33, 57, 122 and 292 times faster for bands of 20, 15, 10
+and 5 Hz, with the band-limited traces equal to ~1e-5. Content above
+<code>freq_cut</code> is tapered and above 1.4 × <code>freq_cut</code> it is zero: do not use the
+output there. <code>freq_cut</code> is an argument of <code>run_inter</code>; for the other paths
+the environment variable <code>SM_FREQ_CUT</code> does the same in <code>compute_gf</code>.</p>
 <h2 id="full-parameter-map">Full parameter map<a class="headerlink" href="#full-parameter-map" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2994,10 +3117,10 @@ and <code>coda</code> (fixed coda margin in seconds, internal — not an FK para
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       

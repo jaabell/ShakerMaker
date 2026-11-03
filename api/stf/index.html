@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -440,6 +440,8 @@
       
         
       
+        
+      
     
     
     
@@ -627,6 +629,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../background/gf_interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -642,6 +672,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -975,6 +1009,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/run_inter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolated Green's functions (run_inter)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/ffsp/" class="md-nav__link">
         
   
@@ -1067,6 +1129,34 @@
     
   
     Plotting & visualisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance on a cluster
   
 
     
@@ -2248,13 +2338,13 @@
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/sourcetimefunction.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-0-10">10</a></span>
-<span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt</span> <span class="o">=</span> <span class="n">dt</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t</span> <span class="o">=</span> <span class="kc">None</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__span-0-9"><a id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-9" name="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__span-0-10"><a id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-10" name="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-10"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt</span> <span class="o">=</span> <span class="n">dt</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__span-0-11"><a id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-11" name="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-11"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__span-0-12"><a id="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-12" name="shakermaker.sourcetimefunction.SourceTimeFunction--source--__codelineno-0-12"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t</span> <span class="o">=</span> <span class="kc">None</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2304,101 +2394,101 @@ points, so resampling the STF is the cheaper operation.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>shakermaker/sourcetimefunction.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span>
-<span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
-<span class="normal"><a href="#__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#__codelineno-0-85">85</a></span>
-<span class="normal"><a href="#__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#__codelineno-0-87">87</a></span>
-<span class="normal"><a href="#__codelineno-0-88">88</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="k">def</span><span class="w"> </span><span class="nf">convolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="w">    </span><span class="sd">"""Convolve the signal ``val`` sampled on ``t`` with this source time function.</span>
-</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43"></a>
-</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    The source time function is resampled onto the signal sampling step</span>
-</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    ``dt = t[1] - t[0]`` and convolved with ``val`` using an FFT. The</span>
-</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    result is returned on the same time grid as ``val``, which is the grid</span>
-</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    used by the rest of the pipeline (``add_to_response``, HDF5 output).</span>
-</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a>
-</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    The STF is resampled onto the signal grid (rather than the signal onto</span>
-</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    the STF grid) because the STF is always short while ``val`` has ``nfft``</span>
-</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    points, so resampling the STF is the cheaper operation.</span>
-</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>
-</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    :param val: Signal samples.</span>
-</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    :type val: np.array</span>
-</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    :param t: Time vector for ``val``; assumed uniformly sampled.</span>
-</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    :type t: np.array</span>
-</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    :param debug: If True, plot the signal, the convolved signal and the STF.</span>
-</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    :type debug: bool</span>
-</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a>
-</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    :returns: ``val`` convolved with the source time function, on grid ``t``.</span>
-</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    :rtype: np.array</span>
-</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    """</span>
-</span><span id="__span-0-63"><a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-</span><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a>        <span class="c1"># Dirac or unit impulse: trivial scaling, no convolution needed.</span>
-</span><span id="__span-0-65"><a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="k">return</span> <span class="n">val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span id="__span-0-66"><a id="__codelineno-0-66" name="__codelineno-0-66"></a>
-</span><span id="__span-0-67"><a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">dt</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span id="__span-0-68"><a id="__codelineno-0-68" name="__codelineno-0-68"></a>
-</span><span id="__span-0-69"><a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="c1"># Resample the STF to the signal's dt. self.t may have a finer</span>
-</span><span id="__span-0-70"><a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="c1"># resolution than dt (e.g. Brune generates self.t at self._dt/10 for</span>
-</span><span id="__span-0-71"><a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="c1"># internal waveform accuracy); this brings it onto the signal grid.</span>
-</span><span id="__span-0-72"><a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">t_stf_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-</span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">stf_r</span>   <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-</span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>                        <span class="n">bounds_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)(</span><span class="n">t_stf_r</span><span class="p">)</span>
-</span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>
-</span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="c1"># FFT convolution. Result truncated to the val grid and scaled by dt.</span>
-</span><span id="__span-0-77"><a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="n">val_stf</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">fftconvolve</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">stf_r</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"full"</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dt</span>
-</span><span id="__span-0-78"><a id="__codelineno-0-78" name="__codelineno-0-78"></a>
-</span><span id="__span-0-79"><a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
-</span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pylab</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-</span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span>     <span class="n">label</span><span class="o">=</span><span class="s2">"original val"</span><span class="p">)</span>
-</span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">val_stf</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"convolved val"</span><span class="p">)</span>
-</span><span id="__span-0-84"><a id="__codelineno-0-84" name="__codelineno-0-84"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
-</span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a>                 <span class="n">label</span><span class="o">=</span><span class="s2">"STF (normalised)"</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
-</span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-</span><span id="__span-0-87"><a id="__codelineno-0-87" name="__codelineno-0-87"></a>
-</span><span id="__span-0-88"><a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">return</span> <span class="n">val_stf</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-88">88</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-41"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-41" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-41"></a><span class="k">def</span><span class="w"> </span><span class="nf">convolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-42"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-42" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-42"></a><span class="w">    </span><span class="sd">"""Convolve the signal ``val`` sampled on ``t`` with this source time function.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-43"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-43" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-43"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-44"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-44" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-44"></a><span class="sd">    The source time function is resampled onto the signal sampling step</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-45"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-45" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-45"></a><span class="sd">    ``dt = t[1] - t[0]`` and convolved with ``val`` using an FFT. The</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-46"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-46" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-46"></a><span class="sd">    result is returned on the same time grid as ``val``, which is the grid</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-47"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-47" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-47"></a><span class="sd">    used by the rest of the pipeline (``add_to_response``, HDF5 output).</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-48"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-48" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-48"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-49"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-49" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-49"></a><span class="sd">    The STF is resampled onto the signal grid (rather than the signal onto</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-50"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-50" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-50"></a><span class="sd">    the STF grid) because the STF is always short while ``val`` has ``nfft``</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-51"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-51" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-51"></a><span class="sd">    points, so resampling the STF is the cheaper operation.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-52"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-52" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-52"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-53"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-53" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-53"></a><span class="sd">    :param val: Signal samples.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-54"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-54" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-54"></a><span class="sd">    :type val: np.array</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-55"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-55" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-55"></a><span class="sd">    :param t: Time vector for ``val``; assumed uniformly sampled.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-56"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-56" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-56"></a><span class="sd">    :type t: np.array</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-57"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-57" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-57"></a><span class="sd">    :param debug: If True, plot the signal, the convolved signal and the STF.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-58"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-58" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-58"></a><span class="sd">    :type debug: bool</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-59"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-59" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-59"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-60"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-60" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-60"></a><span class="sd">    :returns: ``val`` convolved with the source time function, on grid ``t``.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-61"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-61" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-61"></a><span class="sd">    :rtype: np.array</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-62"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-62" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-62"></a><span class="sd">    """</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-63"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-63" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-63"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-64"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-64" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-64"></a>        <span class="c1"># Dirac or unit impulse: trivial scaling, no convolution needed.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-65"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-65" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-65"></a>        <span class="k">return</span> <span class="n">val</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-66"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-66" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-66"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-67"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-67" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-67"></a>    <span class="n">dt</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-68"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-68" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-68"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-69"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-69" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-69"></a>    <span class="c1"># Resample the STF to the signal's dt. self.t may have a finer</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-70"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-70" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-70"></a>    <span class="c1"># resolution than dt (e.g. Brune generates self.t at self._dt/10 for</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-71"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-71" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-71"></a>    <span class="c1"># internal waveform accuracy); this brings it onto the signal grid.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-72"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-72" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-72"></a>    <span class="n">t_stf_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-73"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-73" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-73"></a>    <span class="n">stf_r</span>   <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-74"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-74" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-74"></a>                        <span class="n">bounds_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)(</span><span class="n">t_stf_r</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-75"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-75" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-75"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-76"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-76" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-76"></a>    <span class="c1"># FFT convolution. Result truncated to the val grid and scaled by dt.</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-77"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-77" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-77"></a>    <span class="n">val_stf</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">fftconvolve</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">stf_r</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"full"</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dt</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-78"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-78" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-78"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-79"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-79" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-79"></a>    <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-80"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-80" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-80"></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pylab</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-81"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-81" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-81"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-82"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-82" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-82"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span>     <span class="n">label</span><span class="o">=</span><span class="s2">"original val"</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-83"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-83" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-83"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">val_stf</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"convolved val"</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-84"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-84" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-84"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-85"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-85" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-85"></a>                 <span class="n">label</span><span class="o">=</span><span class="s2">"STF (normalised)"</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-86"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-86" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-86"></a>        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-87"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-87" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-87"></a>
+</span><span id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__span-0-88"><a id="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-88" name="shakermaker.sourcetimefunction.SourceTimeFunction.convolve--source--__codelineno-0-88"></a>    <span class="k">return</span> <span class="n">val_stf</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2473,35 +2563,35 @@ stress-drop in bars. </p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/stf_extensions/brune.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slip</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">f0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dsigma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">M0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Vs</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">smoothed</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>
-</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="n">specified_corner_frequency</span> <span class="o">=</span> <span class="n">f0</span> <span class="o">&gt;</span> <span class="mi">0</span>
-</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="n">specified_stress_drop</span> <span class="o">=</span> <span class="n">dsigma</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">M0</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">Vs</span> <span class="o">&gt;</span> <span class="mi">0</span>
-</span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a>
-</span><span id="__span-0-56"><a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="k">if</span> <span class="n">specified_stress_drop</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">specified_corner_frequency</span><span class="p">:</span>
-</span><span id="__span-0-57"><a id="__codelineno-0-57" name="__codelineno-0-57"></a>        <span class="n">f0</span> <span class="o">=</span> <span class="mf">4.9e6</span> <span class="o">*</span> <span class="p">(</span><span class="n">Vs</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">((</span><span class="n">dsigma</span><span class="o">*</span><span class="mf">10.</span><span class="o">/</span><span class="mf">1e6</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">M0</span><span class="o">*</span><span class="mf">1e7</span><span class="p">),</span> <span class="mf">1.</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
-</span><span id="__span-0-58"><a id="__codelineno-0-58" name="__codelineno-0-58"></a>
-</span><span id="__span-0-59"><a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_slip</span> <span class="o">=</span> <span class="n">slip</span>
-</span><span id="__span-0-60"><a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_f0</span> <span class="o">=</span> <span class="n">f0</span>
-</span><span id="__span-0-61"><a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_M0</span> <span class="o">=</span> <span class="n">M0</span>
-</span><span id="__span-0-62"><a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tr</span> <span class="o">=</span> <span class="mi">2</span><span class="o">/</span><span class="n">f0</span>
-</span><span id="__span-0-63"><a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t0</span> <span class="o">=</span> <span class="n">t0</span>
-</span><span id="__span-0-64"><a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_smoothed</span> <span class="o">=</span> <span class="n">smoothed</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Brune--source--__codelineno-0-64">64</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.stf_extensions.Brune--source--__span-0-50"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-50" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-50"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slip</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">f0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dsigma</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">M0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Vs</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">smoothed</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-51"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-51" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-51"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-52"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-52" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-52"></a>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-53"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-53" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-53"></a>    <span class="n">specified_corner_frequency</span> <span class="o">=</span> <span class="n">f0</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-54"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-54" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-54"></a>    <span class="n">specified_stress_drop</span> <span class="o">=</span> <span class="n">dsigma</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">M0</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">Vs</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-55"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-55" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-55"></a>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-56"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-56" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-56"></a>    <span class="k">if</span> <span class="n">specified_stress_drop</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">specified_corner_frequency</span><span class="p">:</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-57"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-57" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-57"></a>        <span class="n">f0</span> <span class="o">=</span> <span class="mf">4.9e6</span> <span class="o">*</span> <span class="p">(</span><span class="n">Vs</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">((</span><span class="n">dsigma</span><span class="o">*</span><span class="mf">10.</span><span class="o">/</span><span class="mf">1e6</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">M0</span><span class="o">*</span><span class="mf">1e7</span><span class="p">),</span> <span class="mf">1.</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-58"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-58" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-58"></a>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-59"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-59" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-59"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_slip</span> <span class="o">=</span> <span class="n">slip</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-60"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-60" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-60"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_f0</span> <span class="o">=</span> <span class="n">f0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-61"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-61" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-61"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_M0</span> <span class="o">=</span> <span class="n">M0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-62"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-62" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-62"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tr</span> <span class="o">=</span> <span class="mi">2</span><span class="o">/</span><span class="n">f0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-63"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-63" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-63"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t0</span> <span class="o">=</span> <span class="n">t0</span>
+</span><span id="shakermaker.stf_extensions.Brune--source--__span-0-64"><a id="shakermaker.stf_extensions.Brune--source--__codelineno-0-64" name="shakermaker.stf_extensions.Brune--source--__codelineno-0-64"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_smoothed</span> <span class="o">=</span> <span class="n">smoothed</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2580,17 +2670,17 @@ is used instead. The result is scaled by the seismic moment <code>M0</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/stf_extensions/gaussian.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0</span><span class="o">=</span><span class="mf">0.36</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mf">16.6667</span><span class="p">,</span> <span class="n">M0</span><span class="o">=</span><span class="mf">1.0</span> <span class="p">,</span> <span class="n">derivative</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t0</span> <span class="o">=</span> <span class="n">t0</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span> <span class="o">=</span> <span class="n">freq</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_M0</span> <span class="o">=</span> <span class="n">M0</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_derivative</span> <span class="o">=</span> <span class="n">derivative</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Gaussian--source--__codelineno-0-35">35</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-30"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-30" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0</span><span class="o">=</span><span class="mf">0.36</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mf">16.6667</span><span class="p">,</span> <span class="n">M0</span><span class="o">=</span><span class="mf">1.0</span> <span class="p">,</span> <span class="n">derivative</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-31"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-31" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-31"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-32"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-32" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t0</span> <span class="o">=</span> <span class="n">t0</span>
+</span><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-33"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-33" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_freq</span> <span class="o">=</span> <span class="n">freq</span>
+</span><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-34"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-34" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_M0</span> <span class="o">=</span> <span class="n">M0</span>
+</span><span id="shakermaker.stf_extensions.Gaussian--source--__span-0-35"><a id="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-35" name="shakermaker.stf_extensions.Gaussian--source--__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_derivative</span> <span class="o">=</span> <span class="n">derivative</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2646,9 +2736,9 @@ source-time-function.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/stf_extensions/dirac.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-12">12</a></span>
-<span class="normal"><a href="#__codelineno-0-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.stf_extensions.Dirac--source--__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Dirac--source--__codelineno-0-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.stf_extensions.Dirac--source--__span-0-12"><a id="shakermaker.stf_extensions.Dirac--source--__codelineno-0-12" name="shakermaker.stf_extensions.Dirac--source--__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="shakermaker.stf_extensions.Dirac--source--__span-0-13"><a id="shakermaker.stf_extensions.Dirac--source--__codelineno-0-13" name="shakermaker.stf_extensions.Dirac--source--__codelineno-0-13"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2716,15 +2806,15 @@ stf = Discrete(data,t)
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/stf_extensions/discrete.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_data_orig</span> <span class="o">=</span> <span class="n">data</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t_orig</span> <span class="o">=</span> <span class="n">t</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt_orig</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.stf_extensions.Discrete--source--__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Discrete--source--__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Discrete--source--__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Discrete--source--__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.Discrete--source--__codelineno-0-34">34</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.stf_extensions.Discrete--source--__span-0-30"><a id="shakermaker.stf_extensions.Discrete--source--__codelineno-0-30" name="shakermaker.stf_extensions.Discrete--source--__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span><span id="shakermaker.stf_extensions.Discrete--source--__span-0-31"><a id="shakermaker.stf_extensions.Discrete--source--__codelineno-0-31" name="shakermaker.stf_extensions.Discrete--source--__codelineno-0-31"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="shakermaker.stf_extensions.Discrete--source--__span-0-32"><a id="shakermaker.stf_extensions.Discrete--source--__codelineno-0-32" name="shakermaker.stf_extensions.Discrete--source--__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_data_orig</span> <span class="o">=</span> <span class="n">data</span>
+</span><span id="shakermaker.stf_extensions.Discrete--source--__span-0-33"><a id="shakermaker.stf_extensions.Discrete--source--__codelineno-0-33" name="shakermaker.stf_extensions.Discrete--source--__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_t_orig</span> <span class="o">=</span> <span class="n">t</span>
+</span><span id="shakermaker.stf_extensions.Discrete--source--__span-0-34"><a id="shakermaker.stf_extensions.Discrete--source--__codelineno-0-34" name="shakermaker.stf_extensions.Discrete--source--__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt_orig</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2796,23 +2886,23 @@ The function is normalised to unit area and then scaled by <code>slip</code>.</p
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>shakermaker/stf_extensions/srf2.py</code></summary>
-                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-28">28</a></span>
-<span class="normal"><a href="#__codelineno-0-29">29</a></span>
-<span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tr</span><span class="p">,</span> <span class="n">Tp</span><span class="p">,</span> <span class="n">Te</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">slip</span> <span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Tr</span> <span class="o">=</span> <span class="n">Tr</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Tp</span> <span class="o">=</span> <span class="n">Tp</span>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Te</span> <span class="o">=</span> <span class="n">Te</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt</span> <span class="o">=</span> <span class="n">dt</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_slip</span> <span class="o">=</span> <span class="n">slip</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">a</span>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">b</span>
+                    <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#shakermaker.stf_extensions.SRF2--source--__codelineno-0-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="shakermaker.stf_extensions.SRF2--source--__span-0-28"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-28" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-28"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tr</span><span class="p">,</span> <span class="n">Tp</span><span class="p">,</span> <span class="n">Te</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">slip</span> <span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-29"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-29" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-29"></a>    <span class="n">SourceTimeFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-30"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-30" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-30"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Tr</span> <span class="o">=</span> <span class="n">Tr</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-31"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-31" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-31"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Tp</span> <span class="o">=</span> <span class="n">Tp</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-32"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-32" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-32"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_Te</span> <span class="o">=</span> <span class="n">Te</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-33"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-33" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-33"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_dt</span> <span class="o">=</span> <span class="n">dt</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-34"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-34" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-34"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_slip</span> <span class="o">=</span> <span class="n">slip</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-35"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-35" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-35"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">a</span>
+</span><span id="shakermaker.stf_extensions.SRF2--source--__span-0-36"><a id="shakermaker.stf_extensions.SRF2--source--__codelineno-0-36" name="shakermaker.stf_extensions.SRF2--source--__codelineno-0-36"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">b</span>
 </span></code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2891,10 +2981,10 @@ The function is normalised to unit area and then scaled by <code>slip</code>.</p
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "toc.follow", "content.code.copy", "content.code.annotate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../../javascripts/mathjax.js"></script>
       
