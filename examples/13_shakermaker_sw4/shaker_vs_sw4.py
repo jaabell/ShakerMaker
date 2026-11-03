@@ -11,8 +11,11 @@
 #   data/sf00001.txt           SW4 velocity time series, station 1
 #   data/sf00002.txt           SW4 velocity time series, station 2
 #
-# NOTE: the FK run is heavy (nfft=32768, 100 sources). Launch under MPI for
-# real use:  mpiexec -n 8 python shaker_vs_sw4.py
+# NOTE: the FK run is heavy (nfft=32768, 100 sources x 2 stations = 200 core calls,
+# 40 min to 6 h on one process depending on the machine). Launch under MPI:
+#   mpiexec -n 6 python shaker_vs_sw4.py
+# Both solutions are band-passed to FMIN-FMAX; the script fails if the correlation or the
+# peak ratio with SW4 leaves the limits below. Figures go to _output/.
 
 import ast
 import os
@@ -35,8 +38,13 @@ DATA = os.path.join(HERE, "data")
 PACKAGE_H5 = os.path.join(DATA, "model_summary.h5")
 IN_FILE = os.path.join(DATA, "shakermaker2sw4.in")
 
+OUT = os.path.join(HERE, "_output")
+
 # Band used to compare the two solutions (Hz).
 FMIN, FMAX = 0.25, 15.0
+# Agreement required with SW4, per component, on the 0-15 s window (reference run: correlation 0.83-0.97,
+# peak ratio 0.84-1.11; the band reaches above what the SW4 grid resolves, so the limits are loose).
+CC_MIN, PEAK_RANGE = 0.80, (0.80, 1.20)
 
 
 # =============================================================================
@@ -140,51 +148,55 @@ def main():
     model.check_parameters(dt=0.0025, nfft=8192 * 4, dk=0.2, tb=800, tmax=60)
 
     model.run(dt=0.0025, nfft=8192 * 4, dk=0.2, tb=800, tmax=60,
-              tmin=0.0, sigma=2, pmax=1, nx=1, kc=15.0, verbose=True)
+              tmin=0.0, sigma=2, pmax=1, nx=1, kc=15.0, verbose=False)
 
     # Under MPI only rank 0 holds the station responses.
     if not model.mpi_is_master_process():
         return
 
+    os.makedirs(OUT, exist_ok=True)
     sw4_names = ["sf00001", "sf00002"]
+    failed = []
     for sid, sw4_name in enumerate(sw4_names):
         sta = stations.get_station_by_id(sid)
         z_sm, e_sm, n_sm, t_sm = sta.get_response()
+        np.savez(os.path.join(OUT, f"shakermaker_{sw4_name}.npz"), t=t_sm, z=z_sm, e=e_sm, n=n_sm)
 
         t_s, z_s, e_s, n_s = read_sw4_station(sw4_name)
         dt_s = t_s[1] - t_s[0]
-        z_f, e_f, n_f = (bandpass(z_s, dt_s),
-                         bandpass(e_s, dt_s),
-                         bandpass(n_s, dt_s))
+        dt_sm = t_sm[1] - t_sm[0]
+        sw = [bandpass(c, dt_s) for c in (z_s, e_s, n_s)]
+        sm = [bandpass(c, dt_sm) for c in (z_sm, e_sm, n_sm)]
 
-        # Correlation with SW4 on the common 0-15 s window, for the record.
+        # correlation (zero lag) and peak ratio ShakerMaker / SW4 on the common 0-15 s window
         tc = np.arange(0.0, 15.0, dt_s)
-        cc = []
-        for sm, sw in ((z_sm, z_f), (e_sm, e_f), (n_sm, n_f)):
-            a = np.interp(tc, t_sm, sm)
-            b = np.interp(tc, t_s, sw)
+        cc, peak = [], []
+        for a_sm, a_sw in zip(sm, sw):
+            a = np.interp(tc, t_sm, a_sm)
+            b = np.interp(tc, t_s, a_sw)
             cc.append(float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-300)))
-        print(f"{sw4_name}: cc with SW4 (z, e, n) = "
-              + ", ".join(f"{c:.3f}" for c in cc))
+            peak.append(float(np.abs(a).max() / max(np.abs(b).max(), 1e-300)))
+        print(f"{sw4_name}: cc with SW4 (z, e, n) = " + ", ".join(f"{c:.3f}" for c in cc)
+              + "   peak ratio = " + ", ".join(f"{p:.2f}" for p in peak))
+        for k, comp in enumerate("zen"):
+            if cc[k] < CC_MIN or not PEAK_RANGE[0] <= peak[k] <= PEAK_RANGE[1]:
+                failed.append(f"{sw4_name} {comp}: cc {cc[k]:.3f}, peak ratio {peak[k]:.2f}")
 
         fig, ax = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
-        for k, (sm, sw, lab) in enumerate([(z_sm, z_f, r"$u_z$"),
-                                           (e_sm, e_f, r"$u_e$"),
-                                           (n_sm, n_f, r"$u_n$")]):
-            ax[k].plot(t_sm, sm, "r", lw=1, label="ShakerMaker")
-            ax[k].plot(t_s, sw, "--", label="SW4")
+        for k, lab in enumerate([r"$u_z$", r"$u_e$", r"$u_n$"]):
+            ax[k].plot(t_s, sw[k], "--", color="#7f9fc6", lw=1.2, label="SW4")
+            ax[k].plot(t_sm, sm[k], color="#c0392b", lw=0.9, label="ShakerMaker")
             ax[k].set_xlim(0, 15)
             ax[k].set_ylabel(lab)
             ax[k].grid(True)
         ax[0].legend(loc="upper left")
         ax[2].set_xlabel("Time [s]")
-        fig.suptitle(f"ShakerMaker vs SW4 — station {sw4_name}")
+        fig.suptitle(f"ShakerMaker vs SW4, station {sw4_name}, {FMIN:g}-{FMAX:g} Hz")
         fig.tight_layout()
-        fig.savefig(os.path.join(HERE, f"compare_{sw4_name}.png"),
-                    dpi=150, bbox_inches="tight")
+        fig.savefig(os.path.join(OUT, f"compare_{sw4_name}.png"), dpi=150, bbox_inches="tight")
         plt.close(fig)
-        print(f"saved compare_{sw4_name}.png")
 
+    assert not failed, "ShakerMaker no longer matches SW4: " + "; ".join(failed)
     print("PASS")
 
 

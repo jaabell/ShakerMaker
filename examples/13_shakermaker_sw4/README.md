@@ -10,13 +10,17 @@ finite-difference).
 ## Run
 
 ```bash
-python shaker_vs_sw4.py          # heavy FK run; for real use launch under MPI:
-mpiexec -n 8 python shaker_vs_sw4.py
+mpiexec -n 16 python shaker_vs_sw4.py     # ~30 min; ~80 min with 6 processes; ~6.5 h on one
 ```
 
-It rebuilds the model from `data/model_summary.h5`, runs the FK engine, reads
-the SW4 output (`data/sf0000*.txt`), band-passes SW4 with ObsPy (0.25–15 Hz),
-and writes `compare_sf0000*.png` overlaying the two solutions.
+The FK run has 200 core calls (100 sources x 2 stations, `nfft=32768`), about 2 min each; under MPI rank 0
+coordinates and the other ranks compute. The script rebuilds the model from `data/model_summary.h5`, runs the FK
+engine, reads the SW4 output (`data/sf0000*.txt`), band-passes both solutions with ObsPy (0.25-15 Hz), checks the
+correlation and the peak ratio with SW4 on every component (it fails outside the limits in its header) and writes
+to `_output/` (ignored by git): `compare_sf0000*.png` and `shakermaker_sf0000*.npz` (both station responses).
+`run_all_smoke.py --full` runs it under MPI (`--np`, default 6).
+
+The notebook reads the responses saved by the script, so run the script first.
 
 ## Files
 
@@ -26,7 +30,7 @@ and writes `compare_sf0000*.png` overlaying the two solutions.
 | `data/model_summary.h5` | compact SW4 export package (crust + 100 sources + 2 stations) |
 | `data/shakermaker2sw4.in` | SW4 input (station coordinates) |
 | `data/sf0000{1,2}.txt` | SW4 velocity time series for the two stations |
-| `notebooks/shaker_vs_sw4.ipynb` | the same workflow as a notebook, step by step |
+| `notebooks/shaker_vs_sw4.ipynb` | the same workflow step by step, on the responses saved by the script |
 | `notebooks/*.png` | the figures the notebook/script produce |
 
 ## Dependencies

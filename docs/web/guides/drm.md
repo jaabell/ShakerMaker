@@ -101,6 +101,16 @@ model.run(dt=1/(2*fmax), nfft=2048, tb=500, dk=0.1, writer=writer)
 The writer streams results to disk as they are computed (O(1) memory), so very
 large boxes are feasible.
 
+!!! warning "Use `run_inter` for DRM boxes driven by many sources"
+    The DRM turns the difference between the two layers of nodes into
+    effective forces, so the two layers must be coherent. Reusing Green's
+    functions by slot (`run_nearest` with tolerances of tens of metres) leaves a
+    staircase across the box that becomes spurious high-frequency input (a
+    free-field model amplified 4.5–7 Hz by 7–12 times in one test). Build DRM
+    boxes with `run_inter(scheme='tensor')`: see the
+    [run_inter guide](run_inter.md) and
+    [Interpolated Green's functions](../background/gf_interpolation.md).
+
 ## The H5DRM file
 
 ```

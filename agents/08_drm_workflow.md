@@ -72,6 +72,17 @@ the `/15` rule above is a quick standalone estimate when you haven't.
    most boundary nodes sit at very similar (horizontal distance, source
    depth, receiver depth) triples and dedupe heavily under the OP pipeline.
 
+   **For production DRM boxes use `run_inter(scheme='tensor')` instead of
+   `run_nearest`** (`13_run_inter.md`). The DRM turns the difference between
+   its two layers of nodes into effective forces; reuse by slot (tolerances
+   of tens of metres) makes neighbouring nodes identical inside a slot and
+   jump at its edges, and that staircase becomes spurious high-frequency
+   input (in one test a free-field FE model amplified 4.5–7 Hz by 7–12 times
+   and lost 32 % of the energy through the box). `run_inter` interpolates in
+   distance and keeps the layers coherent (0.005 % of the energy leaving the
+   box). `run_nearest` with reuse tolerances is fine for a geometry or
+   low-frequency check, not for the motion that drives the FE model.
+
 ## Minimal working example — small DRM box, OP pipeline, real physics
 
 ```python
@@ -109,6 +120,16 @@ model.run_nearest(stage='all', h5_database_name='gf_db.h5',
 
 Run with `mpiexec -n N python script.py` for a real-size box (see
 `11_mpi_and_hpc.md`).
+
+The same box with interpolated Green's functions (recommended for the
+motion that drives the FE model):
+
+```python
+model.run_inter(stage='all', h5_database_name='gf_db', scheme='tensor',
+                f_err=5.0, freq_cut=6.25, dh_min=0.080,
+                dt=0.01, nfft=4096, dk=0.1, tb=200, tmax=20,
+                writer=DRMHDF5StationListWriter("motions.h5drm"), writer_mode='progressive')
+```
 
 ## Importing an existing FEM mesh boundary (`PointCloudDRMReceiver`)
 

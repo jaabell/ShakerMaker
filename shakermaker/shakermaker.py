@@ -83,6 +83,7 @@ from shakermaker.crustmodel import CrustModel
 from shakermaker.faultsource import FaultSource
 from shakermaker.stationlist import StationList
 from shakermaker.stationlistwriter import StationListWriter
+from shakermaker.station import add_shifted, lagrange4_taps
 from shakermaker import core
 
 # Windows change: the default Windows thread stack is ~1 MB, which is not
@@ -1674,7 +1675,7 @@ class ShakerMaker:
             TAG_TASK, TAG_HDR, TAG_T0, TAG_DATA = 7101, 7102, 7103, 7104
             STOP = np.array([-1], dtype=np.int64)
 
-            def _compute_slot(k):
+            def _compute_slot(k, xmax=0.0):
                 i_st, i_ps = pairs_to_compute[k]
                 station = self._receivers.get_station_by_id(int(i_st))
                 psource = self._source.get_source_by_id(int(i_ps))
@@ -1685,7 +1686,7 @@ class ShakerMaker:
                 tdata, z, e, n, t0 = self._call_core(
                     dt, nfft, tb, nx, sigma, smth,
                     wc1, wc2, pmin, pmax, dk, kc,
-                    taper, aux_crust, psource, station, verbose)
+                    taper, aux_crust, psource, station, verbose, xmax=xmax)
                 dtc = perf_counter() - t1
                 c['core'] += dtc
                 if _gf_f32:
@@ -1714,8 +1715,17 @@ class ShakerMaker:
             _per_dist = 9 * 2 * nfft * 12
             _gmax = max(1, min(int(os.environ.get("SM_GF_BATCH_MAX", "64")),
                                int(float(os.environ.get("SM_GF_BATCH_MB", "512")) * 2**20 // _per_dist)))
+            # SM_GF_XMAX=common: every slot of one (z_src, z_rec) is integrated with
+            # the wavenumber step of the largest distance of that pair of depths
+            # (dk*pi/xmax), instead of the step of its own call. With one
+            # k grid per pair of depths, a call with many distances returns exactly
+            # what separate calls return at any distance, so all the slots of a
+            # pair of depths are batched, not only those within hs.
+            _xmax_common = os.environ.get("SM_GF_XMAX", "call") == "common"
+            _xkey = {}
             groups = []
-            if _batch:
+            group_xmax = []
+            if _batch or _xmax_common:
                 _bykey, _hs = {}, {}
                 for k in range(npairs):
                     i_st, i_ps = pairs_to_compute[k]
@@ -1730,22 +1740,28 @@ class ShakerMaker:
                             h32 = np.float32(h32 + _d)
                         _hs[key] = h32
                     x = np.sqrt((ps.x[0] - st.x[0])**2 + (ps.x[1] - st.x[1])**2)
-                    if np.float32(x) <= _hs[key]:
+                    _xkey[key] = max(_xkey.get(key, 0.0), float(x))
+                    if _xmax_common or np.float32(x) <= _hs[key]:
                         _bykey.setdefault(key, []).append(k)
                     else:
                         groups.append([k])
+                        group_xmax.append(0.0)
+                if not _batch:
+                    _gmax = 1
                 for key in sorted(_bykey):
                     ks = _bykey[key]
                     for i0 in range(0, len(ks), _gmax):
                         groups.append(ks[i0:i0 + _gmax])
+                        group_xmax.append(_xkey[key] if _xmax_common else 0.0)
             else:
                 groups = [[k] for k in range(npairs)]
+                group_xmax = [0.0] * npairs
             ngroups = len(groups)
 
             def _compute_group(g):
                 ks = groups[g]
                 if len(ks) == 1:
-                    nt_real, t0v, comp, dtc = _compute_slot(ks[0])
+                    nt_real, t0v, comp, dtc = _compute_slot(ks[0], group_xmax[g])
                     return [(ks[0], nt_real, t0v, comp)], dtc
                 i_st, i_ps = pairs_to_compute[ks[0]]
                 station = self._receivers.get_station_by_id(int(i_st))
@@ -1762,7 +1778,8 @@ class ShakerMaker:
                 t1 = perf_counter()
                 tdata, t0 = self._call_core_multi(
                     dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper,
-                    aux_crust, psource, station, np.array(xs, dtype=np.float64))
+                    aux_crust, psource, station, np.array(xs, dtype=np.float64),
+                    xmax=group_xmax[g])
                 dtc = perf_counter() - t1
                 c['core'] += dtc
                 out = []
@@ -1930,7 +1947,73 @@ class ShakerMaker:
                     c['send'] += perf_counter() - t1
                     comm.Recv(task, source=0, tag=TAG_TASK)
 
-        for i_station, i_psource in (pairs_to_compute if not _dyn else []):
+        # SM_GF_XMAX=common in the static route too: the largest distance of each
+        # (z_src, z_rec) sets its wavenumber step.
+        _xkey_s = {}
+        if not _dyn and os.environ.get("SM_GF_XMAX", "call") == "common":
+            for i_station, i_psource in pairs_to_compute:
+                st_ = self._receivers.get_station_by_id(int(i_station))
+                ps_ = self._source.get_source_by_id(int(i_psource))
+                key_ = (float(ps_.x[2]), float(st_.x[2]))
+                x_ = float(np.sqrt((ps_.x[0] - st_.x[0])**2 + (ps_.x[1] - st_.x[1])**2))
+                _xkey_s[key_] = max(_xkey_s.get(key_, 0.0), x_)
+        # One process with SM_GF_XMAX=common: every slot of a (z_src, z_rec) in
+        # batched calls (one k grid per pair of depths, so a call with many
+        # distances returns exactly what a call per slot returns), written at its
+        # own index; the per-slot loop below is then skipped.
+        _batched_static = (not _dyn) and nprocs == 1 and bool(_xkey_s) \
+            and os.environ.get("SM_GF_BATCH", "1") != "0"
+        if _batched_static:
+            _bykey_s = {}
+            for ip, (i_station, i_psource) in enumerate(pairs_to_compute):
+                st_ = self._receivers.get_station_by_id(int(i_station))
+                ps_ = self._source.get_source_by_id(int(i_psource))
+                _bykey_s.setdefault((float(ps_.x[2]), float(st_.x[2])), []).append(ip)
+            _gmax_s = max(1, min(int(os.environ.get("SM_GF_BATCH_MAX", "64")),
+                                 int(float(os.environ.get("SM_GF_BATCH_MB", "512")) * 2**20
+                                     // (9 * 2 * nfft * 12))))
+            t0_ds = hfile_gf['/t0']
+            t0_ds.resize(npairs, axis=0)
+            gf_ds = None
+            ndone = 0
+            for key_ in sorted(_bykey_s):
+                ips = _bykey_s[key_]
+                i_st0, i_ps0 = pairs_to_compute[ips[0]]
+                station = self._receivers.get_station_by_id(int(i_st0))
+                psource = self._source.get_source_by_id(int(i_ps0))
+                aux_crust = copy.deepcopy(self._crust)
+                aux_crust.split_at_depth(key_[0])
+                aux_crust.split_at_depth(key_[1])
+                for i0 in range(0, len(ips), _gmax_s):
+                    blk = ips[i0:i0 + _gmax_s]
+                    xs = []
+                    for ip in blk:
+                        a_st, a_ps = pairs_to_compute[ip]
+                        st_ = self._receivers.get_station_by_id(int(a_st))
+                        ps_ = self._source.get_source_by_id(int(a_ps))
+                        xs.append(np.sqrt((ps_.x[0] - st_.x[0])**2 + (ps_.x[1] - st_.x[1])**2))
+                    t1 = perf_counter()
+                    tdata, t0v = self._call_core_multi(
+                        dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper,
+                        aux_crust, psource, station, np.array(xs, dtype=np.float64),
+                        xmax=_xkey_s[key_])
+                    c['core'] += perf_counter() - t1
+                    t_w0 = perf_counter()
+                    for ix, ip in enumerate(blk):
+                        tdata_c = np.ascontiguousarray(tdata[ix].T, dtype=np.float64)
+                        if gf_ds is None:
+                            gf_ds = hfile_gf.create_dataset(
+                                '/tdata', shape=(npairs, tdata_c.shape[0], 9),
+                                maxshape=(None, tdata_c.shape[0], 9), chunks=(1, tdata_c.shape[0], 9),
+                                dtype=np.float64, compression='gzip', compression_opts=4)
+                        gf_ds[ip] = tdata_c
+                        t0_ds[ip] = float(t0v[ix])
+                    c['write'] += perf_counter() - t_w0
+                    ndone += len(blk)
+                    if showProgress:
+                        print(f"{ndone} of {npairs} done (batched, {len(blk)} per call)  "
+                              f"ETA={_eta_str(perf_counter() - tstart, ndone, npairs)}")
+        for i_station, i_psource in (pairs_to_compute if not (_dyn or _batched_static) else []):
             station  = self._receivers.get_station_by_id(int(i_station))
             psource  = self._source.get_source_by_id(int(i_psource))
             z_src = psource.x[2]; z_rec = station.x[2]
@@ -1953,7 +2036,8 @@ class ShakerMaker:
                     tdata, z, e, n, t0 = self._call_core(
                         dt, nfft, tb, nx, sigma, smth,
                         wc1, wc2, pmin, pmax, dk, kc,
-                        taper, aux_crust, psource, station, verbose)
+                        taper, aux_crust, psource, station, verbose,
+                        xmax=_xkey_s.get((float(z_src), float(z_rec)), 0.0))
                     c['core'] += perf_counter() - t1
                     if verbose:
                         print("calling core END")
@@ -2360,26 +2444,33 @@ class ShakerMaker:
                             c['core'] += perf_counter() - t1
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
                             dti = t_arr[1] - t_arr[0]
-                            if t_arr[0] >= 0:
-                                nb, ns_ = int(t_arr[0] / dti), 0
-                            else:
-                                nb, ns_ = 0, int(-t_arr[0] / dti)
-                            nw = min(len(z) - ns_, nout - nb)
-                            if nw <= 0:
+                            # if t_arr[0] >= 0:
+                            #     nb, ns_ = int(t_arr[0] / dti), 0
+                            # else:
+                            #     nb, ns_ = 0, int(-t_arr[0] / dti)
+                            # nw = min(len(z) - ns_, nout - nb)
+                            # Real offset of the trace on buf (index 0 = t tmin), fraction
+                            # of a sample included; +2 samples for the 4 taps.
+                            mu = (t_arr[0] - tmin) / dti
+                            nkeep = min(len(z), int(np.floor(nout - mu)) + 2)
+                            if nkeep <= 0:
                                 continue
                             t1 = perf_counter()
                             if _s2conv == "fast":
                                 z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
-                                                             dti, ns_ + nw)
+                                                             dti, nkeep)
                             else:
                                 z_stf = psource.stf.convolve(z, t_arr)
                                 e_stf = psource.stf.convolve(e, t_arr)
                                 n_stf = psource.stf.convolve(n, t_arr)
                             c['conv'] += perf_counter() - t1
                             t1 = perf_counter()
-                            buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
-                            buf[1, nb:nb + nw] += e_stf[ns_:ns_ + nw]
-                            buf[2, nb:nb + nw] += n_stf[ns_:ns_ + nw]
+                            # buf[0, nb:nb + nw] += z_stf[ns_:ns_ + nw]
+                            # buf[1, nb:nb + nw] += e_stf[ns_:ns_ + nw]
+                            # buf[2, nb:nb + nw] += n_stf[ns_:ns_ + nw]
+                            add_shifted(buf[0], z_stf[:nkeep], mu)
+                            add_shifted(buf[1], e_stf[:nkeep], mu)
+                            add_shifted(buf[2], n_stf[:nkeep], mu)
                             c['add'] += perf_counter() - t1
                     tot = np.zeros_like(buf) if rank == 0 else None
                     t1 = perf_counter()
@@ -2390,6 +2481,8 @@ class ShakerMaker:
                     c['send'] += perf_counter() - t1
                     if rank == 0:
                         t1 = perf_counter()
+                        # station.add_to_response(tot[0], tot[1], tot[2], t_out, tmin, tmax)
+                        # buf index 0 is t = tmin: t_out itself
                         station.add_to_response(tot[0], tot[1], tot[2], t_out, tmin, tmax)
                         if writer:
                             _timed_write(writer, station, i_station, c, perf_time_begin)
@@ -2677,22 +2770,33 @@ class ShakerMaker:
                 from numba import njit as _nj
 
                 @_nj(nogil=True, cache=False)
-                def fused(buf, K, cg, mem):
+                def fused(buf, K, cg, mem, H):
                     # subfocal structure, one pass over the 8 convolved components
                     # (rows g1 g2 g4 g5 g6 g7 g8 g9) per receiver:
                     #   z = Z2 g7 + Z1 g4 - A0 g1,  r = Z2 g8 + Z1 g5 - A0 g2,
                     #   t = T2 g9 + T1 g6,  e = -s r - c t,  n = -c r + s t
+                    # Each receiver adds sum_j H[q, j] x[k - j] at buf index m0 + k:
+                    # its trace placed at its real time with the 4-point Lagrange
+                    # interpolator of station.add_shifted. Previously a whole-
+                    # sample copy, buf[m, :, nb + t] += x[ns + t].
+                    keep = cg.shape[1]
                     for q in range(mem.shape[0]):
-                        m, nb, ns, nw = mem[q, 0], mem[q, 1], mem[q, 2], mem[q, 3]
+                        m, m0, k0, nk = mem[q, 0], mem[q, 1], mem[q, 2], mem[q, 3]
                         Z2, Z1, A0, T2, T1, cc, ss = K[q, 0], K[q, 1], K[q, 2], K[q, 3], K[q, 4], K[q, 5], K[q, 6]
-                        for t in range(nw):
-                            s = ns + t
-                            zv = Z2 * cg[5, s] + Z1 * cg[2, s] - A0 * cg[0, s]
-                            rv = Z2 * cg[6, s] + Z1 * cg[3, s] - A0 * cg[1, s]
-                            tv = T2 * cg[7, s] + T1 * cg[4, s]
-                            buf[m, 0, nb + t] += zv
-                            buf[m, 1, nb + t] += -ss * rv - cc * tv
-                            buf[m, 2, nb + t] += -cc * rv + ss * tv
+                        for t in range(nk):
+                            k = k0 + t
+                            zv = 0.0; rv = 0.0; tv = 0.0
+                            for j in range(4):
+                                s = k - j
+                                if s < 0 or s >= keep:
+                                    continue
+                                w = H[q, j]
+                                zv += w * (Z2 * cg[5, s] + Z1 * cg[2, s] - A0 * cg[0, s])
+                                rv += w * (Z2 * cg[6, s] + Z1 * cg[3, s] - A0 * cg[1, s])
+                                tv += w * (T2 * cg[7, s] + T1 * cg[4, s])
+                            buf[m, 0, m0 + k] += zv
+                            buf[m, 1, m0 + k] += -ss * rv - cc * tv
+                            buf[m, 2, m0 + k] += -cc * rv + ss * tv
             except ImportError:
                 fused = None
         nsta, nsrc = slot_matrix.shape
@@ -2753,15 +2857,29 @@ class ShakerMaker:
         s2order = os.environ.get("SM_S2_ORDER", "slot")
 
         def window(ps, t0, nout):
-            """dti, nb, ns, nw of add_to_response for this pair."""
+            """dti and placement of this pair on the buffer (index 0 = t tmin).
+
+            Returns (dti, m0, k0, nk, keep, mu, h): the trace x convolved with the
+            4 taps h is added at buffer indices m0 + k, k in [k0, k0 + nk), and
+            keep samples of x are needed. Same placement as station.add_shifted,
+            fraction of a sample included; previously (dti, nb, ns, nw) of a
+            whole-sample copy.
+            """
             a0 = (0.0 + ps.tt) + np.float64(t0)
             a1 = (dt + ps.tt) + np.float64(t0)
             dti = a1 - a0
-            if a0 >= 0:
-                nb, ns = int(a0 / dti), 0
-            else:
-                nb, ns = 0, int(-a0 / dti)
-            return dti, nb, ns, min(L - ns, nout - nb)
+            # if a0 >= 0:
+            #     nb, ns = int(a0 / dti), 0
+            # else:
+            #     nb, ns = 0, int(-a0 / dti)
+            # return dti, nb, ns, min(L - ns, nout - nb)
+            mu = (a0 - tmin) / dti          # buffer index 0 is t = tmin
+            m0, h = lagrange4_taps(mu)
+            if h is None:
+                h = np.array([1.0, 0.0, 0.0, 0.0])
+            k0 = max(0, -m0)
+            kend = min(L + 3, nout - m0)
+            return dti, m0, k0, kend - k0, min(L, kend), mu, h
 
         for c0 in range(0, nsta, chunk):
             ids = np.arange(c0, min(c0 + chunk, nsta))
@@ -2769,7 +2887,7 @@ class ShakerMaker:
             t1 = perf_counter()
             dt_sta = np.empty(len(ids)); nout = np.empty(len(ids), dtype=np.int64)
             for m, i in enumerate(ids):
-                dti, _, _, _ = window(srcs[0], t0_of(srcs[0], stations[i], int(slot_matrix[i, 0])), 0)
+                dti = window(srcs[0], t0_of(srcs[0], stations[i], int(slot_matrix[i, 0])), 0)[0]
                 dt_sta[m] = dti
                 nout[m] = len(np.arange(tmin, tmax, dti))
             c['core'] += perf_counter() - t1
@@ -2795,6 +2913,9 @@ class ShakerMaker:
                 mm_, jj_, kk_ = mm_[o], jj_[o], kk_[o]
                 key = kk_.astype(np.int64) * nsrc + jj_
                 cut = np.flatnonzero(np.diff(key)) + 1
+                # yield int(jj_[a_]), mm_[a_:b_], kk_[a_:b_]
+                if jj_.size == 0:
+                    return  # No grouped work on this rank.
                 for a_, b_ in zip(np.r_[0, cut], np.r_[cut, len(key)]):
                     yield int(jj_[a_]), mm_[a_:b_], kk_[a_:b_]
 
@@ -2812,13 +2933,14 @@ class ShakerMaker:
                 groups = {}
                 for m, k in zip(mlist, klist):
                     st = stations[ids[m]]
-                    dti, nb, ns, nw = window(ps, t0_of(ps, st, int(k)), int(nout[m]))
-                    if nw <= 0:
+                    dti, m0, k0, nk, kp, mu, h = window(ps, t0_of(ps, st, int(k)), int(nout[m]))
+                    if nk <= 0 or kp <= 0:
                         continue
-                    groups.setdefault((int(k), dti), []).append((int(m), nb, ns, nw))
+                    groups.setdefault((int(k), dti), []).append((int(m), m0, k0, nk, kp, mu, h))
                 c['core'] += perf_counter() - t1
                 for (k, dti), members in groups.items():
-                    keep = max(ns + nw for _, _, ns, nw in members)
+                    # keep = max(ns + nw for _, _, ns, nw in members)
+                    keep = max(mb_[4] for mb_ in members)
                     g = slot(k)
                     stf_r, scale = stf_cache.get(ps.stf, dti)
                     t1 = perf_counter()
@@ -2858,14 +2980,19 @@ class ShakerMaker:
                         t1 = perf_counter()
                         if fused is not None:
                             # combine and add in one pass, no (members, 3, keep) temporary
-                            mem = np.array(members, dtype=np.int64)
+                            mem = np.array([mb_[:4] for mb_ in members], dtype=np.int64)
+                            H = np.array([mb_[6] for mb_ in members], dtype=np.float64)
                             K = np.column_stack((Z2, Z1, np.full(len(members), a0), T2, T1, c1, s1))
-                            fused(buf, np.ascontiguousarray(K), np.ascontiguousarray(cg), mem)
+                            fused(buf, np.ascontiguousarray(K), np.ascontiguousarray(cg), mem, H)
                             c['add'] += perf_counter() - t1
                             continue
                         out = (W.reshape(-1, 8) @ cg).reshape(len(members), 3, keep)
-                    for q, (m, nb, ns, nw) in enumerate(members):
-                        buf[m, :, nb:nb + nw] += out[q, :, ns:ns + nw]
+                    # for q, (m, nb, ns, nw) in enumerate(members):
+                    #     buf[m, :, nb:nb + nw] += out[q, :, ns:ns + nw]
+                    for q, mb_ in enumerate(members):
+                        m, mu = mb_[0], mb_[5]
+                        for cc_ in range(3):
+                            add_shifted(buf[m, cc_], out[q, cc_, :keep], mu)
                     c['add'] += perf_counter() - t1
             tot = np.zeros_like(buf) if rank == 0 else None
             t1 = perf_counter()
@@ -2881,7 +3008,9 @@ class ShakerMaker:
                     n_ = int(nout[m])
                     # buffer index 0 is t = 0, as add_to_response counts the shifts;
                     # the station grid itself is arange(tmin, tmax, dt_sta) as usual
-                    t_buf = np.arange(n_) * dt_sta[m]
+                    # t_buf = np.arange(n_) * dt_sta[m]
+                    # buffer index 0 is t = tmin (window), on the station grid
+                    t_buf = tmin + np.arange(n_) * dt_sta[m]
                     st.add_to_response(tot[m, 0, :n_], tot[m, 1, :n_], tot[m, 2, :n_],
                                        t_buf, tmin, tmax)
                     if writer:
@@ -3114,6 +3243,165 @@ class ShakerMaker:
     # =========================================================================
     # Legacy migration  --  build_pair_to_slot_from_legacy_h5
     # =========================================================================
+
+    def run_inter(self,
+                  stage='all',
+                  h5_database_name=None,
+                  # Stage 0 (inter)
+                  delta_v_rec=1e-5,
+                  delta_v_src=1e-5,
+                  dh_grid=0.04,
+                  order=3,
+                  # Etapa 2: tensor grid, iterative (scheme='tensor')
+                  scheme='grid',
+                  src_levels='exact',
+                  freq_cut=None,
+                  dz_src0=0.32,
+                  dh0=None,
+                  dz_src_min=0.04,
+                  dh_min=0.02,
+                  eps_v=0.01,
+                  eps_s=0.05,
+                  f_err=20.0,
+                  store='zfp20',
+                  decimate=True,
+                  eps_bands=((0.0, 1.0), (0.5, 1.0)),
+                  depth_tol=1e-6,
+                  # Core (stages 1 and 2)
+                  dt=0.05,
+                  nfft=4096,
+                  tb=1000,
+                  smth=1,
+                  sigma=2,
+                  taper=0.9,
+                  wc1=1,
+                  wc2=2,
+                  pmin=0,
+                  pmax=1,
+                  dk=0.3,
+                  nx=1,
+                  kc=15.0,
+                  # Stage 2
+                  writer=None,
+                  writer_mode='progressive',
+                  tmin=0.,
+                  tmax=100,
+                  # General
+                  verbose=False,
+                  debugMPI=False,
+                  showProgress=True):
+        """Pipeline with Green's functions interpolated in distance instead of reused.
+
+        Same use as run_nearest (``stage`` 0, 1, 2 or 'all', one database per
+        station set), different Stage 0 and Stage 2 (shakermaker/run_inter.py):
+
+        - receiver depth exact (``delta_v_rec``, km, default 1 cm);
+        - source depth grouped by source only (``delta_v_src``, km): every source
+          uses one depth level for all receivers, so the two layers of a DRM box
+          see the same source;
+        - for every pair of depths, Green's functions on a regular grid of
+          horizontal distances (multiples of ``dh_grid``, km), all with the
+          wavenumber step of the largest distance of that pair of depths;
+        - every pair mixes the grid nodes around its distance in reduced time:
+          ``order`` 3 = 4-point Lagrange (cubic), 1 = linear; it is placed at its
+          own first arrival, fraction of a sample included.
+
+        Stage 1 is compute_gf on the grid nodes. run_nearest is unchanged.
+
+        ``scheme='tensor'`` (shakermaker/run_inter_tensor.py): the source depth is
+        interpolated too, on a tensor grid of source-depth levels x distances per
+        receiver depth, refined iteratively (start ``dz_src0`` x ``dh0``; a cell is
+        accepted when its midpoint is predicted within ``eps_v`` in value and, in
+        distance, ``eps_s`` relative to the change across the cell, both in
+        [0, ``f_err``] Hz; minimum ``dz_src_min``, ``dh_min``); accepted midpoints are
+        not stored. Stages 0 and 1 run together; the database keeps only the samples
+        Stage 2 can use, with ``store`` 'f32', 'zstd' (shuffle + zstd) or 'zfp<bits>'.
+        ``src_levels='exact'`` (default) keeps one level per distinct source depth
+        and does not refine in depth (above ~5 Hz the source depth cannot be
+        interpolated: surface-reflected phases move the other way);
+        'interp' refines it from ``dz_src0`` like the distance.
+
+        ``freq_cut`` (Hz): the FK core stops at 1.4 * freq_cut with a cosine taper
+        from freq_cut (frequencies below it are the same operations as without the
+        cut); None = up to Nyquist. Recommended: 1.25 times the band of interest.
+        The default ``delta_v_src`` is exact (1e-5 km): 200 m is only usable below
+        ~3 Hz.
+
+        ``decimate`` (tensor scheme, with ``freq_cut``): the database keeps one sample
+        every q dt (nothing is left above 1.4 * freq_cut) and Stage 2 rebuilds the dt
+        samples; the output dt does not change. ``store`` default 'zfp20'.
+        ``dh0`` (km): initial node spacing of the bisection; None (default) = 2 * ``dh_min``.
+        Starting coarser lets the midpoint test accept cells whose interior error is larger
+        (10 Hz band, 256 point sources at 7-8 km: from 320 m, 4.3 % / 8.8 % error in
+        the difference between the two DRM layers; from 80 m, 0.9 % / 1.4 %).
+        With exact source depths (default) every source-depth level has its own distance
+        nodes and is written as soon as it is selected (memory of the levels in flight).
+
+        ``eps_bands`` (fractions of ``f_err``): the tolerances hold in each of these
+        frequency ranges, by default the whole band and its upper half.
+
+        ``depth_tol`` (km): CrustModel tolerance while run_inter runs (split_at_depth
+        and get_layer); 1e-6 keeps every receiver at its own depth (the CrustModel
+        default, 0.01, moves the top 10 m of a box onto the free surface). The
+        crust's own value is restored at the end, so run_nearest is unchanged.
+        """
+        from shakermaker import run_inter as _ri
+        if h5_database_name is None:
+            raise ValueError("run_inter needs h5_database_name")
+        core_kw = dict(dt=dt, nfft=nfft, tb=tb, smth=smth, sigma=sigma, taper=taper, wc1=wc1, wc2=wc2,
+                       pmin=pmin, pmax=pmax, dk=dk, nx=nx, kc=kc, verbose=verbose, debugMPI=debugMPI,
+                       showProgress=showProgress)
+        crust = self._crust
+        own_tol = crust.__dict__.get("depth_tol")
+        crust.depth_tol = depth_tol
+        try:
+            t_all = perf_counter()
+            if scheme == 'tensor':
+                from shakermaker import run_inter_tensor as _rt
+                if dh0 is None:
+                    dh0 = 2.0 * dh_min
+                fk = dict(dt=dt, nfft=nfft, tb=tb, smth=smth, sigma=sigma, taper=taper, wc1=wc1, wc2=wc2,
+                          pmin=pmin, pmax=pmax, dk=dk, kc=kc, freq_cut=float(freq_cut or 0.0))
+                if stage in (0, 1, 'all'):
+                    t_s = perf_counter()
+                    st = _rt.stage01_tensor(self, h5_database_name, fk, tmax, delta_v_rec=delta_v_rec,
+                                            dz_src0=dz_src0, dh0=dh0, dz_src_min=dz_src_min, dh_min=dh_min,
+                                            eps_v=eps_v, eps_s=eps_s, f_err=f_err, order=order, store=store,
+                                            src_levels=src_levels, decimate=decimate, eps_bands=eps_bands,
+                                        showProgress=showProgress)
+                    _perf_dump('stage01_tensor', {}, perf_counter() - t_s)
+                if stage in (2, 'all'):
+                    _rt.stage2_tensor(self, h5_database_name, dt=dt, nfft=nfft, tb=tb, tmin=tmin, tmax=tmax,
+                                      writer=writer, writer_mode=writer_mode, showProgress=showProgress)
+                if rank == 0 and showProgress:
+                    print(f"run_inter (tensor) stage={stage}: {perf_counter() - t_all:.1f} s", flush=True)
+                return
+            if stage in (0, 'all'):
+                t_s = perf_counter()
+                _ri.stage0_inter(self, h5_database_name, delta_v_rec=delta_v_rec, delta_v_src=delta_v_src,
+                                 dh_grid=dh_grid, order=order, showProgress=showProgress)
+                _perf_dump('stage0_inter', {}, perf_counter() - t_s)
+            if stage in (1, 'all'):
+                old_fc = os.environ.get("SM_FREQ_CUT")
+                if freq_cut:
+                    os.environ["SM_FREQ_CUT"] = str(float(freq_cut))
+                try:
+                    _ri.stage1_inter(self, h5_database_name, **core_kw)
+                finally:
+                    if old_fc is None:
+                        os.environ.pop("SM_FREQ_CUT", None)
+                    else:
+                        os.environ["SM_FREQ_CUT"] = old_fc
+            if stage in (2, 'all'):
+                _ri.stage2_inter(self, h5_database_name, dt=dt, nfft=nfft, tb=tb, tmin=tmin, tmax=tmax,
+                                 writer=writer, writer_mode=writer_mode, showProgress=showProgress)
+            if rank == 0 and showProgress:
+                print(f"run_inter stage={stage}: {perf_counter() - t_all:.1f} s", flush=True)
+        finally:
+            if own_tol is None:
+                del crust.depth_tol
+            else:
+                crust.depth_tol = own_tol
 
     def build_pair_to_slot_from_legacy_h5(self,
                                           h5_database_name,
@@ -3611,7 +3899,8 @@ class ShakerMaker:
     def mpi_nprocs(self):
         return self._mpi_nprocs
 
-    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station, verbose=False):
+    def _call_core(self, dt, nfft, tb, nx, sigma, smth, wc1, wc2, pmin, pmax, dk, kc, taper, crust, psource, station, verbose=False,
+                   xmax=0.0, fcut=None):
         mb = crust.nlayers
 
         if verbose:
@@ -3659,8 +3948,16 @@ class ShakerMaker:
                            wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry))
 
         # Execute the core subgreen fortran routing
+        # xmax > 0 sets the wavenumber step dk*pi/xmax when larger than x and hs
+        # (a common k grid for every distance of one (zs, zr)); 0 keeps the
+        # step of this call alone.
+        # fcut (Hz): frequencies above 1.4*fcut are not computed, cosine taper from
+        # fcut; None reads SM_FREQ_CUT, 0 = up to Nyquist.
+        if fcut is None:
+            fcut = float(os.environ.get("SM_FREQ_CUT", "0") or 0)
         tdata, z, e, n, t0 = core.subgreen(mb, src, rcv, stype, updn, d, a, b, rho, qa, qb, dt, nfft, tb, nx, sigma,
-                                           smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry)
+                                           smth, wc1, wc2, pmin, pmax, dk, kc, taper, x, pf, df, lf, sx, sy, rx, ry,
+                                           float(xmax), float(fcut))
 
         self._logger.debug('ShakerMaker._call_core - core.subgreen returned: z_size'.format(len(z)))
 
@@ -3668,8 +3965,11 @@ class ShakerMaker:
 
 
     def _call_core_multi(self, dt, nfft, tb, sigma, smth, wc1, wc2, pmin, pmax, dk, kc,
-                         taper, crust, psource, station, xs):
+                         taper, crust, psource, station, xs, xmax=0.0, fcut=None):
         """core.subgreen with several distances xs (km) for one (z_src, z_rec).
+
+        xmax > 0: wavenumber step dk*pi/xmax shared with every other call of this
+        (z_src, z_rec) that passes the same xmax; 0 keeps max(hs, xs).
 
         Used by compute_gf (Stage 1) to batch slots. Returns tdata (nx, 9, 2*nfft)
         and t0 (nx,), each row what _call_core returns for that distance.
@@ -3680,7 +3980,8 @@ class ShakerMaker:
             crust.nlayers, src, rcv, 2, 0, crust.d, crust.a, crust.b, crust.rho,
             crust.qa, crust.qb, dt, nfft, tb, len(xs), sigma, smth, wc1, wc2, pmin,
             pmax, dk, kc, taper, xs, psource.angles[0], psource.angles[1],
-            psource.angles[2], psource.x[0], psource.x[1], station.x[0], station.x[1])
+            psource.angles[2], psource.x[0], psource.x[1], station.x[0], station.x[1],
+            float(xmax), float(os.environ.get("SM_FREQ_CUT", "0") or 0) if fcut is None else float(fcut))
         return tdata, t0
 
     def _check_slot_t0(self, hfile, hfile_gf, crust_for, dt, tb):

@@ -1,14 +1,15 @@
 # Run every example .py as a smoke test and report PASS / SKIP / FAIL.
 #
-#   python run_all_smoke.py                 # examples, without 12_validation
-#   python run_all_smoke.py --full          # also 12_validation and 13_shakermaker_sw4 (slow)
+#   python run_all_smoke.py                 # examples, without 13_shakermaker_sw4
+#   python run_all_smoke.py --full          # also 13_shakermaker_sw4 (slow, under MPI: --np, default 6)
 #   python run_all_smoke.py --pytest        # also the unit tests in tests/
-#   python run_all_smoke.py --mpi 4         # also the MPI contracts in tests/*/mpi_*_contract.py
+#   python run_all_smoke.py --mpi 4         # also every MPI test in tests/*/mpi_*.py
 #   python run_all_smoke.py --timeout 1800  # per-script limit in seconds (default 1800)
 #
 # Skipped always: legacy_examples/, notebooks, generated "_*" folders, and
 # 14_SFSI/ (production launch scripts for a cluster, hours long, no checks).
-# --mpi needs `mpirun` on PATH; use one node's worth of ranks or fewer.
+# --mpi and --full need `mpirun` on PATH (or the launcher in SM_MPIRUN, e.g. srun inside a Slurm
+# job); use one node's worth of ranks or fewer.
 
 import glob
 import os
@@ -19,9 +20,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 SKIP_DIRS = {"legacy_examples", "notebooks", "14_SFSI"}
-# Long runs, only with --full: 12_validation (LOH.1, LOH.3) and 13_shakermaker_sw4
-# (nfft 32768, ~1.5 h on one process; give it --timeout 7200 or run it under MPI).
-SLOW_DIRS = {"12_validation", "13_shakermaker_sw4"}
+# Long runs, only with --full and under MPI: 13_shakermaker_sw4 (nfft 32768, 200 core calls,
+# 40 min to 6 h on one process). 12_validation (LOH.1, LOH.3, ~30 s) and 17_sw4_reference
+# (stored SW4 solutions, ~30 s) run by default: they compare against independent solutions.
+SLOW_DIRS = {"13_shakermaker_sw4"}
 
 
 def collect(full):
@@ -61,6 +63,8 @@ def main():
     full = "--full" in sys.argv
     timeout = float(arg_value("--timeout", 1800))
     nmpi = int(arg_value("--mpi", 0))
+    nslow = int(arg_value("--np", 6))
+    launcher = os.environ.get("SM_MPIRUN") or shutil.which("mpirun") or shutil.which("mpiexec")
     # Make the repo root importable so examples run from a source checkout
     # without `pip install` (shakermaker resolves to the local package tree).
     env = dict(os.environ)
@@ -75,7 +79,11 @@ def main():
 
     for s in collect(full):
         rel = os.path.relpath(s, HERE)
-        code, out = run([sys.executable, s], os.path.dirname(s), env, timeout)
+        cmd = [sys.executable, s]
+        if rel.split(os.sep)[0] in SLOW_DIRS and launcher:
+            cmd = [launcher, "-n", str(nslow)] + cmd
+            rel += f" (-n {nslow})"
+        code, out = run(cmd, os.path.dirname(s), env, timeout)
         if code == 0:
             report(rel, "PASS")
         elif code is not None and "SKIP" in out:
@@ -90,15 +98,14 @@ def main():
             print(out.strip().splitlines()[-1], flush=True)
 
     if nmpi:
-        mpirun = shutil.which("mpirun") or shutil.which("mpiexec")
-        contracts = sorted(glob.glob(os.path.join(REPO_ROOT, "tests", "*", "mpi_*_contract.py")))
+        contracts = sorted(glob.glob(os.path.join(REPO_ROOT, "tests", "*", "mpi_*.py")))
         for c in contracts:
             name = os.path.relpath(c, REPO_ROOT)
-            if mpirun is None:
+            if launcher is None:
                 report(name, "SKIP")
                 continue
             module = os.path.splitext(name)[0].replace(os.sep, ".")
-            code, out = run([mpirun, "-n", str(nmpi), sys.executable, "-m", module],
+            code, out = run([launcher, "-n", str(nmpi), sys.executable, "-m", module],
                             REPO_ROOT, env, timeout)
             ok = code == 0 and "_PASS" in out
             report(f"{name} (mpirun -n {nmpi})", "PASS" if ok else "FAIL", out)

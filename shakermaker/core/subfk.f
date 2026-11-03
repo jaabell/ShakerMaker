@@ -1,12 +1,18 @@
       subroutine subfk(mb,stype,src,rcv,
      &  a,b,qa,qb,d,rho,mu,xi,si,
      &  vs,hs,xmax,flip,updn,
-     &  nfft,dt,smth,sigma,pmin,pmax,dk,kc,taper,nx,x,t0,tdata)
+     &  nfft,dt,smth,sigma,pmin,pmax,dk,kc,taper,nx,x,t0,tdata,fcut)
+C     fcut (Hz, 0 = previous behaviour): frequencies above 1.4*fcut are not
+C     computed (left zero) and a cosine taper from fcut to 1.4*fcut multiplies
+C     the usual filter; below fcut every operation is the same as without it,
+C     since every frequency is integrated on its own.
       implicit none
       include 'constants.h'
       include 'model.h'
       integer i,j,l,nfft,nfft2,nfft3,n,ix,nx
       integer nCom,wc,smth,idx0,flip
+      integer jc,je,jtop
+      real fcut
       real k,omega,dt,dk,dw,sigma,const,phi,hs,xmax,vs
       real dfac,pmin,pmax,kc,taper,filter
       real x(nx),t0(nx)
@@ -64,6 +70,15 @@ C       taper = 0.5
       wc = int(nfft2*(1.-taper))
       if (wc .LT. 1) wc=1
       taper = pi/(nfft2-wc+1)
+      jtop = nfft2
+      jc = nfft2
+      je = nfft2
+      if (fcut .GT. 0.) then
+         jc = int(fcut*nfft*dt) + 1
+         je = int(1.4*fcut*nfft*dt) + 1
+         if (je .LE. jc) je = jc + 1
+         jtop = min(nfft2, je)
+      endif
 
       vs=b(src)
       pmin = pmin/vs
@@ -89,7 +104,8 @@ c*************** do wavenumber integration for each frequency
 !$OMP PARALLEL DO DEFAULT(SHARED)
 !$OMP& PRIVATE(j,omega,w,att,i,k,n,ix,z,aj0,aj1,aj2,u,nf,l,filter,phi,ka_local,kb_local)
 !$OMP& SCHEDULE(DYNAMIC)
-      do j=1,nfft2              ! start frequency loop
+C     do j=1,nfft2              ! start frequency loop
+      do j=1,jtop               ! start frequency loop (jtop = nfft2 without fcut)
          omega = (j-1)*dw
          w = cmplx(omega,-sigma)        ! complex frequency
          do i = 1, mb
@@ -143,6 +159,7 @@ c              lim(z->0) J2(z)/z = 0 (same removable singularity as above).
          enddo                  ! end of k-loop
          filter = const
          if (j.gt.wc) filter = 0.5*(1.+cos((j-wc)*taper))*filter
+         if (j.gt.jc) filter = 0.5*(1.+cos(pi*(j-jc)/(je-jc)))*filter
          do ix=1,nx
             phi = omega*t0(ix)
             att = filter*cmplx(cos(phi),sin(phi))

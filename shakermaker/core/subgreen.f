@@ -1,7 +1,10 @@
+C     xmaxin (optional, 0 = previous behaviour): distance (km) that sets the
+C     wavenumber step dk*pi/xmax when larger than every x and than hstot, so
+C     that calls for different distances of one (zs, zr) share one k grid.
       subroutine subgreen(mb,src,rcv,stype,updn,d,a,b,rho,qa,qb,
      & dt,nfft,tb,nx,sigma,smth,wc1,wc2,pmin,pmax,dk,
      & kc,taper,x,pf,df,lf,tdata,sx,sy,rx,ry,
-     & zz,ee,nn,t0)
+     & zz,ee,nn,t0,xmaxin,fcutin)
       IMPLICIT NONE
       include 'constants.h'
       include 'model.h'
@@ -16,6 +19,8 @@
       real tt0
       real zz(2*nfft),ee(2*nfft),nn(2*nfft)
       real pf,df,lf,sx,sy,rx,ry
+      real xmaxin
+      real fcutin
 
 c
 c***************************************************************
@@ -109,10 +114,11 @@ C         if (xmax .LT. x(ix)) xmax=hs
 C         if (xmax .LT. x(ix)) xmax=x(ix)+hs ! OJO!!!
         t0(ix) = t0(ix)-tb*dt
       enddo
+      if (xmaxin .GT. xmax) xmax = xmaxin
 C       write(*,*) "xmax=", xmax
       call subfk(mb,stype,src,rcv,a,b,qa,qb,d,rho,mu,xi,si,
      &  vs,hs,xmax,flip,updn,
-     &  nfft,dt,smth,sigma,pmin,pmax,dk,kc,taper,nx,x,t0,tdata)
+     &  nfft,dt,smth,sigma,pmin,pmax,dk,kc,taper,nx,x,t0,tdata,fcutin)
 C       write(*,*)"pre-subfocal"
 C       do i=1,2*nt
 C         write(*,*) i, tdata(j,1,i)

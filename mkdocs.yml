@@ -107,6 +107,7 @@ nav:
       - Numerical solution: background/numerics.md
       - Coordinates & conventions: background/conventions.md
       - Finite faults & FFSP: background/finite_fault.md
+      - Interpolated Green's functions: background/gf_interpolation.md
   - Guides:
       - Installation & compilation: guides/installation.md
       - Getting started: guides/first_steps.md
@@ -117,6 +118,7 @@ nav:
       - Running a simulation: guides/running.md
       - FK parameters: guides/parameters.md
       - Domain Reduction Method: guides/drm.md
+      - Interpolated Green's functions (run_inter): guides/run_inter.md
       - FFSP stochastic rupture: guides/ffsp.md
       - Outputs & writers: guides/outputs.md
       - SW4 export: guides/sw4_export.md

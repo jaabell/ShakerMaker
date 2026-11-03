@@ -306,6 +306,19 @@ proceeding. The fix is either to lower `tmax` to $\le t_\text{end}$ or to raise
 
 ---
 
+## Frequency cut (`freq_cut`, `run_inter`)
+
+`dt` sets the Nyquist frequency of the output (200 Hz at 0.0025 s), but the
+band of use is usually much lower. With `freq_cut` (Hz) the FK core stops its
+frequency loop at 1.4 × `freq_cut`, with a cosine taper from `freq_cut`; every
+frequency is integrated on its own, so nothing changes below `freq_cut`.
+Recommended: 1.25 × the band of use. Measured with `nfft` 65 536 and `dt`
+0.0025 s: the core is 33, 57, 122 and 292 times faster for bands of 20, 15, 10
+and 5 Hz, with the band-limited traces equal to ~1e-5. Content above
+`freq_cut` is tapered and above 1.4 × `freq_cut` it is zero: do not use the
+output there. `freq_cut` is an argument of `run_inter`; for the other paths
+the environment variable `SM_FREQ_CUT` does the same in `compute_gf`.
+
 ## Full parameter map
 
 | `run` arg | default | core symbol | line | role |

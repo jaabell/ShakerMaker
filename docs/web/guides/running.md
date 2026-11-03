@@ -1,9 +1,11 @@
 # Running a simulation
 
 `ShakerMaker(crust, source, receivers)` pairs every source with every
-receiver and computes the motion. Two ways to run it: a single `run()` call
-for small problems, or the optimised MPI pipeline `run_nearest()` for large
-receiver sets and finite faults.
+receiver and computes the motion. Three ways to run it: a single `run()` call
+for small problems, the optimised MPI pipeline `run_nearest()` for large
+receiver sets and finite faults, and `run_inter()` (Green's functions
+interpolated in distance) for DRM boxes and other dense receiver sets whose
+neighbouring receivers must stay coherent.
 
 ## Input: `run()`
 
@@ -151,6 +153,32 @@ walked through in
 
 MPI helpers: `enable_mpi(rank, nprocs)`, `mpi_is_master_process()`,
 `mpi_rank()`, `mpi_nprocs()`.
+
+## Interpolated Green's functions (`run_inter`)
+
+Reuse is exact only for pairs that fall on the same slot. Inside a DRM box two
+nodes one element apart often fall in different slots, or in the same slot
+while their true waveforms differ, and the DRM turns that difference into
+spurious forces. `run_inter(scheme='tensor')` computes the receiver and source
+depths exactly and interpolates the horizontal distance with 4-point Lagrange
+weights in reduced time, from nodes chosen by bisection; Stage 1 is streamed
+(constant memory) and the database is compressed and decimated.
+
+```python
+model.run_inter(stage="all", h5_database_name="./gf/gf", scheme="tensor",
+                f_err=20.0, freq_cut=25.0, dh_min=0.020,
+                dt=0.0025, nfft=65536, tb=800, dk=0.1, kc=30, tmin=0.0, tmax=65.5,
+                writer=writer, writer_mode="progressive")
+```
+
+How to use it and how not to: [run_inter guide](run_inter.md). The method and
+its validation: [Interpolated Green's functions](../background/gf_interpolation.md).
+
+!!! note "Placement with a fraction of a sample"
+    Every Stage 2 path (`run_nearest` included) now adds each contribution at
+    its real time, fraction of a sample included (4-point Lagrange taps); a
+    contribution on the output grid is added exactly as before. Results are
+    not bit-identical with runs made before this change.
 
 ## Diagnostic checklist
 
