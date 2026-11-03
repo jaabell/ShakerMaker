@@ -66,6 +66,14 @@ pip install "setuptools<60.0" "numpy<2.0" wheel scipy h5py mpi4py matplotlib pan
 `.so`/`.pyd` files ship in the repository — they're build artifacts and are
 gitignored.
 
+!!! info "Optional: compressed Green's-function databases (`run_inter`)"
+    `ShakerMaker.run_inter(scheme='tensor')`'s default (`store='zfp20'`) and
+    `store='zstd'` need the optional `hdf5plugin` package to read/write their
+    compressed database: `pip install hdf5plugin`. Without it, `run_inter`
+    raises a clear `ImportError` up front rather than hanging under MPI or
+    failing obscurely later; pass `store='f32'` to avoid the dependency
+    entirely. `run()` and `run_nearest()` never need it.
+
 ### 4. Build & install
 
 From the repository root:

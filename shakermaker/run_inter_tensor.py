@@ -46,6 +46,26 @@ COMPS = np.array([0, 1, 3, 4, 5, 6, 7, 8])
 TAG_TASK, TAG_RES = 71, 72
 
 
+def _require_hdf5plugin(store):
+    """store='zstd'/'zfp<bits>' need the optional hdf5plugin package.
+
+    Checked eagerly, identically on every rank, before any MPI dispatch: Stage 1's
+    worker ranks block in comm.recv() as soon as they're spawned (see stage01_tensor),
+    so an ImportError raised later only on rank 0 (inside _stage01_exact_streamed,
+    once it starts writing the database) would leave every worker waiting forever
+    instead of the job aborting.
+    """
+    if store == "zstd" or store.startswith("zfp"):
+        try:
+            import hdf5plugin  # noqa: F401
+        except ImportError as exc:
+            raise ImportError(
+                f"run_inter(..., store={store!r}) needs the optional 'hdf5plugin' "
+                "package for its compressed Green's-function database "
+                "(pip install hdf5plugin). Use store='f32' to avoid this dependency."
+            ) from exc
+
+
 def decimation(dt, freq_cut, guard=1.1, atten=120.0):
     """Stored-sample step q and reconstruction filter for a core run cut at freq_cut.
 
@@ -302,6 +322,7 @@ def stage01_tensor(model, h5_database_name, fk, tmax, delta_v_rec=1e-5, dz_src0=
     see decimation(); the filter half-length is added to the stored samples so the
     rebuilt nkeep samples are exact up to the end.
     """
+    _require_hdf5plugin(store)
     from shakermaker import shakermaker as smod
     from shakermaker.run_inter import _levels
     comm, rank, nprocs, use_mpi = getattr(smod, "comm", None), smod.rank, smod.nprocs, smod.use_mpi
@@ -722,16 +743,13 @@ def stage2_tensor(model, h5_database_name, dt=0.05, nfft=4096, tb=1000, tmin=0.,
     from shakermaker.run_inter import _fused
     from shakermaker.station import lagrange4_taps
     from shakermaker.stationlistwriter import StationListWriter
-    try:
-        import hdf5plugin  # noqa: F401  (filters for zstd / zfp databases)
-    except ImportError:
-        pass
     comm, rank, nprocs, use_mpi = getattr(smod, "comm", None), smod.rank, smod.nprocs, smod.use_mpi
     t_begin = perf_counter()
     c = {k: 0.0 for k in ("read", "combine", "conv", "add", "send", "recv", "wstation", "core")}
     hm = h5py.File(h5_database_name.replace('.h5', '') + '_map.h5', 'r', locking=False)
     hg = h5py.File(h5_database_name.replace('.h5', '') + '_gf.h5', 'r', locking=False)
     gt = hm["tensor"]; order = int(gt.attrs["order"]); nkeep = int(gt.attrs["nkeep"])
+    _require_hdf5plugin(gt.attrs.get("store", "zstd"))
     q_dec = int(gt.attrs.get("decim", 1))
     fir = decimation(float(gt.attrs["dt"]), float(gt.attrs["freq_cut"]))[1] if q_dec > 1 else None
     grids = []

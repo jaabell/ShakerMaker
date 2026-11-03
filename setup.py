@@ -225,7 +225,13 @@ class InplaceBuildExt(_build_ext):
     def run(self):
         _build_ext.run(self)
         if self.inplace and not on_rtd:
-            compile_ffsp()
+            # FFSP is optional (only FFSPSource needs it); core.so above is already
+            # built, so don't fail the whole `build_ext --inplace` command over it.
+            try:
+                compile_ffsp()
+            except Exception as exc:
+                print(f"[ffsp] WARNING: FFSP extension not built ({exc}); "
+                      "shakermaker.core built fine, only FFSPSource is unavailable.")
 
 
 # =============================================================================

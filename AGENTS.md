@@ -15,11 +15,16 @@ method and writes Domain Reduction Method (DRM) input motions (H5DRM format).
 - **Python layer** (`shakermaker/`):
   - `shakermaker.py` — `ShakerMaker` driver. Direct pipeline: `run`.
     Green's-function (OP) pipeline: `gen_pairs` → `compute_gf` → `run_fast`
-    (or `run_nearest`); `check_parameters` validates dt/nfft/dk/tb. Exporters:
-    `export_drm_geometry`, `export_sw4`, `export_sw4_topo`. Work is distributed
-    over MPI (`mpi4py`, optional); `numba` accelerates pair grouping when
-    available, with a pure-Python fallback. Windows runs the core in a
-    large-stack thread (`_win_run`).
+    (or `run_nearest`); `check_parameters` validates dt/nfft/dk/tb. A third
+    pipeline, `run_inter` (`run_inter.py`, `run_inter_tensor.py`,
+    `scheme='grid'`/`'tensor'`), interpolates Green's functions in distance
+    (and, for `'tensor'`, in source depth too) instead of reusing one per
+    slot — use it for DRM boxes, where `run_nearest`'s slot reuse creates a
+    staircase between neighbouring nodes. Exporters: `export_drm_geometry`,
+    `export_sw4`, `export_sw4_topo`. Work is distributed over MPI (`mpi4py`,
+    optional); `numba` accelerates pair grouping when available, with a
+    pure-Python fallback. Windows runs the core in a large-stack thread
+    (`_win_run`).
   - `crustmodel.py` (+ `cm_library/` predefined models), `pointsource.py`,
     `faultsource.py`, `station.py`, `stationlist.py`, `sourcetimefunction.py`,
     `stationlistwriter.py`.
@@ -27,8 +32,11 @@ method and writes Domain Reduction Method (DRM) input motions (H5DRM format).
     `PointCloudDRMReceiver`), `slw_extensions/` (HDF5 / H5DRM writers),
     `stf_extensions/` (Brune, Dirac, Discrete, Gaussian, SRF2 source time
     functions), `tools/plotting.py`.
-- **Examples** (`examples/`): the de-facto test suite. There are no unit tests.
+- **Examples** (`examples/`): the de-facto test suite, plus a growing
+  `tests/` pytest suite (engine/MPI contracts, placement, core numerics).
 - **Docs** (`docs/`): Sphinx, built on Read the Docs (`.readthedocs.yml`).
+- **`agents/`**: a separate knowledge base (not this file) for configuring
+  and running ShakerMaker as a library — see `agents/README.md`.
 
 ## Build & run
 

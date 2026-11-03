@@ -2575,13 +2575,15 @@ class ShakerMaker:
                             t1    = perf_counter()
                             t_arr = np.arange(0, len(z) * dt, dt) + psource.tt + t0
                             if _s2conv == "fast":
-                                # keep what add_to_response can write (+2 samples of margin)
+                                # keep what add_to_response can write (+2 samples of margin).
+                                # mu is the real placement offset add_to_response/add_shifted
+                                # use (t_arr[0] - tmin, in samples) -- not t_arr[0] alone, which
+                                # undercounted keep by tmin/dti whenever tmin > 0.
                                 dti = t_arr[1] - t_arr[0]
-                                nb_ = int(t_arr[0] / dti) if t_arr[0] >= 0 else 0
-                                ns_ = 0 if t_arr[0] >= 0 else int(-t_arr[0] / dti)
                                 nbuf = (len(station._t) if station._initialized
                                         else len(np.arange(tmin, tmax, dti)))
-                                keep = min(len(z), max(ns_ + nbuf - nb_ + 2, 0))
+                                mu = (t_arr[0] - tmin) / dti
+                                keep = min(len(z), max(int(np.floor(nbuf - mu)) + 2, 0))
                                 z_stf, e_stf, n_stf = _conv3(_stf_cache, psource.stf, z, e, n,
                                                              dti, keep)
                             else:
